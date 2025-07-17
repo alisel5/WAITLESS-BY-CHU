@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Rapports - WaitLess Admin</title>
+  <link rel="stylesheet" href="reports.css">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+
+  <!-- NAVBAR -->
+  <header class="navbar">
+    <div class="logo">
+      <img src="../Acceuil/public/logofinal.png" alt="WaitLess Logo" class="logo-img">
+    </div>
+    <nav>
+      <ul>
+        <li><a href="../dashboard/dashboard.html">Tableau de bord</a></li>
+        <li><a href="../services/services.html">Services</a></li>
+        <li><a href="../patients/patients.html">Patients</a></li>
+        <li><a href="reports.html" class="active">Rapports</a></li>
+        <li><a href="../Acceuil/acceuil.html">Déconnexion</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <div class="reports-container">
+    <div class="reports-header">
+      <h1>Rapports & Statistiques</h1>
+      <p>Analysez les performances et optimisez la gestion des files d'attente</p>
+    </div>
+
+    <!-- FILTRES -->
+    <div class="filters-section">
+      <div class="filter-group">
+        <label for="period">Période :</label>
+        <select id="period">
+          <option value="today">Aujourd'hui</option>
+          <option value="week">Cette semaine</option>
+          <option value="month" selected>Ce mois</option>
+          <option value="quarter">Ce trimestre</option>
+          <option value="year">Cette année</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label for="service">Service :</label>
+        <select id="service">
+          <option value="all">Tous les services</option>
+          <option value="cardiology">Cardiologie</option>
+          <option value="dermatology">Dermatologie</option>
+          <option value="neurology">Neurologie</option>
+          <option value="pediatrics">Pédiatrie</option>
+        </select>
+      </div>
+      <button class="generate-btn" onclick="generateReport()">
+        <i class="fas fa-chart-line"></i>
+        Générer le rapport
+      </button>
+    </div>
+
+    <!-- STATISTIQUES PRINCIPALES -->
+    <div class="stats-overview">
+      <div class="stat-card">
+        <div class="stat-icon">
+          <i class="fas fa-users"></i>
+        </div>
+        <div class="stat-content">
+          <h3>Patients traités</h3>
+          <div class="stat-number">1,247</div>
+          <div class="stat-change positive">+12.5% vs mois dernier</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">
+          <i class="fas fa-clock"></i>
+        </div>
+        <div class="stat-content">
+          <h3>Temps d'attente moyen</h3>
+          <div class="stat-number">23 min</div>
+          <div class="stat-change negative">+2.1 min vs mois dernier</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">
+          <i class="fas fa-star"></i>
+        </div>
+        <div class="stat-content">
+          <h3>Satisfaction</h3>
+          <div class="stat-number">4.2/5</div>
+          <div class="stat-change positive">+0.3 vs mois dernier</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">
+          <i class="fas fa-chart-bar"></i>
+        </div>
+        <div class="stat-content">
+          <h3>Efficacité</h3>
+          <div class="stat-number">87%</div>
+          <div class="stat-change positive">+5% vs mois dernier</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- GRAPHIQUES -->
+    <div class="charts-section">
+      <div class="chart-container">
+        <h2>Évolution des temps d'attente</h2>
+        <div class="chart-placeholder">
+          <i class="fas fa-chart-line"></i>
+          <p>Graphique d'évolution des temps d'attente par jour</p>
+          <div class="chart-data">
+            <div class="data-point" style="height: 60%"></div>
+            <div class="data-point" style="height: 45%"></div>
+            <div class="data-point" style="height: 70%"></div>
+            <div class="data-point" style="height: 55%"></div>
+            <div class="data-point" style="height: 80%"></div>
+            <div class="data-point" style="height: 65%"></div>
+            <div class="data-point" style="height: 50%"></div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="chart-container">
+        <h2>Répartition par service</h2>
+        <div class="chart-placeholder">
+          <i class="fas fa-chart-pie"></i>
+          <p>Répartition des patients par service médical</p>
+          <div class="pie-chart">
+            <div class="pie-segment" style="--percentage: 35%; --color: #4A90E2;"></div>
+            <div class="pie-segment" style="--percentage: 25%; --color: #28a745;"></div>
+            <div class="pie-segment" style="--percentage: 20%; --color: #ffc107;"></div>
+            <div class="pie-segment" style="--percentage: 20%; --color: #dc3545;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TABLEAUX DÉTAILLÉS -->
+    <div class="tables-section">
+      <div class="table-container">
+        <h2>Top 10 des services les plus fréquentés</h2>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Service</th>
+                <th>Patients</th>
+                <th>Temps moyen</th>
+                <th>Satisfaction</th>
+                <th>Tendance</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Cardiologie</td>
+                <td>156</td>
+                <td>28 min</td>
+                <td>4.5/5</td>
+                <td><span class="trend positive">↗ +8%</span></td>
+              </tr>
+              <tr>
+                <td>Dermatologie</td>
+                <td>142</td>
+                <td>18 min</td>
+                <td>4.2/5</td>
+                <td><span class="trend positive">↗ +5%</span></td>
+              </tr>
+              <tr>
+                <td>Neurologie</td>
+                <td>98</td>
+                <td>35 min</td>
+                <td>4.1/5</td>
+                <td><span class="trend negative">↘ -2%</span></td>
+              </tr>
+              <tr>
+                <td>Pédiatrie</td>
+                <td>87</td>
+                <td>22 min</td>
+                <td>4.6/5</td>
+                <td><span class="trend positive">↗ +12%</span></td>
+              </tr>
+              <tr>
+                <td>Orthopédie</td>
+                <td>76</td>
+                <td>32 min</td>
+                <td>4.0/5</td>
+                <td><span class="trend neutral">→ 0%</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="table-container">
+        <h2>Alertes et recommandations</h2>
+        <div class="alerts-list">
+          <div class="alert-item warning">
+            <i class="fas fa-exclamation-triangle"></i>
+            <div class="alert-content">
+              <h4>Temps d'attente élevé - Cardiologie</h4>
+              <p>Le temps d'attente moyen a augmenté de 15% ce mois. Recommandation : Ajouter un médecin supplémentaire.</p>
+            </div>
+          </div>
+          <div class="alert-item success">
+            <i class="fas fa-check-circle"></i>
+            <div class="alert-content">
+              <h4>Amélioration - Pédiatrie</h4>
+              <p>Excellent travail ! La satisfaction a augmenté de 20% grâce à l'optimisation des horaires.</p>
+            </div>
+          </div>
+          <div class="alert-item info">
+            <i class="fas fa-info-circle"></i>
+            <div class="alert-content">
+              <h4>Pic de fréquentation prévu</h4>
+              <p>Prévision d'un pic de 30% de patients supplémentaires la semaine prochaine.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ACTIONS -->
+    <div class="actions-section">
+      <h2>Actions rapides</h2>
+      <div class="action-buttons">
+        <button class="action-btn" onclick="exportReport()">
+          <i class="fas fa-download"></i>
+          Exporter le rapport
+        </button>
+        <button class="action-btn" onclick="scheduleReport()">
+          <i class="fas fa-calendar"></i>
+          Programmer un rapport
+        </button>
+        <button class="action-btn" onclick="shareReport()">
+          <i class="fas fa-share"></i>
+          Partager
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <footer>
+    <div class="footer-content">
+      <div class="footer-section">
+        <h3>WaitLess</h3>
+        <p>Optimisez la gestion des files d'attente</p>
+      </div>
+      <div class="footer-section">
+        <h4>Support</h4>
+        <p>Email : support@waitless.app</p>
+        <p>Téléphone : +212 6 00 00 00 00</p>
+      </div>
+      <div class="footer-section">
+        <h4>Liens rapides</h4>
+        <ul>
+          <li><a href="../dashboard/dashboard.html">Tableau de bord</a></li>
+          <li><a href="../services/services.html">Services</a></li>
+          <li><a href="../patients/patients.html">Patients</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>© 2025 WaitLess. Tous droits réservés.</p>
+    </div>
+  </footer>
+
+  <script src="reports.js"></script>
+</body>
+</html> 

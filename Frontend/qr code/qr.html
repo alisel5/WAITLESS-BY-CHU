@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Rejoindre la Queue - WaitLess</title>
+  <link rel="stylesheet" href="qr.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+
+  <!-- NAVBAR -->
+  <header class="navbar">
+    <div class="logo">
+      <img src="../Acceuil/public/logofinal.png" alt="WaitLess Logo" class="logo-img">
+    </div>
+    <nav>
+      <ul>
+        <li><a href="../Acceuil/acceuil.html">Accueil</a></li>
+        <li><a href="../qr code/qr.html">Rejoindre</a></li>
+        <li><a href="../tickets/ticket.html">Suivi</a></li>
+        <li><a href="#contact">Contact</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <div class="qr-container">
+    <div class="qr-header">
+      <h1>Rejoindre la Queue</h1>
+      <p>Choisissez comment vous souhaitez rejoindre la file d'attente</p>
+    </div>
+    
+    <!-- OPTIONS DE CHOIX -->
+    <div class="options-section">
+      <div class="option-card" onclick="selectOption('online')">
+        <div class="option-icon">
+          <i class="fas fa-globe"></i>
+        </div>
+        <h3>Rejoindre en Ligne</h3>
+        <p>Rejoignez la queue depuis votre position actuelle et recevez des notifications</p>
+        <div class="option-features">
+          <span><i class="fas fa-check"></i> Pas besoin de se déplacer</span>
+          <span><i class="fas fa-check"></i> Notifications en temps réel</span>
+          <span><i class="fas fa-check"></i> Estimation précise du temps</span>
+        </div>
+        <button class="option-btn">Choisir cette option</button>
+      </div>
+
+      <div class="option-card" onclick="selectOption('qr')">
+        <div class="option-icon">
+          <i class="fas fa-qrcode"></i>
+        </div>
+        <h3>Scanner QR Code</h3>
+        <p>Scannez le QR code sur place pour rejoindre la queue immédiatement</p>
+        <div class="option-features">
+          <span><i class="fas fa-check"></i> Rejoindre immédiatement</span>
+          <span><i class="fas fa-check"></i> Position garantie</span>
+          <span><i class="fas fa-check"></i> Suivi en temps réel</span>
+        </div>
+        <button class="option-btn">Choisir cette option</button>
+      </div>
+    </div>
+
+    <!-- SECTION REJOINDRE EN LIGNE -->
+    <div class="online-section" id="onlineSection" style="display: none;">
+      <div class="section-header">
+        <button class="back-btn" onclick="showOptions()">
+          <i class="fas fa-arrow-left"></i> Retour
+        </button>
+        <h2>Rejoindre la Queue en Ligne</h2>
+      </div>
+      
+      <div class="online-form">
+        <div class="form-group">
+          <label for="patientName">Nom complet</label>
+          <input type="text" id="patientName" placeholder="Votre nom complet" required>
+        </div>
+        
+        <div class="form-group">
+          <label for="patientPhone">Numéro de téléphone</label>
+          <input type="tel" id="patientPhone" placeholder="06 00 00 00 00" required>
+        </div>
+        
+        <div class="form-group">
+          <label for="serviceSelect">Service médical</label>
+          <select id="serviceSelect" required>
+            <option value="">Sélectionnez un service</option>
+            <option value="cardiology">Cardiologie</option>
+            <option value="dermatology">Dermatologie</option>
+            <option value="neurology">Neurologie</option>
+            <option value="pediatrics">Pédiatrie</option>
+            <option value="orthopedics">Orthopédie</option>
+            <option value="radiology">Radiologie</option>
+            <option value="emergency">Urgences</option>
+          </select>
+        </div>
+        
+        <div class="form-group">
+          <label for="prioritySelect">Priorité</label>
+          <select id="prioritySelect" required>
+            <option value="">Sélectionnez la priorité</option>
+            <option value="normal">Normale</option>
+            <option value="urgent">Urgente</option>
+            <option value="emergency">Émergence</option>
+          </select>
+        </div>
+        
+        <div class="form-group">
+          <label for="estimatedArrival">Heure d'arrivée estimée</label>
+          <input type="time" id="estimatedArrival" required>
+        </div>
+        
+        <div class="form-group">
+          <label for="notes">Notes (optionnel)</label>
+          <textarea id="notes" placeholder="Informations supplémentaires..." rows="3"></textarea>
+        </div>
+        
+        <button class="submit-btn" onclick="joinQueueOnline()">
+          <i class="fas fa-sign-in-alt"></i>
+          Rejoindre la Queue
+        </button>
+      </div>
+    </div>
+
+    <!-- SECTION SCANNER QR -->
+    <div class="qr-section" id="qrSection" style="display: none;">
+      <div class="section-header">
+        <button class="back-btn" onclick="showOptions()">
+          <i class="fas fa-arrow-left"></i> Retour
+        </button>
+        <h2>Scanner le QR Code</h2>
+      </div>
+      
+      <div class="qr-content">
+        <div class="qr-video-container">
+          <div id="reader" class="qr-video-box"></div>
+          <div class="qr-overlay">
+            <i class="fas fa-qrcode"></i>
+            <p>Positionnez le QR code dans le cadre</p>
+          </div>
+          <div class="qr-scan-frame"></div>
+        </div>
+
+        <div class="manual-input">
+          <p>Ou entrez manuellement votre code :</p>
+          <div class="input-group">
+            <input type="text" id="manualCode" placeholder="Ex: TICKET12345" />
+            <button onclick="submitCode()">
+              <i class="fas fa-check"></i>
+              Valider
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL DE CONFIRMATION -->
+    <div class="modal-overlay" id="confirmationModal">
+      <div class="modal">
+        <div class="modal-header">
+          <i class="fas fa-check-circle success-icon"></i>
+          <h3>Queue rejoint avec succès !</h3>
+        </div>
+        <div class="modal-content">
+          <div class="ticket-info">
+            <h4>Votre ticket</h4>
+            <div class="ticket-number" id="ticketNumber">T-2025-001</div>
+            <div class="ticket-details">
+              <p><strong>Position :</strong> <span id="position">15</span> dans la queue</p>
+              <p><strong>Temps estimé :</strong> <span id="estimatedTime">25 minutes</span></p>
+              <p><strong>Service :</strong> <span id="serviceName">Cardiologie</span></p>
+            </div>
+          </div>
+          <div class="notification-info">
+            <p><i class="fas fa-bell"></i> Vous recevrez une notification quand il ne restera que 3 personnes avant vous.</p>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button class="secondary-btn" onclick="closeModal()">Fermer</button>
+          <button class="primary-btn" onclick="goToTicket()">
+            <i class="fas fa-ticket-alt"></i>
+            Voir mon ticket
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <footer>
+    <div class="footer-content">
+      <div class="footer-section">
+        <h3>WaitLess</h3>
+        <p>Révolutionnez votre expérience d'attente</p>
+      </div>
+      <div class="footer-section">
+        <h4>Contact</h4>
+        <p>Email : contact@waitless.app</p>
+        <p>Téléphone : +212 6 00 00 00 00</p>
+      </div>
+      <div class="footer-section">
+        <h4>Liens rapides</h4>
+        <ul>
+          <li><a href="../Acceuil/acceuil.html">Accueil</a></li>
+          <li><a href="../qr code/qr.html">Rejoindre</a></li>
+          <li><a href="../tickets/ticket.html">Suivi ticket</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>© 2025 WaitLess. Tous droits réservés.</p>
+    </div>
+  </footer>
+
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <script src="qr.js"></script>
+</body>
+</html>

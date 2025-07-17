@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>WaitLess - Accueil</title>
+  <link rel="stylesheet" href="acceuil.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet" />
+</head>
+<body>
+
+  <!-- NAVBAR -->
+  <header class="navbar">
+    <div class="logo">
+      <img src="public/logofinal.png" alt="WaitLess Logo" class="logo-img">
+    </div>
+    <nav>
+      <ul>
+        <li><a href="#home">Accueil</a></li>
+        <li><a href="#features">Fonctionnalités</a></li>
+        <li><a href="#app">Application</a></li>
+        <li><a href="#team">Équipe</a></li>
+        <li><a href="#contact">Contact</a></li>
+      </ul>
+    </nav>
+  </header>
+  <section id="home" class="hero">
+    <video autoplay muted loop playsinline class="hero-video">
+      <source src="public/waitlessvideo.mp4" type="video/mp4">
+      Votre navigateur ne supporte pas la vidéo.
+    </video>
+    <div class="hero-content">
+      <h1>Attendez Moins, Vivez Plus</h1>
+      <p>Révolutionnez votre expérience d’attente avec WaitLess.</p>
+      <button class="btn" onclick="openUserLogin()">Commencer</button>
+    </div>
+  </section>
+
+  <div class="modal-overlay" id="loginModal">
+    <div class="modal">
+      <span class="close-btn" onclick="closeModal()">&times;</span>
+      <h2>Connexion</h2>
+      <form>
+        <input type="email" placeholder="Adresse email" required>
+        <input type="password" placeholder="Mot de passe" required>
+        <button type="submit">Se connecter</button>
+        <p class="link-text">
+          <a href="../signup/signup.html">Créer un compte</a> |
+          <a href="../signup/mdpoublier.html">Mot de passe oublié ?</a>
+        </p>
+      </form>
+    </div>
+  </div>
+
+
+  <section id="features" class="section">
+    <h2>Fonctionnalités Clés</h2>
+    <div class="features-grid">
+      <div class="feature">
+        <h3>Ticket Numérique</h3>
+        <p>Scannez un QR code et recevez votre numéro de passage en temps réel.</p>
+      </div>
+      <div class="feature">
+        <h3>Notifications Smart</h3>
+        <p>Recevez des rappels lorsqu’il ne reste que 3 personnes avant vous.</p>
+      </div>
+      <div class="feature">
+        <h3>Estimation par IA</h3>
+        <p>Temps d’attente prédit dynamiquement selon la file en cours.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="app" class="section dark">
+    <h2>Notre Application Mobile</h2>
+    <p>Disponible sur AppStore et PlayStore</p>
+    <img src="public/appplaystore.png" alt="Mockup app mobile" class="app-image">
+  </section>
+
+  <section id="team" class="section">
+    <h2>Équipe Projet</h2>
+    <div class="team-grid">
+      <div class="member">
+        <h3>Farah Elmakhfi</h3>
+        <p>Développeuse Front-end</p>
+      </div>
+      <div class="member">
+        <h3>Abdlali Selouani</h3>
+        <p>Ingénieur IA & Back-end</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="contact" class="section dark">
+    <h2>Contactez-Nous</h2>
+    <p>Email : contact@waitless.app</p>
+    <p>Téléphone : +212 6 00 00 00 00</p>
+  </section>
+
+  
+  <footer>
+    <p>© 2025 WaitLess. Tous droits réservés.</p>
+  </footer>
+
+  <script src="acceuil.js"></script>
+</body>
+</html>

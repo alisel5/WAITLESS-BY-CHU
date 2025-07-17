@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Dashboard - WaitLess CHU</title>
+  <link rel="stylesheet" href="dashboard.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet" />
+</head>
+<body>
+
+  <!-- NAVBAR -->
+  <header class="navbar">
+    <div class="logo">
+      <img src="../Acceuil/public/logofinal.png" alt="WaitLess Logo" class="logo-img">
+    </div>
+    <nav>
+      <ul>
+        <li><a href="../Acceuil/acceuil.html">Accueil</a></li>
+        <li><a href="dashboard.html" class="active">Dashboard</a></li>
+        <li><a href="../services/services.html">Services</a></li>
+        <li><a href="../patients/patients.html">Patients</a></li>
+        <li><a href="../reports/reports.html">Rapports</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <div class="dashboard-container">
+    <div class="dashboard-header">
+      <h1>Tableau de Bord</h1>
+      <p>Vue d'ensemble des files d'attente en temps réel</p>
+    </div>
+
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-icon">👥</div>
+        <div class="stat-content">
+          <h3>Patients en Attente</h3>
+          <p class="stat-number" id="waitingPatients">24</p>
+          <p class="stat-change positive">+3 aujourd'hui</p>
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-icon">⏱️</div>
+        <div class="stat-content">
+          <h3>Temps Moyen</h3>
+          <p class="stat-number" id="avgWaitTime">18 min</p>
+          <p class="stat-change negative">-2 min hier</p>
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-icon">🏥</div>
+        <div class="stat-content">
+          <h3>Services Actifs</h3>
+          <p class="stat-number" id="activeServices">8</p>
+          <p class="stat-change neutral">Stable</p>
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-icon">✅</div>
+        <div class="stat-content">
+          <h3>Consultations</h3>
+          <p class="stat-number" id="completedToday">156</p>
+          <p class="stat-change positive">+12 aujourd'hui</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="main-content">
+      <div class="queue-section">
+        <h2>Files d'Attente Actives</h2>
+        <div class="queue-list" id="queueList">
+          <!-- Les files seront générées dynamiquement -->
+        </div>
+      </div>
+
+      <div class="alerts-section">
+        <h2>Alertes</h2>
+        <div class="alerts-list" id="alertsList">
+          <!-- Les alertes seront générées dynamiquement -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <footer>
+    <div class="footer-content">
+      <div class="footer-section">
+        <h3>WaitLess CHU</h3>
+        <p>Gestion intelligente des temps d'attente</p>
+      </div>
+      <div class="footer-section">
+        <h4>Contact</h4>
+        <p>Email : contact@waitless-chu.app</p>
+        <p>Téléphone : +212 6 00 00 00 00</p>
+      </div>
+      <div class="footer-section">
+        <h4>Liens rapides</h4>
+        <ul>
+          <li><a href="../Acceuil/acceuil.html">Accueil</a></li>
+          <li><a href="dashboard.html">Dashboard</a></li>
+          <li><a href="../services/services.html">Services</a></li>
+          <li><a href="../patients/patients.html">Patients</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>© 2025 WaitLess CHU. Tous droits réservés.</p>
+    </div>
+  </footer>
+
+  <script src="dashboard.js"></script>
+</body>
+</html> 

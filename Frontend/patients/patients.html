@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Gestion des Patients - WaitLess CHU</title>
+  <link rel="stylesheet" href="patients.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet" />
+</head>
+<body>
+
+  <!-- NAVBAR -->
+  <header class="navbar">
+    <div class="logo">
+      <img src="../Acceuil/public/logofinal.png" alt="WaitLess Logo" class="logo-img">
+    </div>
+    <nav>
+      <ul>
+        <li><a href="../Acceuil/acceuil.html">Accueil</a></li>
+        <li><a href="../dashboard/dashboard.html">Dashboard</a></li>
+        <li><a href="../services/services.html">Services</a></li>
+        <li><a href="patients.html" class="active">Patients</a></li>
+        <li><a href="../reports/reports.html">Rapports</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <div class="patients-container">
+    <div class="patients-header">
+      <h1>Gestion des Patients</h1>
+      <p>Suivi et gestion des patients en attente</p>
+      <div class="header-actions">
+        <button class="add-patient-btn" onclick="openAddPatientModal()">+ Ajouter un Patient</button>
+        <button class="export-btn" onclick="exportPatientsData()">📊 Exporter</button>
+      </div>
+    </div>
+
+    <div class="filters-section">
+      <div class="search-box">
+        <input type="text" id="searchPatient" placeholder="Rechercher un patient..." onkeyup="searchPatients()">
+      </div>
+      <div class="filter-buttons">
+        <button class="filter-btn active" onclick="filterPatients('all')">Tous</button>
+        <button class="filter-btn" onclick="filterPatients('waiting')">En attente</button>
+        <button class="filter-btn" onclick="filterPatients('consulting')">En consultation</button>
+        <button class="filter-btn" onclick="filterPatients('completed')">Terminés</button>
+      </div>
+    </div>
+
+    <div class="patients-table-container">
+      <table class="patients-table" id="patientsTable">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Nom</th>
+            <th>Service</th>
+            <th>Statut</th>
+            <th>Arrivée</th>
+            <th>Temps d'attente</th>
+            <th>Priorité</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="patientsTableBody">
+          <!-- Les patients seront générés dynamiquement -->
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- MODAL AJOUT PATIENT -->
+  <div class="modal-overlay" id="addPatientModal">
+    <div class="modal">
+      <span class="close-btn" onclick="closeModal()">&times;</span>
+      <h2>Ajouter un Patient</h2>
+      <form id="addPatientForm">
+        <div class="form-row">
+          <input type="text" id="patientFirstName" placeholder="Prénom" required>
+          <input type="text" id="patientLastName" placeholder="Nom" required>
+        </div>
+        <input type="number" id="patientAge" placeholder="Âge" required>
+        <input type="tel" id="patientPhone" placeholder="Téléphone" required>
+        <select id="patientService" required>
+          <option value="">Sélectionner un service</option>
+          <option value="Cardiologie">Cardiologie</option>
+          <option value="Dermatologie">Dermatologie</option>
+          <option value="Pédiatrie">Pédiatrie</option>
+          <option value="Radiologie">Radiologie</option>
+          <option value="Urgences">Urgences</option>
+        </select>
+        <select id="patientPriority" required>
+          <option value="">Sélectionner la priorité</option>
+          <option value="high">Haute</option>
+          <option value="medium">Moyenne</option>
+          <option value="low">Basse</option>
+        </select>
+        <textarea id="patientNotes" placeholder="Notes médicales (optionnel)" rows="3"></textarea>
+        <div class="form-buttons">
+          <button type="button" onclick="closeModal()">Annuler</button>
+          <button type="submit">Ajouter</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL ÉDITION PATIENT -->
+  <div class="modal-overlay" id="editPatientModal">
+    <div class="modal">
+      <span class="close-btn" onclick="closeModal()">&times;</span>
+      <h2>Modifier le Patient</h2>
+      <form id="editPatientForm">
+        <input type="hidden" id="editPatientId">
+        <div class="form-row">
+          <input type="text" id="editPatientFirstName" placeholder="Prénom" required>
+          <input type="text" id="editPatientLastName" placeholder="Nom" required>
+        </div>
+        <input type="number" id="editPatientAge" placeholder="Âge" required>
+        <input type="tel" id="editPatientPhone" placeholder="Téléphone" required>
+        <select id="editPatientService" required>
+          <option value="">Sélectionner un service</option>
+          <option value="Cardiologie">Cardiologie</option>
+          <option value="Dermatologie">Dermatologie</option>
+          <option value="Pédiatrie">Pédiatrie</option>
+          <option value="Radiologie">Radiologie</option>
+          <option value="Urgences">Urgences</option>
+        </select>
+        <select id="editPatientStatus" required>
+          <option value="">Sélectionner le statut</option>
+          <option value="waiting">En attente</option>
+          <option value="consulting">En consultation</option>
+          <option value="completed">Terminé</option>
+        </select>
+        <select id="editPatientPriority" required>
+          <option value="">Sélectionner la priorité</option>
+          <option value="high">Haute</option>
+          <option value="medium">Moyenne</option>
+          <option value="low">Basse</option>
+        </select>
+        <textarea id="editPatientNotes" placeholder="Notes médicales" rows="3"></textarea>
+        <div class="form-buttons">
+          <button type="button" onclick="closeModal()">Annuler</button>
+          <button type="submit">Modifier</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <footer>
+    <div class="footer-content">
+      <div class="footer-section">
+        <h3>WaitLess CHU</h3>
+        <p>Gestion intelligente des temps d'attente</p>
+      </div>
+      <div class="footer-section">
+        <h4>Contact</h4>
+        <p>Email : contact@waitless-chu.app</p>
+        <p>Téléphone : +212 6 00 00 00 00</p>
+      </div>
+      <div class="footer-section">
+        <h4>Liens rapides</h4>
+        <ul>
+          <li><a href="../Acceuil/acceuil.html">Accueil</a></li>
+          <li><a href="../dashboard/dashboard.html">Dashboard</a></li>
+          <li><a href="../services/services.html">Services</a></li>
+          <li><a href="patients.html">Patients</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>© 2025 WaitLess CHU. Tous droits réservés.</p>
+    </div>
+  </footer>
+
+  <script src="patients.js"></script>
+</body>
+</html> 
