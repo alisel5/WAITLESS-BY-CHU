@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Génération de Tickets - WaitLess CHU</title>
+  <link rel="stylesheet" href="generate-tickets.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+</head>
+<body>
+
+  <!-- NAVBAR -->
+  <header class="navbar">
+    <div class="logo">
+      <img src="../Acceuil/public/logofinal.png" alt="WaitLess Logo" class="logo-img">
+    </div>
+    <nav>
+      <ul>
+        <li><a href="../Acceuil/acceuil.html">Accueil</a></li>
+        <li><a href="../dashboard/dashboard.html">Dashboard</a></li>
+        <li><a href="../services/services.html">Services</a></li>
+        <li><a href="../patients/patients.html">Patients</a></li>
+        <li><a href="../reports/reports.html">Rapports</a></li>
+        <li><a href="generate-tickets.html" class="active">Tickets</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <div class="tickets-container">
+    <div class="tickets-header">
+      <h1>Génération de Tickets</h1>
+      <p>Créez et imprimez des tickets avec QR code pour les patients</p>
+    </div>
+
+    <div class="tickets-content">
+      <!-- Formulaire de génération -->
+      <div class="generation-form">
+        <h2>Nouveau Ticket</h2>
+        <form id="ticketForm">
+          <div class="form-row">
+            <div class="form-group">
+              <label for="serviceSelect">Service *</label>
+              <select id="serviceSelect" required>
+                <option value="">Sélectionnez un service</option>
+                <option value="cardiology">Cardiologie</option>
+                <option value="dermatology">Dermatologie</option>
+                <option value="neurology">Neurologie</option>
+                <option value="pediatrics">Pédiatrie</option>
+                <option value="orthopedics">Orthopédie</option>
+                <option value="radiology">Radiologie</option>
+                <option value="emergency">Urgences</option>
+                <option value="ophthalmology">Ophtalmologie</option>
+                <option value="dental">Dentisterie</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="prioritySelect">Priorité</label>
+              <select id="prioritySelect">
+                <option value="normal">Normale</option>
+                <option value="urgent">Urgente</option>
+                <option value="emergency">Émergence</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="quantityTickets">Nombre de tickets *</label>
+              <input type="number" id="quantityTickets" min="1" max="50" value="1" required>
+            </div>
+            <div class="form-group">
+              <label for="ticketType">Type de ticket</label>
+              <select id="ticketType">
+                <option value="standard">Standard</option>
+                <option value="priority">Prioritaire</option>
+                <option value="emergency">Urgence</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="notes">Notes (optionnel)</label>
+            <textarea id="notes" rows="3" placeholder="Informations supplémentaires..."></textarea>
+          </div>
+
+          <div class="form-actions">
+            <button type="button" class="btn-secondary" onclick="previewTicket()">
+              <i class="fas fa-eye"></i>
+              Aperçu
+            </button>
+            <button type="submit" class="btn-primary">
+              <i class="fas fa-print"></i>
+              Générer & Imprimer
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Aperçu du ticket -->
+      <div class="ticket-preview">
+        <h2>Aperçu du Ticket</h2>
+        <div class="preview-container">
+          <div class="ticket-template" id="ticketPreview">
+            <div class="ticket-header">
+              <img src="../Acceuil/public/logofinal.png" alt="WaitLess Logo" class="ticket-logo">
+              <div class="ticket-title">
+                <h3>WaitLess CHU</h3>
+                <p>Ticket de Consultation</p>
+              </div>
+            </div>
+            
+            <div class="ticket-content">
+              <div class="ticket-info">
+                <div class="info-row">
+                  <span class="label">Numéro:</span>
+                  <span class="value" id="previewNumber">T-2025-001</span>
+                </div>
+                <div class="info-row">
+                  <span class="label">Service:</span>
+                  <span class="value" id="previewService">Service médical</span>
+                </div>
+                <div class="info-row">
+                  <span class="label">Type:</span>
+                  <span class="value" id="previewType">Standard</span>
+                </div>
+                <div class="info-row">
+                  <span class="label">Priorité:</span>
+                  <span class="value" id="previewPriority">Normale</span>
+                </div>
+                <div class="info-row">
+                  <span class="label">Date génération:</span>
+                  <span class="value" id="previewDate">--/--/----</span>
+                </div>
+                <div class="info-row">
+                  <span class="label">Heure:</span>
+                  <span class="value" id="previewTime">--:--</span>
+                </div>
+              </div>
+              
+              <div class="qr-section">
+                <div class="qr-placeholder" id="qrPlaceholder">
+                  <i class="fas fa-qrcode"></i>
+                  <p>QR Code sera généré</p>
+                </div>
+              </div>
+            </div>
+            
+            <div class="ticket-footer">
+              <p><strong>Instructions:</strong></p>
+              <ul>
+                <li>Présentez ce ticket à l'accueil</li>
+                <li>Scannez le QR code pour suivre votre position</li>
+                <li>Vous recevrez une notification 3 places avant votre tour</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Historique des tickets -->
+    <div class="tickets-history">
+      <h2>Tickets Récents</h2>
+      <div class="history-filters">
+        <input type="text" id="searchTickets" placeholder="Rechercher un ticket...">
+        <select id="filterService">
+          <option value="">Tous les services</option>
+          <option value="cardiology">Cardiologie</option>
+          <option value="dermatology">Dermatologie</option>
+          <option value="neurology">Neurologie</option>
+          <option value="pediatrics">Pédiatrie</option>
+          <option value="orthopedics">Orthopédie</option>
+          <option value="radiology">Radiologie</option>
+          <option value="emergency">Urgences</option>
+        </select>
+        <button class="btn-secondary" onclick="exportHistory()">
+          <i class="fas fa-download"></i>
+          Exporter
+        </button>
+      </div>
+      
+      <div class="tickets-table">
+        <table id="ticketsTable">
+          <thead>
+            <tr>
+              <th>Numéro</th>
+              <th>Patient</th>
+              <th>Service</th>
+              <th>Date</th>
+              <th>Statut</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="ticketsTableBody">
+            <!-- Les tickets seront générés dynamiquement -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal de confirmation -->
+  <div class="modal-overlay" id="confirmationModal">
+    <div class="modal">
+      <div class="modal-header">
+        <i class="fas fa-check-circle success-icon"></i>
+        <h3>Ticket généré avec succès !</h3>
+      </div>
+      <div class="modal-content">
+        <p>Le ticket a été généré et est prêt à être imprimé.</p>
+        <div class="ticket-summary">
+          <p><strong>Numéro:</strong> <span id="modalTicketNumber"></span></p>
+          <p><strong>Patient:</strong> <span id="modalPatientName"></span></p>
+          <p><strong>Service:</strong> <span id="modalService"></span></p>
+        </div>
+      </div>
+              <div class="modal-actions">
+          <button class="btn-secondary" onclick="closeModal()">Fermer</button>
+          <button class="btn-secondary" onclick="downloadTicketPDF()">
+            <i class="fas fa-download"></i>
+            Télécharger
+          </button>
+          <button class="btn-primary" onclick="printTicket()">
+            <i class="fas fa-print"></i>
+            Imprimer
+          </button>
+        </div>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <footer>
+    <div class="footer-content">
+      <div class="footer-section">
+        <h3>WaitLess CHU</h3>
+        <p>Gestion intelligente des temps d'attente</p>
+      </div>
+      <div class="footer-section">
+        <h4>Contact</h4>
+        <p>Email : contact@waitless-chu.app</p>
+        <p>Téléphone : +212 6 00 00 00 00</p>
+      </div>
+      <div class="footer-section">
+        <h4>Liens rapides</h4>
+        <ul>
+          <li><a href="../Acceuil/acceuil.html">Accueil</a></li>
+          <li><a href="../dashboard/dashboard.html">Dashboard</a></li>
+          <li><a href="../services/services.html">Services</a></li>
+          <li><a href="../patients/patients.html">Patients</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>© 2025 WaitLess CHU. Tous droits réservés.</p>
+    </div>
+  </footer>
+
+  <!-- Scripts -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="generate-tickets.js"></script>
+</body>
+</html> 

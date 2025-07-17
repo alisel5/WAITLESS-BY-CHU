@@ -3,9 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Votre ticket - WaitLess</title>
+  <title>Suivi de votre Ticket - WaitLess</title>
   <link rel="stylesheet" href="ticket.css" />
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
 </head>
 <body>
 
@@ -18,20 +19,155 @@
       <ul>
         <li><a href="../Acceuil/acceuil.html">Accueil</a></li>
         <li><a href="../qr code/qr.html">Scanner</a></li>
-        <li><a href="../tickets/ticket.html">Suivi</a></li>
+        <li><a href="ticket.html" class="active">Suivi</a></li>
         <li><a href="#contact">Contact</a></li>
       </ul>
     </nav>
   </header>
 
   <div class="ticket-container">
-    <h1> Détails de votre ticket</h1>
+    <!-- HEADER -->
+    <div class="ticket-header">
+      <h1>Suivi de votre Ticket</h1>
+      <p>Suivez votre position en temps réel</p>
+      <div class="last-update">
+        <i class="fas fa-sync-alt"></i>
+        <span id="lastUpdate">Dernière mise à jour : À l'instant</span>
+      </div>
+    </div>
 
-    <div class="ticket-box">
-      <p><strong>Code Ticket :</strong> <span id="ticketCode">...</span></p>
-      <p><strong>Personnes devant vous :</strong> <span id="peopleAhead">...</span></p>
-      <p><strong>Temps estimé :</strong> <span id="estimatedTime">...</span></p>
-      <button onclick="refreshTicket()">Actualiser</button>
+    <!-- TICKET CARD PRINCIPALE -->
+    <div class="ticket-card" id="mainTicketCard">
+      <div class="ticket-card-header">
+        <div class="ticket-number">
+          <h2 id="ticketNumber">T-2025-001</h2>
+          <span class="ticket-status active" id="ticketStatus">En attente</span>
+        </div>
+        <div class="ticket-qr">
+          <div class="qr-code" id="qrCode">
+            <i class="fas fa-qrcode"></i>
+          </div>
+        </div>
+      </div>
+
+      <div class="ticket-info">
+        <div class="info-row">
+          <span class="label">Service</span>
+          <span class="value" id="serviceName">Cardiologie</span>
+        </div>
+        <div class="info-row">
+          <span class="label">Type</span>
+          <span class="value" id="ticketType">Standard</span>
+        </div>
+        <div class="info-row">
+          <span class="label">Priorité</span>
+          <span class="value" id="priority">Normale</span>
+        </div>
+        <div class="info-row">
+          <span class="label">Date d'émission</span>
+          <span class="value" id="issueDate">15/01/2025</span>
+        </div>
+      </div>
+
+      <!-- PROGRESS SECTION -->
+      <div class="progress-section">
+        <div class="progress-header">
+          <h3>Votre position dans la file</h3>
+          <div class="position-info">
+            <span class="position-number" id="positionNumber">5</span>
+            <span class="position-text">ème position</span>
+          </div>
+        </div>
+
+        <div class="progress-bar-container">
+          <div class="progress-bar">
+            <div class="progress-fill" id="progressFill"></div>
+          </div>
+          <div class="progress-labels">
+            <span>Début</span>
+            <span>Votre tour</span>
+          </div>
+        </div>
+
+        <div class="queue-stats">
+          <div class="stat-item">
+            <i class="fas fa-users"></i>
+            <div class="stat-content">
+              <span class="stat-number" id="peopleAhead">4</span>
+              <span class="stat-label">Personnes devant vous</span>
+            </div>
+          </div>
+          <div class="stat-item">
+            <i class="fas fa-clock"></i>
+            <div class="stat-content">
+              <span class="stat-number" id="estimatedTime">18</span>
+              <span class="stat-label">Minutes estimées</span>
+            </div>
+          </div>
+          <div class="stat-item">
+            <i class="fas fa-calendar-alt"></i>
+            <div class="stat-content">
+              <span class="stat-number" id="estimatedArrival">09:45</span>
+              <span class="stat-label">Heure estimée</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- NOTIFICATION ALERT -->
+      <div class="notification-alert" id="notificationAlert" style="display: none;">
+        <i class="fas fa-bell"></i>
+        <div class="alert-content">
+          <h4>Votre tour approche !</h4>
+          <p>Il ne reste que <strong id="alertCount">3</strong> personnes avant vous. Préparez-vous !</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ACTIONS -->
+    <div class="ticket-actions">
+      <button class="action-btn refresh-btn" onclick="refreshTicket()">
+        <i class="fas fa-sync-alt"></i>
+        Actualiser
+      </button>
+      <button class="action-btn share-btn" onclick="shareTicket()">
+        <i class="fas fa-share-alt"></i>
+        Partager
+      </button>
+      <button class="action-btn print-btn" onclick="printTicket()">
+        <i class="fas fa-print"></i>
+        Imprimer
+      </button>
+    </div>
+
+    <!-- HISTORIQUE DES TICKETS -->
+    <div class="tickets-history">
+      <h2>Historique de vos tickets</h2>
+      <div class="history-filters">
+        <button class="filter-btn active" onclick="filterHistory('all')">Tous</button>
+        <button class="filter-btn" onclick="filterHistory('active')">En cours</button>
+        <button class="filter-btn" onclick="filterHistory('completed')">Terminés</button>
+        <button class="filter-btn" onclick="filterHistory('expired')">Expirés</button>
+      </div>
+      
+      <div class="history-list" id="historyList">
+        <!-- Les tickets seront générés dynamiquement -->
+      </div>
+    </div>
+
+    <!-- MODAL DÉTAILS TICKET -->
+    <div class="modal-overlay" id="ticketModal">
+      <div class="modal">
+        <div class="modal-header">
+          <h3>Détails du Ticket</h3>
+          <button class="close-btn" onclick="closeModal()">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        <div class="modal-content" id="modalContent">
+          <!-- Contenu dynamique -->
+        </div>
+      </div>
     </div>
   </div>
 
@@ -52,7 +188,7 @@
         <ul>
           <li><a href="../Acceuil/acceuil.html">Accueil</a></li>
           <li><a href="../qr code/qr.html">Scanner QR</a></li>
-          <li><a href="../tickets/ticket.html">Suivi ticket</a></li>
+          <li><a href="ticket.html">Suivi ticket</a></li>
         </ul>
       </div>
     </div>
