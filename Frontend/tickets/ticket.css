@@ -6,12 +6,15 @@
 
 body {
   font-family: 'Poppins', sans-serif;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: #f7f9fc;
   color: #333;
   line-height: 1.6;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  margin: 0;
+  padding: 0;
+  padding-top: 80px;
 }
 
 a {
@@ -25,12 +28,14 @@ a {
   justify-content: space-between;
   align-items: center;
   padding: 1rem 2rem;
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(10px);
-  box-shadow: 0 2px 20px rgba(0, 0, 0, 0.1);
-  position: sticky;
+  background: #4A90E2;
+  color: white;
+  position: fixed;
   top: 0;
+  left: 0;
+  right: 0;
   z-index: 1000;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
 }
 
 .logo {
@@ -51,48 +56,34 @@ a {
 }
 
 .navbar ul li a {
-  color: #4A90E2;
+  color: white;
   font-weight: 500;
   transition: all 0.3s ease;
-  position: relative;
 }
 
 .navbar ul li a:hover,
 .navbar ul li a.active {
-  color: #357ABD;
-  transform: translateY(-2px);
-}
-
-.navbar ul li a::after {
-  content: '';
-  position: absolute;
-  width: 0;
-  height: 2px;
-  bottom: -5px;
-  left: 0;
-  background: #4A90E2;
-  transition: width 0.3s ease;
-}
-
-.navbar ul li a:hover::after,
-.navbar ul li a.active::after {
-  width: 100%;
+  color: #d0e7ff;
 }
 
 /* CONTAINER PRINCIPAL */
 .ticket-container {
   flex: 1;
   padding: 2rem;
+  padding-top: 2rem;
+  padding-bottom: 4rem;
   max-width: 1200px;
   margin: 0 auto;
   width: 100%;
+  margin-top: 0;
 }
 
 /* HEADER */
 .ticket-header {
   text-align: center;
   margin-bottom: 3rem;
-  color: white;
+  margin-top: 0;
+  color: #4A90E2;
   animation: fadeInDown 0.8s ease-out;
 }
 
@@ -110,7 +101,7 @@ a {
 .ticket-header h1 {
   font-size: 2.5rem;
   margin-bottom: 1rem;
-  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+  color: #4A90E2;
 }
 
 .ticket-header p {
@@ -123,11 +114,11 @@ a {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(74, 144, 226, 0.1);
   padding: 0.5rem 1rem;
   border-radius: 25px;
   font-size: 0.9rem;
-  backdrop-filter: blur(10px);
+  color: #4A90E2;
 }
 
 .last-update i {
@@ -141,11 +132,10 @@ a {
 
 /* TICKET CARD PRINCIPALE */
 .ticket-card {
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(20px);
-  border-radius: 25px;
+  background: white;
+  border-radius: 15px;
   padding: 2.5rem;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
   margin-bottom: 2rem;
   animation: slideUp 0.8s ease-out 0.2s both;
   position: relative;
@@ -484,11 +474,10 @@ a {
 
 /* HISTORIQUE */
 .tickets-history {
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(20px);
-  border-radius: 25px;
+  background: white;
+  border-radius: 15px;
   padding: 2.5rem;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
   animation: slideUp 0.8s ease-out 0.4s both;
 }
 
@@ -623,15 +612,154 @@ a {
   to { opacity: 1; }
 }
 
+@keyframes ticketFloat {
+  0%, 100% {
+    transform: rotate(0deg);
+  }
+  50% {
+    transform: rotate(0.5deg);
+  }
+}
+
 .modal {
   background: white;
   padding: 2.5rem;
-  border-radius: 20px;
   max-width: 600px;
   width: 90%;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
   position: relative;
   animation: fadeIn 0.3s ease-out;
+  border-radius: 0;
+  /* Effet ticket zigzag simple */
+  clip-path: polygon(
+    0% 0%,
+    5% 0%,
+    10% 0%,
+    15% 0%,
+    20% 0%,
+    25% 0%,
+    30% 0%,
+    35% 0%,
+    40% 0%,
+    45% 0%,
+    50% 0%,
+    55% 0%,
+    60% 0%,
+    65% 0%,
+    70% 0%,
+    75% 0%,
+    80% 0%,
+    85% 0%,
+    90% 0%,
+    95% 0%,
+    100% 0%,
+    100% 100%,
+    95% 100%,
+    90% 100%,
+    85% 100%,
+    80% 100%,
+    75% 100%,
+    70% 100%,
+    65% 100%,
+    60% 100%,
+    55% 100%,
+    50% 100%,
+    45% 100%,
+    40% 100%,
+    35% 100%,
+    30% 100%,
+    25% 100%,
+    20% 100%,
+    15% 100%,
+    10% 100%,
+    5% 100%,
+    0% 100%
+  );
+}
+
+/* Effet de bordure zigzag pour le modal */
+.modal::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  background: linear-gradient(45deg, #4A90E2, #357ABD, #4A90E2);
+  z-index: -1;
+  clip-path: polygon(
+    0% 0%,
+    5% 0%,
+    10% 0%,
+    15% 0%,
+    20% 0%,
+    25% 0%,
+    30% 0%,
+    35% 0%,
+    40% 0%,
+    45% 0%,
+    50% 0%,
+    55% 0%,
+    60% 0%,
+    65% 0%,
+    70% 0%,
+    75% 0%,
+    80% 0%,
+    85% 0%,
+    90% 0%,
+    95% 0%,
+    100% 0%,
+    100% 100%,
+    95% 100%,
+    90% 100%,
+    85% 100%,
+    80% 100%,
+    75% 100%,
+    70% 100%,
+    65% 100%,
+    60% 100%,
+    55% 100%,
+    50% 100%,
+    45% 100%,
+    40% 100%,
+    35% 100%,
+    30% 100%,
+    25% 100%,
+    20% 100%,
+    15% 100%,
+    10% 100%,
+    5% 100%,
+    0% 100%
+  );
+  animation: ticketGlow 2s ease-in-out infinite alternate;
+}
+
+@keyframes ticketGlow {
+  0% {
+    box-shadow: 0 0 20px rgba(74, 144, 226, 0.3);
+  }
+  100% {
+    box-shadow: 0 0 30px rgba(74, 144, 226, 0.6);
+  }
+}
+
+/* Effet de perforation au centre du modal */
+.modal::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: repeating-linear-gradient(
+    to right,
+    transparent 0px,
+    transparent 8px,
+    #4A90E2 8px,
+    #4A90E2 12px
+  );
+  transform: translateY(-50%);
+  opacity: 0.3;
 }
 
 .modal-header {
@@ -666,11 +794,10 @@ a {
 
 /* FOOTER */
 footer {
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(10px);
-  color: #4A90E2;
-  padding: 2rem 0 1rem 0;
-  margin-top: 3rem;
+  background: #4A90E2;
+  color: white;
+  padding: 3rem 0 2rem 0;
+  margin-top: 4rem;
 }
 
 .footer-content {
@@ -685,7 +812,7 @@ footer {
 .footer-section h3,
 .footer-section h4 {
   margin-bottom: 1rem;
-  color: #4A90E2;
+  color: white;
 }
 
 .footer-section p {
@@ -702,19 +829,19 @@ footer {
 }
 
 .footer-section ul li a {
-  color: #4A90E2;
+  color: white;
   transition: color 0.3s ease;
 }
 
 .footer-section ul li a:hover {
-  color: #357ABD;
+  color: #d0e7ff;
 }
 
 .footer-bottom {
   text-align: center;
   padding-top: 1rem;
   margin-top: 2rem;
-  border-top: 1px solid rgba(74, 144, 226, 0.2);
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
   font-size: 0.9rem;
   opacity: 0.8;
 }
