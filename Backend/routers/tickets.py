@@ -11,7 +11,7 @@ from database import get_db
 from models import Ticket, Service, User, TicketStatus, ServicePriority, QueueLog
 from schemas import (
     TicketCreate, TicketJoinOnline, TicketUpdate, TicketResponse, 
-    TicketSimpleResponse, QRCodeScan, UserCreate
+    TicketSimpleResponse, QRCodeScan, QRScanResponse, UserCreate
 )
 from auth import get_current_active_user, get_admin_user, get_password_hash
 
@@ -353,16 +353,18 @@ async def scan_to_join_queue(
     # Update service waiting count
     service.current_waiting += 1
     
-    # Log the action
+    # Commit first to get ticket ID
+    db.commit()
+    db.refresh(db_ticket)
+    
+    # Log the action after getting ticket ID
     queue_log = QueueLog(
         ticket_id=db_ticket.id,
         action="joined_via_qr_scan",
         details=f"Patient {patient_name} joined queue via QR scan for {service.name}"
     )
     db.add(queue_log)
-    
     db.commit()
-    db.refresh(db_ticket)
     
     return TicketSimpleResponse(
         ticket_number=ticket_number,
@@ -374,7 +376,7 @@ async def scan_to_join_queue(
     )
 
 
-@router.post("/scan", response_model=TicketSimpleResponse)
+@router.post("/scan", response_model=QRScanResponse)
 async def scan_qr_code(qr_data: QRCodeScan, db: Session = Depends(get_db)):
     """Process QR code scan - handles both ticket QR codes and service QR codes."""
     try:
@@ -392,15 +394,15 @@ async def scan_qr_code(qr_data: QRCodeScan, db: Session = Depends(get_db)):
                     detail="Service not found"
                 )
             
-            return {
-                "type": "service_join",
-                "service_id": service.id,
-                "service_name": service.name,
-                "location": service.location,
-                "current_waiting": service.current_waiting,
-                "avg_wait_time": service.avg_wait_time,
-                "message": f"Scan successful! Ready to join queue for {service.name}"
-            }
+            return QRScanResponse(
+                type="service_join",
+                service_id=service.id,
+                service_name=service.name,
+                location=service.location,
+                current_waiting=service.current_waiting,
+                avg_wait_time=service.avg_wait_time,
+                message=f"Scan successful! Ready to join queue for {service.name}"
+            )
     
     except json.JSONDecodeError:
         # Not JSON, treat as ticket number
@@ -419,7 +421,8 @@ async def scan_qr_code(qr_data: QRCodeScan, db: Session = Depends(get_db)):
     # Get service info
     service = db.query(Service).filter(Service.id == ticket.service_id).first()
     
-    return TicketSimpleResponse(
+    return QRScanResponse(
+        type="ticket_status",
         ticket_number=ticket.ticket_number,
         position_in_queue=ticket.position_in_queue,
         estimated_wait_time=ticket.estimated_wait_time,

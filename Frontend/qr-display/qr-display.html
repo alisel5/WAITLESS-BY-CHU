@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>QR Codes des Services - WaitLess CHU</title>
+  <link rel="stylesheet" href="qr-display.css" />
+  <link rel="stylesheet" href="../shared/api.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+
+  <!-- NAVBAR -->
+  <header class="navbar">
+    <div class="logo">
+      <img src="../Acceuil/public/logofinal.png" alt="WaitLess Logo" class="logo-img">
+    </div>
+    <nav>
+      <ul>
+        <li><a href="../Acceuil/acceuil.html">Accueil</a></li>
+        <li><a href="../dashboard/dashboard.html">Dashboard</a></li>
+        <li><a href="../services/services.html">Services</a></li>
+        <li><a href="../patients/patients.html">Patients</a></li>
+        <li><a href="../reports/reports.html">Rapports</a></li>
+        <li><a href="qr-display.html" class="active">QR Codes</a></li>
+        <li><a href="#" onclick="handleLogout()" style="color: #ff6b6b;">Déconnexion</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <div class="qr-display-container">
+    <div class="qr-display-header">
+      <h1>🔳 QR Codes des Services</h1>
+      <p>Gérez et imprimez les QR codes pour tous vos services médicaux</p>
+      <div class="header-actions">
+        <button class="print-all-btn" onclick="printAllQRCodes()">
+          <i class="fas fa-print"></i> Imprimer Tout
+        </button>
+        <button class="refresh-btn" onclick="loadQRCodes()">
+          <i class="fas fa-sync-alt"></i> Actualiser
+        </button>
+      </div>
+    </div>
+
+    <div class="qr-instructions">
+      <h3>Instructions d'utilisation:</h3>
+      <div class="instructions-grid">
+        <div class="instruction-card">
+          <i class="fas fa-qrcode"></i>
+          <h4>1. Imprimer</h4>
+          <p>Imprimez les QR codes et placez-les à l'entrée de chaque service</p>
+        </div>
+        <div class="instruction-card">
+          <i class="fas fa-mobile-alt"></i>
+          <h4>2. Scanner</h4>
+          <p>Les patients scannent avec leur téléphone pour rejoindre la file</p>
+        </div>
+        <div class="instruction-card">
+          <i class="fas fa-users"></i>
+          <h4>3. Gérer</h4>
+          <p>Suivez les files d'attente depuis votre dashboard en temps réel</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="qr-grid" id="qrGrid">
+      <!-- QR codes will be loaded here -->
+    </div>
+  </div>
+
+  <!-- Loading spinner -->
+  <div class="loading-spinner" id="loadingSpinner" style="display: none;">
+    <div class="spinner"></div>
+    <p>Chargement des QR codes...</p>
+  </div>
+
+  <script src="../shared/api.js"></script>
+  <script src="qr-display.js"></script>
+</body>
+</html> 

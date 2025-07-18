@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Suivi de votre Ticket - WaitLess</title>
   <link rel="stylesheet" href="ticket.css" />
+  <link rel="stylesheet" href="../shared/api.css" />
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
 </head>
@@ -21,6 +22,7 @@
         <li><a href="../qr code/qr.html">Scanner</a></li>
         <li><a href="ticket.html" class="active">Suivi</a></li>
         <li><a href="#contact">Contact</a></li>
+        <li><a href="#" onclick="handleLogout()" id="logoutLink" style="color: #ff6b6b; display: none;">Déconnexion</a></li>
       </ul>
     </nav>
   </header>
@@ -197,6 +199,7 @@
     </div>
   </footer>
 
+  <script src="../shared/api.js"></script>
   <script src="ticket.js"></script>
 </body>
 </html>

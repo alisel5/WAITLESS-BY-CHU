@@ -1,0 +1,160 @@
+/* API-related styles */
+
+/* Loading states */
+.loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    font-style: italic;
+    color: #666;
+}
+
+.loading::before {
+    content: "";
+    width: 16px;
+    height: 16px;
+    border: 2px solid #4A90E2;
+    border-top: 2px solid transparent;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-right: 8px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Error states */
+.error {
+    background-color: #ffeaea;
+    border: 1px solid #ff6b6b;
+    color: #c92a2a;
+    padding: 12px;
+    border-radius: 6px;
+    margin: 10px 0;
+}
+
+/* Notifications */
+.notification {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 15px 20px;
+    border-radius: 6px;
+    color: white;
+    font-weight: 500;
+    z-index: 10000;
+    animation: slideIn 0.3s ease-out;
+    max-width: 400px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.notification-info {
+    background-color: #4A90E2;
+}
+
+.notification-success {
+    background-color: #51cf66;
+}
+
+.notification-warning {
+    background-color: #ffd43b;
+    color: #333;
+}
+
+.notification-error {
+    background-color: #ff6b6b;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+/* Auth required overlay */
+.auth-required {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10001;
+    color: white;
+    text-align: center;
+}
+
+.auth-required-content {
+    background: white;
+    color: #333;
+    padding: 30px;
+    border-radius: 10px;
+    max-width: 400px;
+    margin: 20px;
+}
+
+.auth-required h2 {
+    margin-bottom: 15px;
+    color: #4A90E2;
+}
+
+.auth-required button {
+    background: #4A90E2;
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 16px;
+    margin-top: 15px;
+}
+
+.auth-required button:hover {
+    background: #357ABD;
+}
+
+/* API status indicator */
+.api-status {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    padding: 8px 12px;
+    border-radius: 4px;
+    font-size: 12px;
+    z-index: 1000;
+}
+
+.api-status.connected {
+    background: #51cf66;
+    color: white;
+}
+
+.api-status.disconnected {
+    background: #ff6b6b;
+    color: white;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .notification {
+        left: 20px;
+        right: 20px;
+        max-width: none;
+    }
+    
+    .auth-required-content {
+        margin: 10px;
+        padding: 20px;
+    }
+} 

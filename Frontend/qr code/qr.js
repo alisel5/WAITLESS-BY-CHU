@@ -3,14 +3,68 @@ let html5QrcodeScanner = null;
 let html5QrCode = null;
 let currentOption = null;
 let isScanning = false;
+let availableServices = [];
+
+// Check if user is authenticated and show appropriate UI
+function checkAuthStatus() {
+  const logoutLink = document.getElementById('logoutLink');
+  if (apiClient.isAuthenticated()) {
+    const user = apiClient.getCurrentUser();
+    if (user) {
+      logoutLink.style.display = 'block';
+      console.log('User authenticated:', user.full_name);
+    }
+  } else {
+    logoutLink.style.display = 'none';
+  }
+}
+
+// Load available services from backend
+async function loadAvailableServices() {
+  try {
+    const servicesData = await apiClient.getActiveServicesWithQR();
+    if (servicesData && servicesData.services) {
+      availableServices = servicesData.services;
+      populateServiceDropdown();
+    }
+  } catch (error) {
+    console.error('Error loading services:', error);
+    APIUtils.showNotification('Erreur lors du chargement des services', 'error');
+  }
+}
+
+// Populate the service dropdown with real services
+function populateServiceDropdown() {
+  const serviceSelect = document.getElementById('serviceSelect');
+  if (serviceSelect && availableServices.length > 0) {
+    serviceSelect.innerHTML = '<option value="">Sélectionner un service</option>';
+    availableServices.forEach(service => {
+      serviceSelect.innerHTML += `<option value="${service.id}">${service.name}</option>`;
+    });
+  }
+}
 
 // Initialisation de la page
-document.addEventListener('DOMContentLoaded', function() {
-  initializePage();
+document.addEventListener('DOMContentLoaded', async function() {
+  await initializePage();
 });
 
 // Initialisation de la page
-function initializePage() {
+async function initializePage() {
+  // Check authentication status
+  checkAuthStatus();
+  
+  // Add admin quick access if user is admin
+  if (apiClient.isAuthenticated()) {
+    const user = apiClient.getCurrentUser();
+    if (user && (user.role === 'admin' || user.role === 'doctor')) {
+      addAdminQuickAccess();
+    }
+  }
+  
+  // Load available services
+  await loadAvailableServices();
+  
   // Afficher les options par défaut
   showOptions();
   
@@ -19,6 +73,34 @@ function initializePage() {
   
   // Animation d'entrée
   animatePageLoad();
+}
+
+// Add admin quick access buttons
+function addAdminQuickAccess() {
+  const header = document.querySelector('.qr-header');
+  if (header && !document.getElementById('adminQuickAccess')) {
+    const adminSection = document.createElement('div');
+    adminSection.id = 'adminQuickAccess';
+    adminSection.className = 'admin-quick-access';
+    adminSection.innerHTML = `
+      <div class="admin-notice">
+        <i class="fas fa-user-shield"></i>
+        <span>Mode Administrateur Activé</span>
+      </div>
+      <div class="admin-actions">
+        <a href="../dashboard/dashboard.html" class="admin-btn">
+          <i class="fas fa-tachometer-alt"></i> Dashboard
+        </a>
+        <a href="../qr-display/qr-display.html" class="admin-btn">
+          <i class="fas fa-qrcode"></i> Gérer QR Codes
+        </a>
+        <a href="../services/services.html" class="admin-btn">
+          <i class="fas fa-cogs"></i> Services
+        </a>
+      </div>
+    `;
+    header.appendChild(adminSection);
+  }
 }
 
 // Configuration des écouteurs d'événements
@@ -107,9 +189,8 @@ function showOnlineSection() {
     onlineSection.style.transform = 'translateX(0)';
   }, 100);
   
-  // Définir l'heure d'arrivée par défaut (dans 30 minutes)
+  // Définir l'heure d'arrivée par défaut (maintenant)
   const now = new Date();
-  now.setMinutes(now.getMinutes() + 30);
   const timeString = now.toTimeString().slice(0, 5);
   document.getElementById('estimatedArrival').value = timeString;
 }
@@ -133,16 +214,6 @@ function showQRSection() {
     qrSection.style.opacity = '1';
     qrSection.style.transform = 'translateX(0)';
   }, 100);
-  
-  // Afficher le cadre de scan temporairement
-  const scanFrame = document.querySelector('.qr-scan-frame');
-  if (scanFrame) {
-    scanFrame.style.display = 'block';
-    // Masquer le cadre après 3 secondes
-    setTimeout(() => {
-      scanFrame.style.display = 'none';
-    }, 3000);
-  }
   
   // Initialiser le scanner après un délai
   setTimeout(() => {
@@ -213,14 +284,6 @@ function initializeQRScanner() {
       html5QrcodeScanner.render(onScanSuccess, onScanFailure);
       console.log('Scanner QR initialisé avec succès');
       
-      // Masquer le cadre de scan après l'initialisation
-      setTimeout(() => {
-        const scanFrame = document.querySelector('.qr-scan-frame');
-        if (scanFrame) {
-          scanFrame.style.display = 'none';
-        }
-      }, 1000);
-      
     } catch (error) {
       console.error('Erreur lors de l\'initialisation du scanner:', error);
       showScannerError();
@@ -254,7 +317,6 @@ function showScannerError() {
 function retryScanner() {
   console.log('Tentative de réinitialisation du scanner...');
   
-  // Essayer avec une configuration plus simple
   const reader = document.getElementById('reader');
   if (reader) {
     reader.innerHTML = '';
@@ -303,12 +365,10 @@ function checkCameraAvailability() {
       })
       .catch(function(err) {
         console.error('Caméra non disponible:', err);
-        // Ne pas afficher d'erreur immédiatement, laisser le scanner essayer
         console.log('Tentative de scanner sans vérification préalable...');
       });
   } else {
     console.error('getUserMedia non supporté');
-    // Ne pas afficher d'erreur immédiatement
   }
 }
 
@@ -319,308 +379,252 @@ function onScanSuccess(decodedText, decodedResult) {
   // Arrêter le scanner
   stopQRScanner();
   
-  // Traiter le code scanné
+  // Traiter le code scanné avec l'API backend
   processScannedCode(decodedText);
 }
 
 // Échec du scan QR
 function onScanFailure(error) {
   // Ne pas afficher d'erreur pour les échecs normaux de scan
-  // console.log('Scan en cours...', error);
 }
 
-// Traiter le code scanné
-function processScannedCode(code) {
-  // Simuler le traitement du code
-  console.log('Code scanné:', code);
-  
-  // Générer un ticket basé sur le code
-  const ticketData = generateTicketFromCode(code);
-  
-  // Afficher la confirmation
-  showConfirmationModal(ticketData);
+// Traiter le code scanné avec l'API backend
+async function processScannedCode(qrData) {
+  try {
+    console.log('Code scanné:', qrData);
+    
+    // Valider que qrData n'est pas vide
+    if (!qrData || qrData.trim() === '') {
+      APIUtils.showNotification('QR code vide ou invalide', 'error');
+      return;
+    }
+    
+    // Première étape: vérifier le type de QR code
+    const scanResponse = await apiClient.scanQR(qrData.trim());
+    
+    if (scanResponse && scanResponse.type === 'service_join') {
+      // C'est un QR code de service - demander les informations du patient
+      showPatientInfoModal(qrData, scanResponse);
+    } else if (scanResponse && scanResponse.type === 'ticket_status') {
+      // C'est un QR code de ticket - afficher le statut
+      showTicketStatus(scanResponse);
+    } else {
+      APIUtils.showNotification('QR code non reconnu ou service inactif', 'error');
+    }
+    
+  } catch (error) {
+    console.error('Erreur lors du traitement du QR code:', error);
+    
+    // Provide more specific error messages
+    if (error.message.includes('404')) {
+      APIUtils.showNotification('QR code invalide ou service introuvable', 'error');
+    } else if (error.message.includes('network') || error.message.includes('fetch')) {
+      APIUtils.showNotification('Erreur de connexion. Vérifiez votre internet.', 'error');
+    } else {
+      APIUtils.showNotification('Erreur lors du scan du QR code', 'error');
+    }
+  }
 }
 
-// Générer un ticket à partir du code
-function generateTicketFromCode(code) {
-  const services = {
-    'CARD': 'Cardiologie',
-    'DERM': 'Dermatologie',
-    'NEUR': 'Neurologie',
-    'PED': 'Pédiatrie',
-    'ORTH': 'Orthopédie',
-    'RAD': 'Radiologie',
-    'URG': 'Urgences'
-  };
+// Afficher le modal pour les informations du patient
+function showPatientInfoModal(qrData, scanResponse) {
+  // Créer et afficher un modal pour collecter les informations du patient
+  const modal = document.createElement('div');
+  modal.className = 'modal-overlay';
+  modal.innerHTML = `
+    <div class="modal">
+      <h2>Rejoindre la file d'attente</h2>
+      <p><strong>Service:</strong> ${scanResponse.service_name}</p>
+      <p><strong>Localisation:</strong> ${scanResponse.location}</p>
+      <form id="patientInfoForm">
+        <input type="text" id="patientName" placeholder="Nom complet" required>
+        <input type="tel" id="patientPhone" placeholder="Téléphone" required>
+        <input type="email" id="patientEmail" placeholder="Email" required>
+        <select id="patientPriority">
+          <option value="medium">Priorité normale</option>
+          <option value="high">Priorité haute</option>
+          <option value="low">Priorité basse</option>
+        </select>
+        <div class="modal-actions">
+          <button type="button" onclick="closePatientModal()">Annuler</button>
+          <button type="submit">Rejoindre la file</button>
+        </div>
+      </form>
+    </div>
+  `;
   
-  // Extraire les informations du code (simulation)
-  const serviceCode = code.substring(0, 4);
-  const service = services[serviceCode] || 'Service Général';
-  const position = Math.floor(Math.random() * 20) + 1;
-  const waitTime = Math.floor(Math.random() * 30) + 10;
+  document.body.appendChild(modal);
   
-  return {
-    ticketNumber: `T-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}`,
-    position: position,
-    estimatedTime: waitTime,
-    service: service,
-    method: 'QR Code'
-  };
+  // Gestionnaire du formulaire
+  document.getElementById('patientInfoForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    await joinQueueViaScan(qrData);
+  });
+  
+  // Stocker les données pour utilisation ultérieure
+  window.currentQRData = qrData;
+  window.currentScanResponse = scanResponse;
+}
+
+// Fermer le modal des informations patient
+function closePatientModal() {
+  const modal = document.querySelector('.modal-overlay');
+  if (modal) {
+    modal.remove();
+  }
+  // Relancer le scanner
+  showQRSection();
+}
+
+// Rejoindre la file via scan QR
+async function joinQueueViaScan(qrData) {
+  try {
+    const patientData = {
+      name: document.getElementById('patientName').value,
+      phone: document.getElementById('patientPhone').value,
+      email: document.getElementById('patientEmail').value,
+      priority: document.getElementById('patientPriority').value
+    };
+    
+    // Validation
+    if (!patientData.name || !patientData.phone || !patientData.email) {
+      APIUtils.showNotification('Veuillez remplir tous les champs obligatoires', 'error');
+      return;
+    }
+    
+    // Appeler l'API scan-to-join
+    const joinResponse = await apiClient.scanToJoin(qrData, patientData);
+    
+    if (joinResponse) {
+      // Fermer le modal
+      closePatientModal();
+      
+      // Afficher la confirmation
+      showConfirmationModal(joinResponse);
+    }
+    
+  } catch (error) {
+    console.error('Erreur lors de l\'ajout à la file:', error);
+    APIUtils.showNotification('Erreur lors de l\'ajout à la file d\'attente', 'error');
+  }
+}
+
+// Afficher le statut d'un ticket
+function showTicketStatus(ticketData) {
+  showConfirmationModal({
+    ticket_number: ticketData.ticket_number,
+    position_in_queue: ticketData.position_in_queue,
+    estimated_wait_time: ticketData.estimated_wait_time,
+    service_name: ticketData.service_name,
+    status: ticketData.status
+  });
 }
 
 // Rejoindre la queue en ligne
-function joinQueueOnline() {
-  // Récupérer les données du formulaire
-  const formData = {
-    name: document.getElementById('patientName').value,
-    phone: document.getElementById('patientPhone').value,
-    service: document.getElementById('serviceSelect').value,
-    priority: document.getElementById('prioritySelect').value,
-    estimatedArrival: document.getElementById('estimatedArrival').value,
-    notes: document.getElementById('notes').value
-  };
-  
-  // Validation basique
-  if (!formData.name || !formData.phone || !formData.service || !formData.priority || !formData.estimatedArrival) {
-    showNotification('Veuillez remplir tous les champs obligatoires', 'error');
-    return;
+async function joinQueueOnline() {
+  try {
+    // Récupérer les données du formulaire
+    const patientEmail = document.getElementById('patientEmail') ? document.getElementById('patientEmail').value : '';
+    
+    const formData = {
+      patient_name: document.getElementById('patientName').value,
+      patient_phone: document.getElementById('patientPhone').value,
+      patient_email: patientEmail || `${document.getElementById('patientName').value.toLowerCase().replace(/\s/g, '.')}@waitless.chu`,
+      service_id: parseInt(document.getElementById('serviceSelect').value),
+      priority: document.getElementById('prioritySelect').value || 'medium',
+      estimated_arrival: document.getElementById('estimatedArrival').value || null
+    };
+    
+    // Validation basique
+    if (!formData.patient_name || !formData.patient_phone || !formData.service_id) {
+      APIUtils.showNotification('Veuillez remplir tous les champs obligatoires', 'error');
+      return;
+    }
+    
+    // Validation email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.patient_email)) {
+      APIUtils.showNotification('Format d\'email invalide', 'error');
+      return;
+    }
+    
+    // Appeler l'API pour rejoindre la file en ligne
+    const response = await apiClient.joinQueueOnline(formData);
+    
+    if (response) {
+      // Afficher la confirmation
+      showConfirmationModal(response);
+    }
+    
+  } catch (error) {
+    console.error('Erreur lors de l\'ajout à la file:', error);
+    APIUtils.showNotification('Erreur lors de l\'ajout à la file d\'attente', 'error');
   }
-  
-  // Simuler l'envoi des données
-  console.log('Données du formulaire:', formData);
-  
-  // Générer un ticket
-  const ticketData = generateTicketFromOnlineForm(formData);
-  
-  // Afficher la confirmation
-  showConfirmationModal(ticketData);
-}
-
-// Générer un ticket à partir du formulaire en ligne
-function generateTicketFromOnlineForm(formData) {
-  const serviceNames = {
-    'cardiology': 'Cardiologie',
-    'dermatology': 'Dermatologie',
-    'neurology': 'Neurologie',
-    'pediatrics': 'Pédiatrie',
-    'orthopedics': 'Orthopédie',
-    'radiology': 'Radiologie',
-    'emergency': 'Urgences'
-  };
-  
-  const position = Math.floor(Math.random() * 15) + 1;
-  const waitTime = Math.floor(Math.random() * 25) + 15;
-  
-  return {
-    ticketNumber: `T-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}`,
-    position: position,
-    estimatedTime: waitTime,
-    service: serviceNames[formData.service] || formData.service,
-    method: 'En ligne',
-    patientName: formData.name,
-    phone: formData.phone
-  };
 }
 
 // Soumettre le code manuel
-function submitCode() {
+async function submitCode() {
   const code = document.getElementById('manualCode').value.trim();
   
   if (!code) {
-    showNotification('Veuillez entrer un code', 'error');
+    APIUtils.showNotification('Veuillez entrer un code', 'error');
     return;
   }
   
-  // Traiter le code manuel
-  processScannedCode(code);
+  // Traiter le code manuel comme un QR code scanné
+  await processScannedCode(code);
 }
 
 // Afficher la modal de confirmation
 function showConfirmationModal(ticketData) {
   // Mettre à jour les informations du ticket
-  document.getElementById('ticketNumber').textContent = ticketData.ticketNumber;
-  document.getElementById('position').textContent = ticketData.position;
-  document.getElementById('estimatedTime').textContent = ticketData.estimatedTime + ' minutes';
-  document.getElementById('serviceName').textContent = ticketData.service;
+  document.getElementById('ticketNumber').textContent = ticketData.ticket_number;
+  document.getElementById('position').textContent = ticketData.position_in_queue;
+  document.getElementById('estimatedTime').textContent = APIUtils.formatWaitTime(ticketData.estimated_wait_time);
+  document.getElementById('serviceName').textContent = ticketData.service_name;
   
   // Afficher la modal
   const modal = document.getElementById('confirmationModal');
   modal.style.display = 'flex';
   
-  // Animation d'entrée
-  modal.style.opacity = '0';
+  // Auto-redirect vers la page de suivi après 5 secondes
   setTimeout(() => {
-    modal.style.opacity = '1';
-  }, 100);
-  
-  // Sauvegarder les données du ticket
-  saveTicketData(ticketData);
+    window.location.href = '../tickets/ticket.html';
+  }, 5000);
 }
 
-// Fermer la modal
+// Fermer la modal de confirmation
 function closeModal() {
   const modal = document.getElementById('confirmationModal');
-  modal.style.opacity = '0';
-  
-  setTimeout(() => {
+  if (modal) {
     modal.style.display = 'none';
-  }, 300);
+  }
+  
+  // Retourner aux options
+  showOptions();
 }
 
-// Aller à la page du ticket
-function goToTicket() {
-  // Sauvegarder l'ID du ticket dans localStorage
-  const ticketNumber = document.getElementById('ticketNumber').textContent;
-  localStorage.setItem('currentTicket', ticketNumber);
-  
-  // Rediriger vers la page du ticket
-  window.location.href = '../tickets/ticket.html';
-}
-
-// Sauvegarder les données du ticket
-function saveTicketData(ticketData) {
-  // Sauvegarder dans localStorage pour la persistance
-  const tickets = JSON.parse(localStorage.getItem('tickets') || '[]');
-  tickets.push({
-    ...ticketData,
-    createdAt: new Date().toISOString(),
-    status: 'waiting'
-  });
-  localStorage.setItem('tickets', JSON.stringify(tickets));
-  
-  // Sauvegarder le ticket actuel
-  localStorage.setItem('currentTicket', ticketData.ticketNumber);
-}
-
-// Système de notifications
-function showNotification(message, type = 'info') {
-  // Supprimer les notifications existantes
-  const existingNotifications = document.querySelectorAll('.notification');
-  existingNotifications.forEach(notification => notification.remove());
-  
-  // Créer la nouvelle notification
-  const notification = document.createElement('div');
-  notification.className = `notification ${type}`;
-  notification.innerHTML = `
-    <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : 'info-circle'}"></i>
-    <span>${message}</span>
-  `;
-  
-  // Styles de la notification
-  notification.style.cssText = `
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    background: ${type === 'success' ? '#28a745' : type === 'error' ? '#dc3545' : '#4A90E2'};
-    color: white;
-    padding: 1rem 1.5rem;
-    border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    z-index: 10000;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    font-weight: 500;
-    transform: translateX(100%);
-    transition: transform 0.3s ease;
-  `;
-  
-  document.body.appendChild(notification);
-  
-  // Animation d'entrée
-  setTimeout(() => {
-    notification.style.transform = 'translateX(0)';
-  }, 100);
-  
-  // Auto-suppression
-  setTimeout(() => {
-    notification.style.transform = 'translateX(100%)';
-    setTimeout(() => {
-      if (notification.parentNode) {
-        notification.remove();
-      }
-    }, 300);
-  }, 4000);
-}
-
-// Validation du formulaire
-function validateForm() {
-  const requiredFields = [
-    'patientName',
-    'patientPhone',
-    'serviceSelect',
-    'prioritySelect',
-    'estimatedArrival'
-  ];
-  
-  let isValid = true;
-  
-  requiredFields.forEach(fieldId => {
-    const field = document.getElementById(fieldId);
-    if (!field.value.trim()) {
-      field.style.borderColor = '#dc3545';
-      isValid = false;
-    } else {
-      field.style.borderColor = '#e1e5e9';
+// Logout function
+async function handleLogout() {
+  if (confirm('Êtes-vous sûr de vouloir vous déconnecter ?')) {
+    try {
+      await apiClient.logout();
+      APIUtils.showNotification('Déconnexion réussie', 'success');
+      window.location.href = '../Acceuil/acceuil.html';
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Force logout even if backend call fails
+      apiClient.removeToken();
+      window.location.href = '../Acceuil/acceuil.html';
     }
-  });
-  
-  return isValid;
+  }
 }
 
-// Validation du numéro de téléphone
-function validatePhone(phone) {
-  const phoneRegex = /^(06|07|05)\d{8}$/;
-  return phoneRegex.test(phone.replace(/\s/g, ''));
-}
-
-// Formatage automatique du numéro de téléphone
-function formatPhoneNumber(input) {
-  let value = input.value.replace(/\D/g, '');
-  
-  if (value.length >= 2) {
-    value = value.substring(0, 2) + ' ' + value.substring(2);
-  }
-  
-  if (value.length >= 6) {
-    value = value.substring(0, 6) + ' ' + value.substring(6);
-  }
-  
-  if (value.length >= 9) {
-    value = value.substring(0, 9) + ' ' + value.substring(9);
-  }
-  
-  input.value = value.substring(0, 14);
-}
-
-// Configuration du formatage automatique
-document.addEventListener('DOMContentLoaded', function() {
-  const phoneInput = document.getElementById('patientPhone');
-  if (phoneInput) {
-    phoneInput.addEventListener('input', function() {
-      formatPhoneNumber(this);
-    });
-  }
-});
-
-// Gestion des erreurs
-window.addEventListener('error', function(e) {
-  console.error('Erreur JavaScript:', e.error);
-  showNotification('Une erreur est survenue. Veuillez réessayer.', 'error');
-});
-
-// Nettoyage lors de la fermeture de la page
-window.addEventListener('beforeunload', function() {
-  stopQRScanner();
-});
-
-// Gestion de la visibilité de la page
-document.addEventListener('visibilitychange', function() {
-  if (document.hidden) {
-    stopQRScanner();
-  } else if (currentOption === 'qr') {
-    setTimeout(() => {
-      initializeQRScanner();
-    }, 1000);
-  }
-});
+// Exposer les fonctions globalement
+window.selectOption = selectOption;
+window.showOptions = showOptions;
+window.submitCode = submitCode;
+window.closeModal = closeModal;
+window.retryScanner = retryScanner;
+window.closePatientModal = closePatientModal;
+window.handleLogout = handleLogout;

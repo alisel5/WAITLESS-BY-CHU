@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Rapports - WaitLess Admin</title>
   <link rel="stylesheet" href="reports.css">
+  <link rel="stylesheet" href="../shared/api.css" />
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
@@ -20,9 +21,10 @@
         <li><a href="../dashboard/dashboard.html">Tableau de bord</a></li>
         <li><a href="../services/services.html">Services</a></li>
         <li><a href="../patients/patients.html">Patients</a></li>
+        <li><a href="../qr-display/qr-display.html">QR Codes</a></li>
         <li><a href="reports.html" class="active">Rapports</a></li>
-        <li><a href="../tickets/generate-tickets.html">Tickets</a></li>
-        <li><a href="../Acceuil/acceuil.html">Déconnexion</a></li>
+        <li><a href="../tickets/ticket.html">Tickets</a></li>
+        <li><a href="#" onclick="handleLogout()" style="color: #ff6b6b;">Déconnexion</a></li>
       </ul>
     </nav>
   </header>
@@ -269,6 +271,7 @@
     </div>
   </footer>
 
+  <script src="../shared/api.js"></script>
   <script src="reports.js"></script>
 </body>
 </html> 

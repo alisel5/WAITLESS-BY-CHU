@@ -1,69 +1,61 @@
-// Données simulées pour le dashboard
-const mockQueues = [
-  {
-    id: 1,
-    service: "Cardiologie",
-    waitingCount: 8,
-    avgWaitTime: "25 min",
-    status: "active"
-  },
-  {
-    id: 2,
-    service: "Dermatologie",
-    waitingCount: 12,
-    avgWaitTime: "18 min",
-    status: "active"
-  },
-  {
-    id: 3,
-    service: "Pédiatrie",
-    waitingCount: 5,
-    avgWaitTime: "15 min",
-    status: "active"
-  },
-  {
-    id: 4,
-    service: "Radiologie",
-    waitingCount: 3,
-    avgWaitTime: "30 min",
-    status: "active"
+// Dashboard data from backend
+let dashboardData = {
+  services: [],
+  alerts: [],
+  stats: {
+    total_waiting: 0,
+    total_consulting: 0,
+    active_services: 0,
+    avg_wait_time: 0
   }
-];
+};
 
-const mockAlerts = [
-  {
-    id: 1,
-    type: "warning",
-    message: "File d'attente longue en Cardiologie",
-    time: "Il y a 5 min"
-  },
-  {
-    id: 2,
-    type: "info",
-    message: "Nouveau patient prioritaire en Urgences",
-    time: "Il y a 10 min"
-  },
-  {
-    id: 3,
-    type: "success",
-    message: "Service de Dermatologie libéré",
-    time: "Il y a 15 min"
+// Load dashboard data from backend
+async function loadDashboardData() {
+  try {
+    APIUtils.showLoading(document.getElementById('queueList'));
+    
+    // Load dashboard stats
+    const stats = await apiClient.getDashboardStats();
+    if (stats) {
+      dashboardData.stats = stats;
+      dashboardData.services = stats.services || [];
+      displayQueues();
+      updateStats();
+    }
+    
+    // Load alerts
+    const alerts = await apiClient.getAlerts();
+    if (alerts) {
+      dashboardData.alerts = alerts;
+      displayAlerts();
+    }
+    
+  } catch (error) {
+    console.error('Error loading dashboard data:', error);
+    APIUtils.showError(document.getElementById('queueList'), 'Erreur lors du chargement des données');
+    APIUtils.showNotification('Erreur de connexion au serveur', 'error');
   }
-];
+}
 
 // Fonction pour afficher les files d'attente
 function displayQueues() {
   const queueList = document.getElementById('queueList');
   
-  queueList.innerHTML = mockQueues.map(queue => `
-    <div class="queue-item" data-id="${queue.id}">
+  if (!dashboardData.services || dashboardData.services.length === 0) {
+    queueList.innerHTML = '<p>Aucun service actif</p>';
+    return;
+  }
+  
+  queueList.innerHTML = dashboardData.services.map(service => `
+    <div class="queue-item" data-id="${service.id}">
       <div class="queue-info">
-        <h4>${queue.service}</h4>
-        <p>Service actif</p>
+        <h4>${service.name}</h4>
+        <p>${service.location}</p>
       </div>
       <div class="queue-status">
-        <div class="waiting-count">${queue.waitingCount}</div>
-        <div class="wait-time">${queue.avgWaitTime}</div>
+        <div class="waiting-count">${service.current_waiting}</div>
+        <div class="wait-time">${APIUtils.formatWaitTime(service.avg_wait_time)}</div>
       </div>
     </div>
   `).join('');
@@ -73,14 +65,16 @@ function displayQueues() {
 function displayAlerts() {
   const alertsList = document.getElementById('alertsList');
   
-  alertsList.innerHTML = mockAlerts.map(alert => `
-    <div class="alert-item" data-id="${alert.id}">
-      <div class="alert-icon">
-        ${alert.type === 'warning' ? '⚠️' : alert.type === 'info' ? 'ℹ️' : '✅'}
-      </div>
+  if (!dashboardData.alerts || dashboardData.alerts.length === 0) {
+    alertsList.innerHTML = '<p>Aucune alerte récente</p>';
+    return;
+  }
+  
+  alertsList.innerHTML = dashboardData.alerts.map(alert => `
+    <div class="alert-item ${alert.type}" data-id="${alert.id}">
       <div class="alert-content">
-        <h4>${alert.message}</h4>
-        <p>${alert.time}</p>
+        <p>${alert.message}</p>
+        <span class="alert-time">${APIUtils.formatDate(alert.created_at)}</span>
       </div>
     </div>
   `).join('');
@@ -88,88 +82,86 @@ function displayAlerts() {
 
 // Fonction pour mettre à jour les statistiques
 function updateStats() {
-  const totalWaiting = mockQueues.reduce((sum, queue) => sum + queue.waitingCount, 0);
-  const avgWaitTime = Math.round(mockQueues.reduce((sum, queue) => {
-    const time = parseInt(queue.avgWaitTime);
-    return sum + time;
-  }, 0) / mockQueues.length);
+  const stats = dashboardData.stats;
   
-  document.getElementById('waitingPatients').textContent = totalWaiting;
-  document.getElementById('avgWaitTime').textContent = `${avgWaitTime} min`;
-  document.getElementById('activeServices').textContent = mockQueues.length;
+  document.getElementById('waitingPatients').textContent = stats.total_waiting || 0;
+  document.getElementById('activeServices').textContent = stats.active_services || 0;
+  document.getElementById('avgWaitTime').textContent = APIUtils.formatWaitTime(stats.avg_wait_time || 0);
+  
+  // Update completed consultations (you can extend this based on backend data)
+  const completedElement = document.getElementById('completedToday');
+  if (completedElement) {
+    // This could be enhanced with actual daily completion data from backend
+    completedElement.textContent = '0'; // Placeholder
+  }
 }
 
 // Fonction pour actualiser les données
-function refreshData() {
-  // Simuler des changements dans les données
-  mockQueues.forEach(queue => {
-    queue.waitingCount += Math.floor(Math.random() * 3) - 1; // -1, 0, ou +1
-    if (queue.waitingCount < 0) queue.waitingCount = 0;
-    
-    const currentTime = parseInt(queue.avgWaitTime);
-    queue.avgWaitTime = `${Math.max(5, currentTime + Math.floor(Math.random() * 6) - 3)} min`;
-  });
-  
-  displayQueues();
-  updateStats();
+async function refreshData() {
+  try {
+    await loadDashboardData();
+    console.log('Dashboard data refreshed');
+  } catch (error) {
+    console.error('Error refreshing dashboard data:', error);
+  }
 }
 
-// Fonction pour ajouter une nouvelle alerte
+// Fonction pour ajouter une nouvelle alerte (this would typically come from backend notifications)
 function addAlert(type, message) {
   const newAlert = {
     id: Date.now(),
-    type,
-    message,
-    time: "À l'instant"
+    type: type,
+    message: message,
+    created_at: new Date().toISOString()
   };
   
-  mockAlerts.unshift(newAlert);
-  if (mockAlerts.length > 5) {
-    mockAlerts.pop(); // Garder seulement les 5 dernières alertes
+  dashboardData.alerts.unshift(newAlert);
+  if (dashboardData.alerts.length > 5) {
+    dashboardData.alerts.pop(); // Garder seulement les 5 dernières alertes
   }
   
   displayAlerts();
 }
 
+// Check authentication and role
+function checkAdminAuth() {
+  if (!apiClient.isAuthenticated()) {
+    window.location.href = '../Acceuil/acceuil.html?login=true';
+    return false;
+  }
+  
+  if (!apiClient.isAdmin()) {
+    APIUtils.showNotification('Accès non autorisé. Cette page est réservée aux administrateurs.', 'error');
+    window.location.href = '../qr code/qr.html';
+    return false;
+  }
+  
+  return true;
+}
+
 // Initialisation au chargement de la page
-document.addEventListener('DOMContentLoaded', () => {
-  displayQueues();
-  displayAlerts();
-  updateStats();
+document.addEventListener('DOMContentLoaded', async () => {
+  // Check authentication and authorization
+  if (!checkAdminAuth()) {
+    return;
+  }
+  
+  // Load initial data
+  await loadDashboardData();
   
   // Actualiser les données toutes les 30 secondes
   setInterval(refreshData, 30000);
   
-  // Ajouter une alerte de test toutes les 2 minutes
-  setInterval(() => {
-    const alertTypes = ['info', 'warning', 'success'];
-    const randomType = alertTypes[Math.floor(Math.random() * alertTypes.length)];
-    const messages = [
-      'Nouveau patient arrivé',
-      'Service temporairement fermé',
-      'Médecin disponible',
-      'File d\'attente réduite'
-    ];
-    const randomMessage = messages[Math.floor(Math.random() * messages.length)];
-    
-    addAlert(randomType, randomMessage);
-  }, 120000);
+  console.log('Dashboard initialized for admin user');
 });
 
 // Fonction pour exporter les données (pour les rapports)
 function exportDashboardData() {
   const data = {
     timestamp: new Date().toISOString(),
-    queues: mockQueues,
-    alerts: mockAlerts,
-    stats: {
-      totalWaiting: mockQueues.reduce((sum, queue) => sum + queue.waitingCount, 0),
-      activeServices: mockQueues.length,
-      avgWaitTime: Math.round(mockQueues.reduce((sum, queue) => {
-        const time = parseInt(queue.avgWaitTime);
-        return sum + time;
-      }, 0) / mockQueues.length)
-    }
+    services: dashboardData.services,
+    alerts: dashboardData.alerts,
+    stats: dashboardData.stats
   };
   
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -181,5 +173,22 @@ function exportDashboardData() {
   URL.revokeObjectURL(url);
 }
 
-// Exposer la fonction d'export globalement
-window.exportDashboardData = exportDashboardData; 
+// Logout function
+async function handleLogout() {
+  if (confirm('Êtes-vous sûr de vouloir vous déconnecter ?')) {
+    try {
+      await apiClient.logout();
+      APIUtils.showNotification('Déconnexion réussie', 'success');
+      window.location.href = '../Acceuil/acceuil.html';
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Force logout even if backend call fails
+      apiClient.removeToken();
+      window.location.href = '../Acceuil/acceuil.html';
+    }
+  }
+}
+
+// Exposer les fonctions globalement
+window.exportDashboardData = exportDashboardData;
+window.handleLogout = handleLogout; 

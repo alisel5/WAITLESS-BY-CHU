@@ -11,7 +11,7 @@ from database import get_db
 from models import Ticket, Service, User, TicketStatus, ServicePriority, QueueLog
 from schemas import (
     TicketCreate, TicketJoinOnline, TicketUpdate, TicketResponse, 
-    TicketSimpleResponse, QRCodeScan, UserCreate
+    TicketSimpleResponse, QRCodeScan, QRScanResponse, UserCreate
 )
 from auth import get_current_active_user, get_admin_user, get_password_hash
 
@@ -168,8 +168,18 @@ async def scan_to_join_queue(
     # Update service waiting count
     service.current_waiting = service.current_waiting + 1
     
+    # Commit first to get ticket ID
     db.commit()
     db.refresh(db_ticket)
+    
+    # Log the action after getting ticket ID
+    queue_log = QueueLog(
+        ticket_id=db_ticket.id,
+        action="joined_via_qr_scan",
+        details=f"Patient {patient_name} joined queue via QR scan for {service.name}"
+    )
+    db.add(queue_log)
+    db.commit()
     
     # Log the action after ticket is committed
     queue_log = QueueLog(
@@ -190,7 +200,7 @@ async def scan_to_join_queue(
     )
 
 
-@router.post("/scan", response_model=Dict[str, Any])
+@router.post("/scan", response_model=QRScanResponse)
 async def scan_qr_code(qr_data: QRCodeScan, db: Session = Depends(get_db)):
     """Process QR code scan - handles both ticket QR codes and service QR codes."""
     try:

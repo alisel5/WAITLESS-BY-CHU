@@ -176,6 +176,22 @@ class QRCodeScan(BaseModel):
     qr_data: str
 
 
+# Flexible QR scan response
+class QRScanResponse(BaseModel):
+    type: str  # "service_join" or "ticket_status"
+    service_id: Optional[int] = None
+    service_name: Optional[str] = None
+    location: Optional[str] = None
+    current_waiting: Optional[int] = None
+    avg_wait_time: Optional[int] = None
+    message: Optional[str] = None
+    ticket_number: Optional[str] = None
+    position_in_queue: Optional[int] = None
+    estimated_wait_time: Optional[int] = None
+    status: Optional[TicketStatus] = None
+    qr_code: Optional[str] = None
+
+
 class PatientCreate(BaseModel):
     firstName: str
     lastName: str

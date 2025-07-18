@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>WaitLess - Accueil</title>
   <link rel="stylesheet" href="acceuil.css" />
+  <link rel="stylesheet" href="../shared/api.css" />
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet" />
 </head>
 <body>
@@ -40,10 +41,11 @@
     <div class="modal">
       <span class="close-btn" onclick="closeModal()">&times;</span>
       <h2>Connexion</h2>
-      <form>
-        <input type="email" placeholder="Adresse email" required>
-        <input type="password" placeholder="Mot de passe" required>
+      <form id="loginForm">
+        <input type="email" id="loginEmail" placeholder="Adresse email" required>
+        <input type="password" id="loginPassword" placeholder="Mot de passe" required>
         <button type="submit">Se connecter</button>
+        <div id="loginError" class="error" style="display: none;"></div>
         <p class="link-text">
           <a href="../signup/signup.html">Créer un compte</a> |
           <a href="../signup/mdpoublier.html">Mot de passe oublié ?</a>
@@ -102,6 +104,7 @@
     <p>© 2025 WaitLess. Tous droits réservés.</p>
   </footer>
 
+  <script src="../shared/api.js"></script>
   <script src="acceuil.js"></script>
 </body>
 </html>

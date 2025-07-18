@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Rejoindre la Queue - WaitLess</title>
   <link rel="stylesheet" href="qr.css" />
+  <link rel="stylesheet" href="../shared/api.css" />
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
@@ -18,9 +19,10 @@
     <nav>
       <ul>
         <li><a href="../Acceuil/acceuil.html">Accueil</a></li>
-        <li><a href="../qr code/qr.html">Rejoindre</a></li>
+        <li><a href="../qr code/qr.html" class="active">Rejoindre</a></li>
         <li><a href="../tickets/ticket.html">Suivi</a></li>
         <li><a href="#contact">Contact</a></li>
+        <li><a href="#" onclick="handleLogout()" id="logoutLink" style="color: #ff6b6b; display: none;">Déconnexion</a></li>
       </ul>
     </nav>
   </header>
@@ -214,6 +216,7 @@
   </footer>
 
   <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <script src="../shared/api.js"></script>
   <script src="qr.js"></script>
 </body>
 </html>

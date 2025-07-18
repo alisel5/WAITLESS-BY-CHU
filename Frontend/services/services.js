@@ -1,94 +1,116 @@
-// Données simulées pour les services
-let services = [
-  {
-    id: 1,
-    name: "Cardiologie",
-    location: "Bâtiment A - 2ème étage",
-    maxWaitTime: 30,
-    priority: "high",
-    status: "active",
-    description: "Service de cardiologie pour les consultations et examens cardiaques",
-    currentWaiting: 8,
-    avgWaitTime: 25
-  },
-  {
-    id: 2,
-    name: "Dermatologie",
-    location: "Bâtiment B - 1er étage",
-    maxWaitTime: 20,
-    priority: "medium",
-    status: "active",
-    description: "Consultations dermatologiques et traitements de la peau",
-    currentWaiting: 12,
-    avgWaitTime: 18
-  },
-  {
-    id: 3,
-    name: "Pédiatrie",
-    location: "Bâtiment C - Rez-de-chaussée",
-    maxWaitTime: 15,
-    priority: "high",
-    status: "active",
-    description: "Soins pédiatriques et consultations enfants",
-    currentWaiting: 5,
-    avgWaitTime: 15
-  },
-  {
-    id: 4,
-    name: "Radiologie",
-    location: "Bâtiment D - Sous-sol",
-    maxWaitTime: 45,
-    priority: "medium",
-    status: "active",
-    description: "Examens radiologiques et imagerie médicale",
-    currentWaiting: 3,
-    avgWaitTime: 30
-  },
-  {
-    id: 5,
-    name: "Urgences",
-    location: "Bâtiment Principal - Rez-de-chaussée",
-    maxWaitTime: 10,
-    priority: "high",
-    status: "emergency",
-    description: "Service d'urgences médicales 24h/24",
-    currentWaiting: 15,
-    avgWaitTime: 8
+// Services data from backend
+let services = [];
+let currentFilter = 'all';
+
+// Check authentication and role
+function checkAdminAuth() {
+  if (!apiClient.isAuthenticated()) {
+    window.location.href = '../Acceuil/acceuil.html?login=true';
+    return false;
   }
-];
+  
+  if (!apiClient.isAdmin()) {
+    APIUtils.showNotification('Accès non autorisé. Cette page est réservée aux administrateurs.', 'error');
+    window.location.href = '../qr code/qr.html';
+    return false;
+  }
+  
+  return true;
+}
+
+// Load services data from backend
+async function loadServices() {
+  try {
+    APIUtils.showLoading(document.getElementById('servicesGrid'));
+    
+    const servicesData = await apiClient.getServices();
+    if (servicesData) {
+      services = servicesData;
+      displayServices();
+    }
+  } catch (error) {
+    console.error('Error loading services:', error);
+    APIUtils.showError(document.getElementById('servicesGrid'), 'Erreur lors du chargement des services');
+    APIUtils.showNotification('Erreur de connexion au serveur', 'error');
+  }
+}
 
 // Fonction pour afficher les services
 function displayServices() {
   const servicesGrid = document.getElementById('servicesGrid');
   
-  servicesGrid.innerHTML = services.map(service => `
+  if (!services || services.length === 0) {
+    servicesGrid.innerHTML = '<p>Aucun service disponible</p>';
+    return;
+  }
+  
+  const filteredServices = filterServicesData(services);
+  
+  servicesGrid.innerHTML = filteredServices.map(service => `
     <div class="service-card" data-id="${service.id}">
       <div class="service-header">
         <div class="service-title">
           <h3>${service.name}</h3>
           <span class="service-priority ${service.priority}">
-            ${service.priority === 'high' ? 'Haute' : service.priority === 'medium' ? 'Moyenne' : 'Basse'} Priorité
+            ${getPriorityText(service.priority)} Priorité
           </span>
         </div>
         <div class="service-status ${service.status}">
-          ${service.status === 'active' ? 'Actif' : service.status === 'inactive' ? 'Inactif' : 'Urgence'}
+          ${getStatusText(service.status)}
         </div>
       </div>
       
       <div class="service-info">
         <p><strong>📍 Localisation:</strong> ${service.location}</p>
-        <p><strong>⏱️ Temps max:</strong> ${service.maxWaitTime} minutes</p>
-        <p><strong>👥 En attente:</strong> ${service.currentWaiting} patients</p>
-        <p><strong>📊 Temps moyen:</strong> ${service.avgWaitTime} minutes</p>
+        <p><strong>⏱️ Temps max:</strong> ${service.max_wait_time} minutes</p>
+        <p><strong>👥 En attente:</strong> ${service.current_waiting} patients</p>
+        <p><strong>📊 Temps moyen:</strong> ${APIUtils.formatWaitTime(service.avg_wait_time)}</p>
         <p><strong>📝 Description:</strong> ${service.description}</p>
       </div>
       
       <div class="service-actions">
+        <button class="qr-btn" onclick="showServiceQR(${service.id}, '${service.name}')">🔳 QR Code</button>
         <button class="edit-btn" onclick="editService(${service.id})">Modifier</button>
         <button class="delete-btn" onclick="deleteService(${service.id})">Supprimer</button>
       </div>
     </div>
   `).join('');
+}
+
+// Filter services based on current filter
+function filterServicesData(servicesArray) {
+  return servicesArray.filter(service => {
+    switch (currentFilter) {
+      case 'active':
+        return service.status === 'active';
+      case 'emergency':
+        return service.status === 'emergency';
+      case 'high-priority':
+        return service.priority === 'high';
+      case 'all':
+      default:
+        return true;
+    }
+  });
+}
+
+// Helper functions
+function getPriorityText(priority) {
+  switch (priority) {
+    case 'high': return 'Haute';
+    case 'medium': return 'Moyenne';
+    case 'low': return 'Basse';
+    default: return priority;
+  }
+}
+
+function getStatusText(status) {
+  switch (status) {
+    case 'active': return 'Actif';
+    case 'inactive': return 'Inactif';
+    case 'emergency': return 'Urgence';
+    default: return status;
+  }
 }
 
 // Fonction pour ouvrir le modal d'ajout
@@ -101,6 +123,12 @@ function openAddServiceModal() {
 function closeModal() {
   document.getElementById('addServiceModal').style.display = 'none';
   document.getElementById('editServiceModal').style.display = 'none';
+  
+  // Clear any error messages
+  const errorElements = document.querySelectorAll('.error');
+  errorElements.forEach(element => {
+    element.style.display = 'none';
+  });
 }
 
 // Fonction pour éditer un service
@@ -112,8 +140,9 @@ function editService(serviceId) {
   document.getElementById('editServiceId').value = service.id;
   document.getElementById('editServiceName').value = service.name;
   document.getElementById('editServiceLocation').value = service.location;
-  document.getElementById('editMaxWaitTime').value = service.maxWaitTime;
+  document.getElementById('editMaxWaitTime').value = service.max_wait_time;
   document.getElementById('editServicePriority').value = service.priority;
+  document.getElementById('editServiceStatus').value = service.status;
   document.getElementById('editServiceDescription').value = service.description;
   
   // Afficher le modal
@@ -121,136 +150,76 @@ function editService(serviceId) {
 }
 
 // Fonction pour supprimer un service
-function deleteService(serviceId) {
-  if (confirm('Êtes-vous sûr de vouloir supprimer ce service ?')) {
-    services = services.filter(s => s.id !== serviceId);
-    displayServices();
-    showNotification('Service supprimé avec succès', 'success');
+async function deleteService(serviceId) {
+  if (!confirm('Êtes-vous sûr de vouloir supprimer ce service ?')) {
+    return;
+  }
+  
+  try {
+    await apiClient.deleteService(serviceId);
+    APIUtils.showNotification('Service supprimé avec succès', 'success');
+    await loadServices(); // Reload services
+  } catch (error) {
+    console.error('Error deleting service:', error);
+    APIUtils.showNotification('Erreur lors de la suppression du service', 'error');
   }
 }
 
 // Fonction pour ajouter un nouveau service
-function addService(formData) {
-  const newService = {
-    id: Date.now(),
-    name: formData.get('serviceName'),
-    location: formData.get('serviceLocation'),
-    maxWaitTime: parseInt(formData.get('maxWaitTime')),
-    priority: formData.get('servicePriority'),
-    status: 'active',
-    description: formData.get('serviceDescription') || 'Aucune description',
-    currentWaiting: 0,
-    avgWaitTime: 0
-  };
-  
-  services.push(newService);
-  displayServices();
-  closeModal();
-  showNotification('Service ajouté avec succès', 'success');
+async function addService(formData) {
+  try {
+    const serviceData = {
+      name: formData.get('serviceName'),
+      description: formData.get('serviceDescription') || 'Aucune description',
+      location: formData.get('serviceLocation'),
+      max_wait_time: parseInt(formData.get('maxWaitTime')),
+      priority: formData.get('servicePriority'),
+      status: 'active' // Default to active
+    };
+    
+    await apiClient.createService(serviceData);
+    APIUtils.showNotification('Service ajouté avec succès', 'success');
+    closeModal();
+    await loadServices(); // Reload services
+  } catch (error) {
+    console.error('Error adding service:', error);
+    APIUtils.showNotification('Erreur lors de l\'ajout du service', 'error');
+  }
 }
 
 // Fonction pour modifier un service
-function updateService(formData) {
-  const serviceId = parseInt(formData.get('editServiceId'));
-  const serviceIndex = services.findIndex(s => s.id === serviceId);
-  
-  if (serviceIndex === -1) return;
-  
-  services[serviceIndex] = {
-    ...services[serviceIndex],
-    name: formData.get('editServiceName'),
-    location: formData.get('editServiceLocation'),
-    maxWaitTime: parseInt(formData.get('editMaxWaitTime')),
-    priority: formData.get('editServicePriority'),
-    description: formData.get('editServiceDescription') || 'Aucune description'
-  };
-  
-  displayServices();
-  closeModal();
-  showNotification('Service modifié avec succès', 'success');
-}
-
-// Fonction pour afficher des notifications
-function showNotification(message, type = 'info') {
-  // Créer une notification temporaire
-  const notification = document.createElement('div');
-  notification.className = `notification ${type}`;
-  notification.textContent = message;
-  notification.style.cssText = `
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    padding: 1rem 2rem;
-    border-radius: 8px;
-    color: white;
-    font-weight: 600;
-    z-index: 10000;
-    animation: slideInRight 0.3s ease-out;
-    background: ${type === 'success' ? '#28a745' : type === 'error' ? '#dc3545' : '#4A90E2'};
-  `;
-  
-  document.body.appendChild(notification);
-  
-  // Supprimer la notification après 3 secondes
-  setTimeout(() => {
-    notification.style.animation = 'slideOutRight 0.3s ease-out';
-    setTimeout(() => {
-      document.body.removeChild(notification);
-    }, 300);
-  }, 3000);
+async function updateService(formData) {
+  try {
+    const serviceId = parseInt(formData.get('editServiceId'));
+    const serviceData = {
+      name: formData.get('editServiceName'),
+      description: formData.get('editServiceDescription'),
+      location: formData.get('editServiceLocation'),
+      max_wait_time: parseInt(formData.get('editMaxWaitTime')),
+      priority: formData.get('editServicePriority'),
+      status: formData.get('editServiceStatus')
+    };
+    
+    await apiClient.updateService(serviceId, serviceData);
+    APIUtils.showNotification('Service modifié avec succès', 'success');
+    closeModal();
+    await loadServices(); // Reload services
+  } catch (error) {
+    console.error('Error updating service:', error);
+    APIUtils.showNotification('Erreur lors de la modification du service', 'error');
+  }
 }
 
 // Fonction pour filtrer les services
 function filterServices(filter) {
-  const filteredServices = services.filter(service => {
-    switch (filter) {
-      case 'active':
-        return service.status === 'active';
-      case 'emergency':
-        return service.status === 'emergency';
-      case 'high-priority':
-        return service.priority === 'high';
-      case 'all':
-      default:
-        return true;
-    }
+  currentFilter = filter;
+  displayServices();
+  
+  // Update active filter button
+  document.querySelectorAll('.filter-btn').forEach(btn => {
+    btn.classList.remove('active');
   });
-  
-  displayFilteredServices(filteredServices);
-}
-
-// Fonction pour afficher les services filtrés
-function displayFilteredServices(filteredServices) {
-  const servicesGrid = document.getElementById('servicesGrid');
-  
-  servicesGrid.innerHTML = filteredServices.map(service => `
-    <div class="service-card" data-id="${service.id}">
-      <div class="service-header">
-        <div class="service-title">
-          <h3>${service.name}</h3>
-          <span class="service-priority ${service.priority}">
-            ${service.priority === 'high' ? 'Haute' : service.priority === 'medium' ? 'Moyenne' : 'Basse'} Priorité
-          </span>
-        </div>
-        <div class="service-status ${service.status}">
-          ${service.status === 'active' ? 'Actif' : service.status === 'inactive' ? 'Inactif' : 'Urgence'}
-        </div>
-      </div>
-      
-      <div class="service-info">
-        <p><strong>📍 Localisation:</strong> ${service.location}</p>
-        <p><strong>⏱️ Temps max:</strong> ${service.maxWaitTime} minutes</p>
-        <p><strong>👥 En attente:</strong> ${service.currentWaiting} patients</p>
-        <p><strong>📊 Temps moyen:</strong> ${service.avgWaitTime} minutes</p>
-        <p><strong>📝 Description:</strong> ${service.description}</p>
-      </div>
-      
-      <div class="service-actions">
-        <button class="edit-btn" onclick="editService(${service.id})">Modifier</button>
-        <button class="delete-btn" onclick="deleteService(${service.id})">Supprimer</button>
-      </div>
-    </div>
-  `).join('');
+  document.querySelector(`[onclick="filterServices('${filter}')"]`).classList.add('active');
 }
 
 // Fonction pour exporter les données des services
@@ -269,23 +238,51 @@ function exportServicesData() {
   URL.revokeObjectURL(url);
 }
 
+// Logout function
+async function handleLogout() {
+  if (confirm('Êtes-vous sûr de vouloir vous déconnecter ?')) {
+    try {
+      await apiClient.logout();
+      APIUtils.showNotification('Déconnexion réussie', 'success');
+      window.location.href = '../Acceuil/acceuil.html';
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Force logout even if backend call fails
+      apiClient.removeToken();
+      window.location.href = '../Acceuil/acceuil.html';
+    }
+  }
+}
+
 // Gestionnaires d'événements
-document.addEventListener('DOMContentLoaded', () => {
-  displayServices();
+document.addEventListener('DOMContentLoaded', async () => {
+  // Check authentication and authorization
+  if (!checkAdminAuth()) {
+    return;
+  }
+  
+  // Load initial services data
+  await loadServices();
   
   // Gestionnaire pour le formulaire d'ajout
-  document.getElementById('addServiceForm').addEventListener('submit', (e) => {
-    e.preventDefault();
-    const formData = new FormData(e.target);
-    addService(formData);
-  });
+  const addForm = document.getElementById('addServiceForm');
+  if (addForm) {
+    addForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const formData = new FormData(e.target);
+      await addService(formData);
+    });
+  }
   
   // Gestionnaire pour le formulaire d'édition
-  document.getElementById('editServiceForm').addEventListener('submit', (e) => {
-    e.preventDefault();
-    const formData = new FormData(e.target);
-    updateService(formData);
-  });
+  const editForm = document.getElementById('editServiceForm');
+  if (editForm) {
+    editForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const formData = new FormData(e.target);
+      await updateService(formData);
+    });
+  }
   
   // Fermer les modals en cliquant à l'extérieur
   document.querySelectorAll('.modal-overlay').forEach(modal => {
@@ -302,7 +299,93 @@ document.addEventListener('DOMContentLoaded', () => {
       closeModal();
     }
   });
+  
+  console.log('Services page initialized for admin user');
 });
+
+// Show QR code for service
+async function showServiceQR(serviceId, serviceName) {
+  try {
+    const qrCodeUrl = await apiClient.getServiceQRCode(serviceId);
+    if (qrCodeUrl) {
+      // Create QR modal
+      const modal = document.createElement('div');
+      modal.className = 'modal-overlay';
+      modal.innerHTML = `
+        <div class="modal qr-modal">
+          <span class="close-btn" onclick="this.parentElement.parentElement.remove()">&times;</span>
+          <h2>🔳 QR Code - ${serviceName}</h2>
+          <div class="qr-content">
+            <img src="${qrCodeUrl}" alt="QR Code pour ${serviceName}" class="qr-image">
+            <p><strong>Instructions:</strong></p>
+            <ul>
+              <li>Affichez ce QR code à l'entrée de votre service</li>
+              <li>Les patients peuvent le scanner pour rejoindre la file</li>
+              <li>Aucune inscription nécessaire pour les patients</li>
+            </ul>
+            <div class="qr-actions">
+              <button onclick="printQRCode('${qrCodeUrl}', '${serviceName}')" class="print-btn">
+                🖨️ Imprimer
+              </button>
+              <button onclick="downloadQRCode('${qrCodeUrl}', '${serviceName}')" class="download-btn">
+                💾 Télécharger
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(modal);
+    }
+  } catch (error) {
+    console.error('Error loading QR code:', error);
+    APIUtils.showNotification('Erreur lors du chargement du QR code', 'error');
+  }
+}
+
+// Print QR code
+function printQRCode(qrCodeUrl, serviceName) {
+  const printWindow = window.open('', '_blank');
+  printWindow.document.write(`
+    <html>
+      <head>
+        <title>QR Code - ${serviceName}</title>
+        <style>
+          body { text-align: center; padding: 20px; font-family: Arial, sans-serif; }
+          .qr-print { max-width: 400px; margin: 0 auto; }
+          img { width: 300px; height: 300px; }
+          h1 { color: #2c3e50; margin-bottom: 10px; }
+          .instructions { text-align: left; margin-top: 20px; }
+        </style>
+      </head>
+      <body>
+        <div class="qr-print">
+          <h1>🏥 ${serviceName}</h1>
+          <p><strong>Scannez pour rejoindre la file d'attente</strong></p>
+          <img src="${qrCodeUrl}" alt="QR Code ${serviceName}">
+          <div class="instructions">
+            <h3>Instructions pour les patients:</h3>
+            <ol>
+              <li>Scannez ce QR code avec votre téléphone</li>
+              <li>Entrez vos informations (nom, téléphone)</li>
+              <li>Recevez votre numéro de ticket</li>
+              <li>Suivez votre position en temps réel</li>
+            </ol>
+          </div>
+        </div>
+      </body>
+    </html>
+  `);
+  printWindow.document.close();
+  printWindow.print();
+}
+
+// Download QR code
+function downloadQRCode(qrCodeUrl, serviceName) {
+  const link = document.createElement('a');
+  link.download = `qr-code-${serviceName.toLowerCase().replace(/\s/g, '-')}.png`;
+  link.href = qrCodeUrl;
+  link.click();
+}
 
 // Exposer les fonctions globalement
 window.openAddServiceModal = openAddServiceModal;
@@ -310,4 +393,8 @@ window.closeModal = closeModal;
 window.editService = editService;
 window.deleteService = deleteService;
 window.filterServices = filterServices;
-window.exportServicesData = exportServicesData; 
+window.exportServicesData = exportServicesData;
+window.showServiceQR = showServiceQR;
+window.printQRCode = printQRCode;
+window.downloadQRCode = downloadQRCode;
+window.handleLogout = handleLogout; 
