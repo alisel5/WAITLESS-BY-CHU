@@ -1,0 +1,340 @@
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
+from sqlalchemy import and_, func
+from typing import List, Optional
+from datetime import datetime
+from database import get_db
+from models import Ticket, Service, TicketStatus, ServicePriority, QueueLog, User
+from schemas import QueueStatus, QueuePosition, TicketResponse
+from auth import get_admin_user, get_current_active_user
+
+router = APIRouter()
+
+
+@router.get("/service/{service_id}", response_model=QueueStatus)
+async def get_queue_status(service_id: int, db: Session = Depends(get_db)):
+    """Get current queue status for a service."""
+    # Check if service exists
+    service = db.query(Service).filter(Service.id == service_id).first()
+    if not service:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Service not found"
+        )
+    
+    # Get waiting tickets ordered by priority and creation time
+    waiting_tickets = db.query(Ticket).filter(
+        and_(
+            Ticket.service_id == service_id,
+            Ticket.status == TicketStatus.WAITING
+        )
+    ).order_by(Ticket.priority.desc(), Ticket.created_at.asc()).all()
+    
+    # Build queue positions
+    queue_positions = []
+    for i, ticket in enumerate(waiting_tickets, 1):
+        queue_positions.append(QueuePosition(
+            ticket_number=ticket.ticket_number,
+            position=i,
+            estimated_wait_time=ticket.estimated_wait_time
+        ))
+        
+        # Update position in database
+        ticket.position_in_queue = i
+    
+    # Calculate average wait time
+    avg_wait_time = 0
+    if waiting_tickets:
+        total_wait = sum(ticket.estimated_wait_time for ticket in waiting_tickets)
+        avg_wait_time = total_wait // len(waiting_tickets)
+    
+    db.commit()
+    
+    return QueueStatus(
+        service_id=service_id,
+        service_name=service.name,
+        total_waiting=len(waiting_tickets),
+        avg_wait_time=avg_wait_time,
+        queue=queue_positions
+    )
+
+
+@router.get("/my-position", response_model=Optional[QueuePosition])
+async def get_my_position(
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Get current user's position in queue."""
+    # Find user's active ticket
+    ticket = db.query(Ticket).filter(
+        and_(
+            Ticket.patient_id == current_user.id,
+            Ticket.status == TicketStatus.WAITING
+        )
+    ).first()
+    
+    if not ticket:
+        return None
+    
+    return QueuePosition(
+        ticket_number=ticket.ticket_number,
+        position=ticket.position_in_queue,
+        estimated_wait_time=ticket.estimated_wait_time
+    )
+
+
+@router.post("/call-next/{service_id}")
+async def call_next_patient(
+    service_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_admin_user)
+):
+    """Call the next patient in queue (Admin only)."""
+    # Get next waiting ticket
+    next_ticket = db.query(Ticket).filter(
+        and_(
+            Ticket.service_id == service_id,
+            Ticket.status == TicketStatus.WAITING
+        )
+    ).order_by(Ticket.priority.desc(), Ticket.created_at.asc()).first()
+    
+    if not next_ticket:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No patients waiting in queue"
+        )
+    
+    # Update ticket status to consulting
+    next_ticket.status = TicketStatus.CONSULTING
+    next_ticket.consultation_start = datetime.utcnow()
+    next_ticket.actual_arrival = datetime.utcnow()
+    
+    # Update service waiting count
+    service = db.query(Service).filter(Service.id == service_id).first()
+    if service:
+        service.current_waiting = max(0, service.current_waiting - 1)
+    
+    # Log the action
+    queue_log = QueueLog(
+        ticket_id=next_ticket.id,
+        action="called",
+        details=f"Patient called for consultation by {current_user.full_name}"
+    )
+    db.add(queue_log)
+    
+    # Update positions for remaining tickets
+    remaining_tickets = db.query(Ticket).filter(
+        and_(
+            Ticket.service_id == service_id,
+            Ticket.status == TicketStatus.WAITING
+        )
+    ).order_by(Ticket.priority.desc(), Ticket.created_at.asc()).all()
+    
+    for i, ticket in enumerate(remaining_tickets, 1):
+        ticket.position_in_queue = i
+        # Recalculate estimated wait time
+        ticket.estimated_wait_time = (i - 1) * (service.avg_wait_time if service else 15)
+    
+    db.commit()
+    db.refresh(next_ticket)
+    
+    return {
+        "message": "Next patient called successfully",
+        "ticket": TicketResponse.from_orm(next_ticket),
+        "patient_name": next_ticket.patient.full_name
+    }
+
+
+@router.post("/complete-consultation/{ticket_id}")
+async def complete_consultation(
+    ticket_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_admin_user)
+):
+    """Mark consultation as completed (Admin only)."""
+    ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
+    if not ticket:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Ticket not found"
+        )
+    
+    if ticket.status != TicketStatus.CONSULTING:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Ticket is not in consulting status"
+        )
+    
+    # Update ticket status
+    ticket.status = TicketStatus.COMPLETED
+    ticket.consultation_end = datetime.utcnow()
+    
+    # Calculate actual consultation time for service statistics
+    if ticket.consultation_start:
+        consultation_duration = (ticket.consultation_end - ticket.consultation_start).total_seconds() / 60
+        
+        # Update service average wait time
+        service = db.query(Service).filter(Service.id == ticket.service_id).first()
+        if service:
+            # Simple moving average calculation
+            if service.avg_wait_time == 0:
+                service.avg_wait_time = int(consultation_duration)
+            else:
+                service.avg_wait_time = int((service.avg_wait_time + consultation_duration) / 2)
+    
+    # Log the action
+    queue_log = QueueLog(
+        ticket_id=ticket.id,
+        action="completed",
+        details=f"Consultation completed by {current_user.full_name}"
+    )
+    db.add(queue_log)
+    
+    db.commit()
+    db.refresh(ticket)
+    
+    return {
+        "message": "Consultation marked as completed",
+        "ticket": TicketResponse.from_orm(ticket)
+    }
+
+
+@router.get("/statistics/{service_id}")
+async def get_queue_statistics(
+    service_id: int,
+    db: Session = Depends(get_db)
+):
+    """Get detailed queue statistics for a service."""
+    service = db.query(Service).filter(Service.id == service_id).first()
+    if not service:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Service not found"
+        )
+    
+    # Get ticket counts by status
+    total_tickets = db.query(Ticket).filter(Ticket.service_id == service_id).count()
+    waiting_count = db.query(Ticket).filter(
+        and_(Ticket.service_id == service_id, Ticket.status == TicketStatus.WAITING)
+    ).count()
+    consulting_count = db.query(Ticket).filter(
+        and_(Ticket.service_id == service_id, Ticket.status == TicketStatus.CONSULTING)
+    ).count()
+    completed_count = db.query(Ticket).filter(
+        and_(Ticket.service_id == service_id, Ticket.status == TicketStatus.COMPLETED)
+    ).count()
+    cancelled_count = db.query(Ticket).filter(
+        and_(Ticket.service_id == service_id, Ticket.status == TicketStatus.CANCELLED)
+    ).count()
+    
+    # Get priority breakdown
+    high_priority = db.query(Ticket).filter(
+        and_(
+            Ticket.service_id == service_id,
+            Ticket.priority == ServicePriority.HIGH,
+            Ticket.status == TicketStatus.WAITING
+        )
+    ).count()
+    
+    medium_priority = db.query(Ticket).filter(
+        and_(
+            Ticket.service_id == service_id,
+            Ticket.priority == ServicePriority.MEDIUM,
+            Ticket.status == TicketStatus.WAITING
+        )
+    ).count()
+    
+    low_priority = db.query(Ticket).filter(
+        and_(
+            Ticket.service_id == service_id,
+            Ticket.priority == ServicePriority.LOW,
+            Ticket.status == TicketStatus.WAITING
+        )
+    ).count()
+    
+    return {
+        "service_id": service_id,
+        "service_name": service.name,
+        "total_tickets": total_tickets,
+        "waiting_count": waiting_count,
+        "consulting_count": consulting_count,
+        "completed_count": completed_count,
+        "cancelled_count": cancelled_count,
+        "avg_wait_time": service.avg_wait_time,
+        "priority_breakdown": {
+            "high": high_priority,
+            "medium": medium_priority,
+            "low": low_priority
+        }
+    }
+
+
+@router.get("/all-services")
+async def get_all_queues_overview(db: Session = Depends(get_db)):
+    """Get overview of all service queues."""
+    services = db.query(Service).all()
+    
+    overview = []
+    for service in services:
+        waiting_count = db.query(Ticket).filter(
+            and_(Ticket.service_id == service.id, Ticket.status == TicketStatus.WAITING)
+        ).count()
+        
+        consulting_count = db.query(Ticket).filter(
+            and_(Ticket.service_id == service.id, Ticket.status == TicketStatus.CONSULTING)
+        ).count()
+        
+        overview.append({
+            "service_id": service.id,
+            "service_name": service.name,
+            "status": service.status.value,
+            "waiting_count": waiting_count,
+            "consulting_count": consulting_count,
+            "avg_wait_time": service.avg_wait_time,
+            "location": service.location
+        })
+    
+    return {
+        "services": overview,
+        "total_waiting": sum(s["waiting_count"] for s in overview),
+        "total_consulting": sum(s["consulting_count"] for s in overview)
+    }
+
+
+@router.post("/reorder-queue/{service_id}")
+async def reorder_queue(
+    service_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_admin_user)
+):
+    """Reorder queue based on priority and arrival time (Admin only)."""
+    # Get all waiting tickets for the service
+    waiting_tickets = db.query(Ticket).filter(
+        and_(
+            Ticket.service_id == service_id,
+            Ticket.status == TicketStatus.WAITING
+        )
+    ).order_by(Ticket.priority.desc(), Ticket.created_at.asc()).all()
+    
+    # Update positions
+    for i, ticket in enumerate(waiting_tickets, 1):
+        ticket.position_in_queue = i
+        # Recalculate estimated wait time
+        service = db.query(Service).filter(Service.id == service_id).first()
+        avg_time = service.avg_wait_time if service and service.avg_wait_time > 0 else 15
+        ticket.estimated_wait_time = (i - 1) * avg_time
+    
+    # Log the reordering
+    queue_log = QueueLog(
+        ticket_id=None,
+        action="queue_reordered",
+        details=f"Queue reordered by {current_user.full_name} for service {service_id}"
+    )
+    db.add(queue_log)
+    
+    db.commit()
+    
+    return {
+        "message": f"Queue reordered successfully. {len(waiting_tickets)} tickets updated.",
+        "updated_count": len(waiting_tickets)
+    } 
