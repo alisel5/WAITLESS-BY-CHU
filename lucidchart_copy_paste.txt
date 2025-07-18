@@ -1,0 +1,116 @@
+🏥 WAITLESS-CHU System Architecture
+
+👤 Patient
+(Utilisateur)
+
+🖥️ Frontend
+(Vanilla JS)
+
+⚙️ Backend
+(FastAPI)
+
+🗄️ Database
+(PostgreSQL)
+
+👨‍⚕️ Medical Staff
+(Personnel)
+
+🛡️ Admin
+(Administrateur)
+
+📱 Scan QR Code + Enter Info
+
+🔐 POST /api/auth/login
+
+✅ JWT Token
+
+🎫 Digital Ticket + Queue Position
+
+📊 GET /api/queue/status
+
+📍 Real-time Position Updates
+
+🎯 POST /api/tickets/create
+
+✅ Ticket Created
+
+🆔 Ticket Generation
+
+🔐 Login to Dashboard
+
+🔑 POST /api/auth/staff-login
+
+✅ Staff JWT Token
+
+📊 Access Dashboard
+
+📋 Manage Queue (Next Patient)
+
+🎯 PUT /api/queue/next
+
+✅ Queue Updated
+
+📊 Updated Queue Status
+
+📈 View Analytics
+
+📊 GET /api/admin/reports
+
+📈 Analytics Data
+
+📊 Reports & Analytics
+
+🔐 Admin Login
+
+🔑 POST /api/auth/admin-login
+
+✅ Admin JWT Token
+
+⚙️ System Configuration
+
+🏥 Manage Services
+
+⚙️ POST /api/admin/services
+
+✅ Service Configuration
+
+✅ Services Updated
+
+👥 User Management
+
+👤 GET/POST /api/admin/users
+
+👥 User Data
+
+👥 User List & Roles
+
+📊 Database Operations
+
+🎯 Key Features:
+• QR Scan-to-Join (No app required)
+• Real-time Queue Management
+• JWT Authentication
+• Role-based Access Control
+• Smart Wait Time Estimation
+• Comprehensive Analytics
+
+🏗️ Technical Stack:
+Frontend: Vanilla JS + Modern CSS
+Backend: FastAPI + PostgreSQL
+Security: JWT + CORS
+Features: QR Codes + Real-time Updates
+
+📱 API Endpoints:
+/api/auth/ - Authentication
+/api/services/ - Service Management
+/api/tickets/ - Ticket Operations
+/api/queue/ - Queue Management
+/api/admin/ - Admin Operations
+/api/tickets-qr/ - QR Features
+
+📊 Database Tables:
+• Users
+• Services
+• Tickets
+• Queue
+• Analytics
