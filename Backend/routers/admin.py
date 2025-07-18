@@ -22,8 +22,8 @@ async def get_dashboard_stats(
         total_waiting = db.query(Ticket).filter(Ticket.status == TicketStatus.WAITING).count()
         total_consulting = db.query(Ticket).filter(Ticket.status == TicketStatus.CONSULTING).count()
         
-        # Get average wait time (in minutes)
-        avg_wait_time = db.query(func.avg(Ticket.wait_time)).scalar() or 0
+        # Get average wait time (in minutes) - using estimated_wait_time instead of wait_time
+        avg_wait_time = db.query(func.avg(Ticket.estimated_wait_time)).scalar() or 0
         avg_wait_time = int(avg_wait_time) if avg_wait_time else 0
         
         # Get active services count
@@ -35,13 +35,45 @@ async def get_dashboard_stats(
             func.date(Ticket.created_at) == today
         ).count()
         
-        # Get recent alerts (tickets waiting more than 2 hours)
+        # Get recent alerts (tickets waiting more than 2 hours) - using estimated_wait_time
         long_waiting = db.query(Ticket).filter(
             and_(
                 Ticket.status == TicketStatus.WAITING,
-                Ticket.wait_time > 120  # 2 hours
+                Ticket.estimated_wait_time > 120  # 2 hours
             )
         ).count()
+        
+        # Get active services with their queue information for the frontend
+        active_services_data = db.query(Service).filter(Service.status == ServiceStatus.ACTIVE).all()
+        services = []
+        
+        for service in active_services_data:
+            # Count waiting tickets for this service
+            waiting_count = db.query(Ticket).filter(
+                and_(
+                    Ticket.service_id == service.id,
+                    Ticket.status == TicketStatus.WAITING
+                )
+            ).count()
+            
+            # Calculate average wait time for this service
+            service_avg_wait = db.query(func.avg(Ticket.estimated_wait_time)).filter(
+                and_(
+                    Ticket.service_id == service.id,
+                    Ticket.status == TicketStatus.WAITING
+                )
+            ).scalar() or 0
+            service_avg_wait = int(service_avg_wait) if service_avg_wait else 0
+            
+            services.append({
+                "id": service.id,
+                "name": service.name,
+                "location": service.location,
+                "current_waiting": waiting_count,
+                "avg_wait_time": service_avg_wait,
+                "status": service.status.value,
+                "priority": service.priority.value if service.priority else "medium"
+            })
         
         return {
             "total_waiting": total_waiting,
@@ -50,7 +82,8 @@ async def get_dashboard_stats(
             "active_services": active_services,
             "today_tickets": today_tickets,
             "long_waiting_alerts": long_waiting,
-            "total_patients": total_waiting + total_consulting
+            "total_patients": total_waiting + total_consulting,
+            "services": services  # Add the services array for the frontend
         }
     except Exception as e:
         raise HTTPException(
@@ -72,20 +105,20 @@ async def get_patients(
         patients = []
         for ticket in tickets:
             # Calculate wait time in minutes
-            if ticket.created_at:
+            if ticket.created_at is not None:
                 wait_time = int((datetime.now() - ticket.created_at).total_seconds() / 60)
             else:
                 wait_time = 0
             
             patient_data = {
                 "id": ticket.id,
-                "name": ticket.patient_name,
+                "name": ticket.patient.full_name if ticket.patient else "Patient inconnu",
                 "service": ticket.service.name if ticket.service else "Service inconnu",
                 "status": ticket.status.value,
-                "arrival_time": ticket.created_at.isoformat() if ticket.created_at else None,
+                "arrival_time": ticket.created_at.isoformat() if ticket.created_at is not None else None,
                 "wait_time": wait_time,
                 "priority": ticket.priority.value if ticket.priority else "medium",
-                "phone": ticket.patient_phone,
+                "phone": ticket.patient.phone if ticket.patient else None,
                 "notes": f"Ticket: {ticket.ticket_number}"
             }
             patients.append(patient_data)
@@ -114,11 +147,36 @@ async def create_patient(
                 detail="Service not found"
             )
         
+        # Create or find user for the patient
+        patient_email = patient_data.get("email")
+        if not patient_email:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email is required for patient"
+            )
+        
+        # Check if user exists, if not create one
+        user = db.query(User).filter(User.email == patient_email).first()
+        if not user:
+            # Create new user for the patient
+            from auth import get_password_hash
+            full_name = f"{patient_data.get('first_name', '')} {patient_data.get('last_name', '')}".strip()
+            hashed_password = get_password_hash("patient123")  # Default password
+            
+            user = User(
+                email=patient_email,
+                hashed_password=hashed_password,
+                full_name=full_name,
+                phone=patient_data.get("phone"),
+                role="patient"
+            )
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+        
         # Create ticket for the patient
         ticket = Ticket(
-            patient_name=f"{patient_data.get('first_name', '')} {patient_data.get('last_name', '')}".strip(),
-            patient_phone=patient_data.get("phone"),
-            patient_email=patient_data.get("email"),
+            patient_id=user.id,
             service_id=service.id,
             priority=patient_data.get("priority", "medium"),
             status=TicketStatus.WAITING
@@ -157,15 +215,17 @@ async def update_patient(
                 detail="Patient not found"
             )
         
+        # Update patient user information
+        if ticket.patient is not None:
+            if "first_name" in patient_data or "last_name" in patient_data:
+                first_name = patient_data.get("first_name", "")
+                last_name = patient_data.get("last_name", "")
+                ticket.patient.full_name = f"{first_name} {last_name}".strip()
+            
+            if "phone" in patient_data:
+                ticket.patient.phone = patient_data["phone"]
+        
         # Update ticket fields
-        if "first_name" in patient_data or "last_name" in patient_data:
-            first_name = patient_data.get("first_name", "")
-            last_name = patient_data.get("last_name", "")
-            ticket.patient_name = f"{first_name} {last_name}".strip()
-        
-        if "phone" in patient_data:
-            ticket.patient_phone = patient_data["phone"]
-        
         if "status" in patient_data:
             ticket.status = TicketStatus(patient_data["status"])
         
@@ -223,18 +283,19 @@ async def get_alerts(
     try:
         alerts = []
         
-        # Long waiting tickets
+        # Long waiting tickets - using estimated_wait_time
         long_waiting = db.query(Ticket).filter(
             and_(
                 Ticket.status == TicketStatus.WAITING,
-                Ticket.wait_time > 120  # 2 hours
+                Ticket.estimated_wait_time > 120  # 2 hours
             )
         ).all()
         
         for ticket in long_waiting:
+            patient_name = ticket.patient.full_name if ticket.patient is not None else "Patient inconnu"
             alerts.append({
                 "type": "long_waiting",
-                "message": f"Patient {ticket.patient_name} attend depuis {ticket.wait_time} minutes",
+                "message": f"Patient {patient_name} attend depuis {ticket.estimated_wait_time} minutes",
                 "ticket_id": ticket.id,
                 "severity": "high"
             })
@@ -282,16 +343,16 @@ async def get_daily_reports(
                 func.date(Ticket.created_at) == date
             ).all()
             
-            # Calculate statistics
+            # Calculate statistics - using estimated_wait_time
             total_tickets = len(day_tickets)
             completed_tickets = len([t for t in day_tickets if t.status == TicketStatus.COMPLETED])
-            avg_wait_time = sum(t.wait_time for t in day_tickets) / len(day_tickets) if day_tickets else 0
+            avg_wait_time = sum(t.estimated_wait_time for t in day_tickets) / len(day_tickets) if day_tickets else 0
             
             reports.append({
                 "date": date.strftime("%Y-%m-%d"),
                 "total_tickets": total_tickets,
                 "completed_tickets": completed_tickets,
-                "avg_wait_time": int(avg_wait_time),
+                "avg_wait_time": int(avg_wait_time) if avg_wait_time else 0,
                 "completion_rate": (completed_tickets / total_tickets * 100) if total_tickets > 0 else 0
             })
         

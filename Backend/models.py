@@ -29,6 +29,7 @@ class TicketStatus(enum.Enum):
     CONSULTING = "consulting"
     COMPLETED = "completed"
     CANCELLED = "cancelled"
+    EXPIRED = "expired"
 
 
 class User(Base):
@@ -98,7 +99,7 @@ class QueueLog(Base):
     __tablename__ = "queue_logs"
     
     id = Column(Integer, primary_key=True, index=True)
-    ticket_id = Column(Integer, ForeignKey("tickets.id"), nullable=False)
+    ticket_id = Column(Integer, ForeignKey("tickets.id"), nullable=True)  # Allow null for system actions
     action = Column(String, nullable=False)  # joined, called, completed, cancelled
     timestamp = Column(DateTime(timezone=True), server_default=func.now())
     details = Column(Text, nullable=True)
