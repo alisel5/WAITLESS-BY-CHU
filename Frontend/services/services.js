@@ -70,6 +70,11 @@ function displayServices() {
       
       <div class="service-actions">
         <button class="qr-btn" onclick="showServiceQR(${service.id}, '${service.name}')">🔳 QR Code</button>
+        ${service.current_waiting > 0 ? 
+          `<button class="call-btn" onclick="callNextPatient(${service.id}, '${service.name}')">📞 Appeler Suivant</button>` : 
+          '<button class="call-btn disabled" disabled>📞 Aucun Patient</button>'
+        }
+        <button class="queue-btn" onclick="viewQueue(${service.id}, '${service.name}')">👥 Voir Queue</button>
         <button class="edit-btn" onclick="editService(${service.id})">Modifier</button>
         <button class="delete-btn" onclick="deleteService(${service.id})">Supprimer</button>
       </div>
@@ -238,6 +243,80 @@ function exportServicesData() {
   URL.revokeObjectURL(url);
 }
 
+// Queue Management Functions
+async function callNextPatient(serviceId, serviceName) {
+  if (!confirm(`Appeler le prochain patient pour ${serviceName} ?`)) {
+    return;
+  }
+  
+  try {
+    const result = await apiClient.callNextPatient(serviceId);
+    if (result) {
+      APIUtils.showNotification(`Patient appelé pour ${serviceName}`, 'success');
+      // Refresh the services to update waiting count
+      await loadServices();
+    }
+  } catch (error) {
+    console.error('Error calling next patient:', error);
+    APIUtils.showNotification('Erreur lors de l\'appel du patient', 'error');
+  }
+}
+
+async function viewQueue(serviceId, serviceName) {
+  try {
+    const queueStatus = await apiClient.getQueueStatus(serviceId);
+    showQueueModal(queueStatus, serviceName);
+  } catch (error) {
+    console.error('Error loading queue:', error);
+    APIUtils.showNotification('Erreur lors du chargement de la queue', 'error');
+  }
+}
+
+function showQueueModal(queueStatus, serviceName) {
+  const modal = document.createElement('div');
+  modal.className = 'modal-overlay';
+  modal.innerHTML = `
+    <div class="modal">
+      <div class="modal-header">
+        <h2>Queue: ${serviceName}</h2>
+        <button class="close-btn" onclick="this.closest('.modal-overlay').remove()">&times;</button>
+      </div>
+      <div class="modal-content">
+        <div class="queue-stats">
+          <p><strong>Total en attente:</strong> ${queueStatus.total_waiting}</p>
+          <p><strong>Temps d'attente moyen:</strong> ${APIUtils.formatWaitTime(queueStatus.avg_wait_time)}</p>
+        </div>
+        <div class="queue-list">
+          <h3>Patients en attente:</h3>
+          ${queueStatus.queue && queueStatus.queue.length > 0 ? 
+            queueStatus.queue.map(patient => `
+              <div class="queue-item">
+                <span class="position">${patient.position}</span>
+                <span class="ticket">${patient.ticket_number}</span>
+                <span class="wait-time">${APIUtils.formatWaitTime(patient.estimated_wait_time)}</span>
+              </div>
+            `).join('') : 
+            '<p>Aucun patient en attente</p>'
+          }
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="secondary-btn" onclick="this.closest('.modal-overlay').remove()">Fermer</button>
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(modal);
+  modal.style.display = 'flex';
+  
+  // Close on outside click
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) {
+      modal.remove();
+    }
+  });
+}
+
 // Logout function
 async function handleLogout() {
   if (confirm('Êtes-vous sûr de vouloir vous déconnecter ?')) {
@@ -306,8 +385,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 // Show QR code for service
 async function showServiceQR(serviceId, serviceName) {
   try {
-    const qrCodeUrl = await apiClient.getServiceQRCode(serviceId);
-    if (qrCodeUrl) {
+    const qrResponse = await apiClient.getServiceQRCode(serviceId);
+    if (qrResponse && qrResponse.qr_code) {
       // Create QR modal
       const modal = document.createElement('div');
       modal.className = 'modal-overlay';
@@ -316,7 +395,7 @@ async function showServiceQR(serviceId, serviceName) {
           <span class="close-btn" onclick="this.parentElement.parentElement.remove()">&times;</span>
           <h2>🔳 QR Code - ${serviceName}</h2>
           <div class="qr-content">
-            <img src="${qrCodeUrl}" alt="QR Code pour ${serviceName}" class="qr-image">
+            <img src="${qrResponse.qr_code}" alt="QR Code pour ${serviceName}" class="qr-image">
             <p><strong>Instructions:</strong></p>
             <ul>
               <li>Affichez ce QR code à l'entrée de votre service</li>

@@ -23,7 +23,8 @@ async function loadQRCodes() {
     showLoading(true);
     
     // Get services with QR codes
-    const services = await apiClient.getServicesWithQR();
+    const response = await apiClient.getActiveServicesWithQR();
+    const services = response.services;
     if (services) {
       qrServices = services;
       displayQRCodes();
@@ -95,11 +96,11 @@ function displayQRCodes() {
 // Load individual service QR code
 async function loadServiceQR(serviceId, serviceName) {
   try {
-    const qrCodeUrl = await apiClient.getServiceQRCode(serviceId);
-    if (qrCodeUrl) {
+    const qrResponse = await apiClient.getServiceQRCode(serviceId);
+    if (qrResponse && qrResponse.qr_code) {
       const qrContainer = document.getElementById(`qr-${serviceId}`);
       qrContainer.innerHTML = `
-        <img src="${qrCodeUrl}" alt="QR Code ${serviceName}" class="qr-image">
+        <img src="${qrResponse.qr_code}" alt="QR Code ${serviceName}" class="qr-image">
       `;
     }
   } catch (error) {
@@ -117,10 +118,10 @@ async function loadServiceQR(serviceId, serviceName) {
 // Print single QR code
 async function printSingleQR(serviceId, serviceName) {
   try {
-    const qrCodeUrl = await apiClient.getServiceQRCode(serviceId);
-    if (qrCodeUrl) {
+    const qrResponse = await apiClient.getServiceQRCode(serviceId);
+    if (qrResponse && qrResponse.qr_code) {
       const service = qrServices.find(s => s.id === serviceId);
-      printQRCode(qrCodeUrl, serviceName, service);
+      printQRCode(qrResponse.qr_code, serviceName, service);
     }
   } catch (error) {
     console.error('Error printing QR:', error);
@@ -131,11 +132,11 @@ async function printSingleQR(serviceId, serviceName) {
 // Download single QR code
 async function downloadSingleQR(serviceId, serviceName) {
   try {
-    const qrCodeUrl = await apiClient.getServiceQRCode(serviceId);
-    if (qrCodeUrl) {
+    const qrResponse = await apiClient.getServiceQRCode(serviceId);
+    if (qrResponse && qrResponse.qr_code) {
       const link = document.createElement('a');
       link.download = `qr-code-${serviceName.toLowerCase().replace(/\s/g, '-')}.png`;
-      link.href = qrCodeUrl;
+      link.href = qrResponse.qr_code;
       link.click();
     }
   } catch (error) {
@@ -147,8 +148,8 @@ async function downloadSingleQR(serviceId, serviceName) {
 // Preview QR code in modal
 async function previewQR(serviceId, serviceName) {
   try {
-    const qrCodeUrl = await apiClient.getServiceQRCode(serviceId);
-    if (qrCodeUrl) {
+    const qrResponse = await apiClient.getServiceQRCode(serviceId);
+    if (qrResponse && qrResponse.qr_code) {
       const service = qrServices.find(s => s.id === serviceId);
       
       // Create preview modal
@@ -159,7 +160,7 @@ async function previewQR(serviceId, serviceName) {
           <span class="close-btn" onclick="this.parentElement.parentElement.remove()">&times;</span>
           <h2>🔳 Aperçu QR Code - ${serviceName}</h2>
           <div class="qr-preview-content">
-            <img src="${qrCodeUrl}" alt="QR Code ${serviceName}" class="qr-preview-image">
+            <img src="${qrResponse.qr_code}" alt="QR Code ${serviceName}" class="qr-preview-image">
             <div class="service-details">
               <h3>${serviceName}</h3>
               <p><strong>Localisation:</strong> ${service.location}</p>
@@ -264,21 +265,23 @@ async function printAllQRCodes() {
     // Add each QR code
     for (const service of qrServices) {
       try {
-        const qrCodeUrl = await apiClient.getServiceQRCode(service.id);
-        printContent += `
-          <div class="qr-item">
-            <h3>${service.name}</h3>
-            <div class="location">📍 ${service.location}</div>
-            <img src="${qrCodeUrl}" alt="QR Code ${service.name}">
-            <div class="instructions">
-              <strong>Instructions:</strong><br>
-              1. Scannez avec votre téléphone<br>
-              2. Entrez vos informations<br>
-              3. Recevez votre ticket<br>
-              4. Suivez votre position
+        const qrResponse = await apiClient.getServiceQRCode(service.id);
+        if (qrResponse && qrResponse.qr_code) {
+          printContent += `
+            <div class="qr-item">
+              <h3>${service.name}</h3>
+              <div class="location">📍 ${service.location}</div>
+              <img src="${qrResponse.qr_code}" alt="QR Code ${service.name}">
+              <div class="instructions">
+                <strong>Instructions:</strong><br>
+                1. Scannez avec votre téléphone<br>
+                2. Entrez vos informations<br>
+                3. Recevez votre ticket<br>
+                4. Suivez votre position
+              </div>
             </div>
-          </div>
-        `;
+          `;
+        }
       } catch (error) {
         console.error(`Error loading QR for ${service.name}:`, error);
       }

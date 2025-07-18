@@ -11,6 +11,7 @@ class UserCreate(BaseModel):
     full_name: str
     phone: Optional[str] = None
     role: UserRole = UserRole.PATIENT
+    assigned_service_id: Optional[int] = None  # For staff/doctors
 
 
 class UserLogin(BaseModel):
@@ -24,6 +25,7 @@ class UserResponse(BaseModel):
     full_name: str
     phone: Optional[str]
     role: UserRole
+    assigned_service_id: Optional[int]
     is_active: bool
     created_at: datetime
     

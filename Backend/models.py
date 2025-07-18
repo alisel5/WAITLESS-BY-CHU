@@ -7,8 +7,9 @@ import enum
 
 class UserRole(enum.Enum):
     PATIENT = "patient"
-    ADMIN = "admin"
-    DOCTOR = "doctor"
+    ADMIN = "admin"  # Full system access
+    STAFF = "staff"  # Department secretary/nurse
+    DOCTOR = "doctor"  # Medical staff
 
 
 class ServicePriority(enum.Enum):
@@ -39,12 +40,14 @@ class User(Base):
     full_name = Column(String, nullable=False)
     phone = Column(String, nullable=True)
     role = Column(Enum(UserRole), default=UserRole.PATIENT)
+    assigned_service_id = Column(Integer, ForeignKey("services.id"), nullable=True)  # For staff/doctors
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
     # Relationships
     tickets = relationship("Ticket", back_populates="patient")
+    assigned_service = relationship("Service", foreign_keys=[assigned_service_id])
 
 
 class Service(Base):

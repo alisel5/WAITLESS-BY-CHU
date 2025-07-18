@@ -49,7 +49,19 @@ class APIClient {
     // Check if user is admin
     isAdmin() {
         const user = this.getCurrentUser();
-        return user && (user.role === 'admin' || user.role === 'doctor');
+        return user && user.role === 'admin';
+    }
+
+    // Check if current user is staff (admin, staff, or doctor)
+    isStaff() {
+        const user = this.getCurrentUser();
+        return user && ['admin', 'staff', 'doctor'].includes(user.role);
+    }
+
+    // Check if current user can manage queues (admin or staff)
+    canManageQueues() {
+        const user = this.getCurrentUser();
+        return user && ['admin', 'staff'].includes(user.role);
     }
 
     // HTTP request helper
@@ -82,14 +94,64 @@ class APIClient {
             const data = await response.json();
 
             if (!response.ok) {
-                throw new Error(data.detail || `HTTP error! status: ${response.status}`);
+                const errorMessage = this.getErrorMessage(response.status, data);
+                const error = new Error(errorMessage);
+                error.status = response.status;
+                error.originalData = data;
+                throw error;
             }
 
             return data;
         } catch (error) {
             console.error('API Request failed:', error);
+            
+            // Network errors
+            if (!error.status) {
+                error.message = 'Problème de connexion. Vérifiez votre connexion internet.';
+            }
+            
             throw error;
         }
+    }
+
+    // Get user-friendly error messages in French
+    getErrorMessage(status, errorData = null) {
+        const messages = {
+            400: 'Données invalides. Vérifiez vos informations.',
+            401: 'Session expirée. Veuillez vous reconnecter.',
+            403: 'Accès non autorisé.',
+            404: 'Ressource non trouvée.',
+            409: 'Conflit détecté. Cette action ne peut pas être effectuée.',
+            422: 'Données de validation incorrectes.',
+            429: 'Trop de tentatives. Veuillez réessayer plus tard.',
+            500: 'Erreur du serveur. Veuillez réessayer.',
+            503: 'Service temporairement indisponible.'
+        };
+
+        if (errorData && errorData.detail) {
+            // Try to translate common error details
+            const detail = errorData.detail.toLowerCase();
+            if (detail.includes('email') && detail.includes('already')) {
+                return 'Cette adresse email est déjà utilisée.';
+            }
+            if (detail.includes('password') || detail.includes('incorrect')) {
+                return 'Email ou mot de passe incorrect.';
+            }
+            if (detail.includes('inactive')) {
+                return 'Votre compte est désactivé.';
+            }
+            if (detail.includes('not found')) {
+                return 'Élément non trouvé.';
+            }
+            if (detail.includes('active ticket')) {
+                return 'Vous avez déjà un ticket actif.';
+            }
+            if (detail.includes('service') && detail.includes('inactive')) {
+                return 'Ce service est actuellement indisponible.';
+            }
+        }
+
+        return messages[status] || 'Une erreur inattendue est survenue.';
     }
 
     // Authentication APIs
@@ -195,6 +257,10 @@ class APIClient {
         return await this.makeRequest('/api/tickets/my-tickets');
     }
 
+    async getTicketStatus(ticketNumber) {
+        return await this.makeRequest(`/api/tickets/${ticketNumber}`);
+    }
+
     async scanQR(qrData) {
         return await this.makeRequest('/api/tickets/scan', {
             method: 'POST',
@@ -293,6 +359,28 @@ const APIUtils = {
         }
     },
 
+    // Enhanced error handling with context
+    handleError(error, context = '', showNotification = true) {
+        console.error(`Error in ${context}:`, error);
+        
+        let message = error.message || 'Une erreur est survenue';
+        
+        // Add context-specific messages
+        if (context.includes('login')) {
+            message = 'Impossible de se connecter. Vérifiez vos identifiants.';
+        } else if (context.includes('join') || context.includes('queue')) {
+            message = 'Impossible de rejoindre la file. Réessayez.';
+        } else if (context.includes('load') || context.includes('fetch')) {
+            message = 'Impossible de charger les données. Actualisez la page.';
+        }
+        
+        if (showNotification) {
+            this.showNotification(message, 'error');
+        }
+        
+        return message;
+    },
+
     // Format date for display
     formatDate(dateString) {
         return new Date(dateString).toLocaleDateString('fr-FR', {
@@ -329,6 +417,27 @@ const APIUtils = {
         setTimeout(() => {
             notification.remove();
         }, 3000);
+    },
+
+    // Real-time status tracker
+    startStatusTracking(ticketNumber, callback, intervalMs = 30000) {
+        const updateStatus = async () => {
+            try {
+                const ticket = await apiClient.getTicketStatus(ticketNumber);
+                callback(ticket);
+            } catch (error) {
+                console.error('Status update failed:', error);
+            }
+        };
+
+        // Initial update
+        updateStatus();
+        
+        // Set up interval
+        const intervalId = setInterval(updateStatus, intervalMs);
+        
+        // Return function to stop tracking
+        return () => clearInterval(intervalId);
     }
 };
 

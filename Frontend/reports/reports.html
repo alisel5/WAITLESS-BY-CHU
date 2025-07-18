@@ -61,11 +61,15 @@
         <i class="fas fa-chart-line"></i>
         Générer le rapport
       </button>
+      <button class="export-btn" onclick="exportReportsData()">
+        <i class="fas fa-download"></i>
+        Exporter
+      </button>
     </div>
 
     <!-- STATISTIQUES PRINCIPALES -->
     <div class="stats-overview">
-      <div class="stat-card">
+      <div class="stat-card" data-stat="patients-treated">
         <div class="stat-icon">
           <i class="fas fa-users"></i>
         </div>
@@ -75,7 +79,7 @@
           <div class="stat-change positive">+12.5% vs mois dernier</div>
         </div>
       </div>
-      <div class="stat-card">
+      <div class="stat-card" data-stat="avg-wait-time">
         <div class="stat-icon">
           <i class="fas fa-clock"></i>
         </div>
@@ -85,7 +89,7 @@
           <div class="stat-change negative">+2.1 min vs mois dernier</div>
         </div>
       </div>
-      <div class="stat-card">
+      <div class="stat-card" data-stat="satisfaction">
         <div class="stat-icon">
           <i class="fas fa-star"></i>
         </div>
@@ -95,7 +99,7 @@
           <div class="stat-change positive">+0.3 vs mois dernier</div>
         </div>
       </div>
-      <div class="stat-card">
+      <div class="stat-card" data-stat="efficiency">
         <div class="stat-icon">
           <i class="fas fa-chart-bar"></i>
         </div>

@@ -40,12 +40,22 @@ async function initializePage() {
   // Animation d'entrée
   animatePageLoad();
   
-  // Load user's tickets if authenticated
-  if (apiClient.isAuthenticated()) {
-    await loadUserTickets();
+  // Check for ticket parameter in URL
+  const urlParams = new URLSearchParams(window.location.search);
+  const ticketParam = urlParams.get('ticket');
+  
+  if (ticketParam) {
+    // Load specific ticket from URL parameter
+    console.log('Loading ticket from URL parameter:', ticketParam);
+    await loadTicketByNumber(ticketParam);
   } else {
-    // Load any tickets from localStorage for non-authenticated users
-    loadLocalStorageTickets();
+    // Load user's tickets if authenticated
+    if (apiClient.isAuthenticated()) {
+      await loadUserTickets();
+    } else {
+      // Load any tickets from localStorage for non-authenticated users
+      loadLocalStorageTickets();
+    }
   }
 }
 
@@ -453,7 +463,107 @@ document.addEventListener('visibilitychange', function() {
   }
 });
 
+// Refresh ticket function (called from HTML)
+async function refreshTicket() {
+  await refreshTicketData();
+}
+
+// Share ticket function
+function shareTicket() {
+  if (!currentTicket) {
+    APIUtils.showNotification('Aucun ticket à partager', 'warning');
+    return;
+  }
+  
+  const shareData = {
+    title: 'Mon ticket WaitLess',
+    text: `Ticket ${currentTicket.ticket_number} - Service: ${currentTicket.service_name}`,
+    url: `${window.location.origin}${window.location.pathname}?ticket=${currentTicket.ticket_number}`
+  };
+  
+  if (navigator.share) {
+    navigator.share(shareData)
+      .then(() => APIUtils.showNotification('Ticket partagé avec succès', 'success'))
+      .catch(() => copyTicketToClipboard());
+  } else {
+    copyTicketToClipboard();
+  }
+}
+
+// Copy ticket info to clipboard
+function copyTicketToClipboard() {
+  if (!currentTicket) return;
+  
+  const ticketInfo = `Ticket: ${currentTicket.ticket_number}\nService: ${currentTicket.service_name}\nStatut: ${getStatusText(currentTicket.status)}\nPosition: ${currentTicket.position_in_queue || 'N/A'}`;
+  
+  navigator.clipboard.writeText(ticketInfo)
+    .then(() => APIUtils.showNotification('Informations du ticket copiées', 'success'))
+    .catch(() => APIUtils.showNotification('Impossible de copier les informations', 'error'));
+}
+
+// Print ticket function
+function printTicket() {
+  if (!currentTicket) {
+    APIUtils.showNotification('Aucun ticket à imprimer', 'warning');
+    return;
+  }
+  
+  const printWindow = window.open('', '_blank');
+  printWindow.document.write(`
+    <html>
+      <head>
+        <title>Ticket ${currentTicket.ticket_number}</title>
+        <style>
+          body { font-family: Arial, sans-serif; margin: 20px; }
+          .ticket { border: 2px solid #333; padding: 20px; max-width: 400px; }
+          .header { text-align: center; margin-bottom: 20px; }
+          .info { margin: 10px 0; }
+          .label { font-weight: bold; }
+        </style>
+      </head>
+      <body>
+        <div class="ticket">
+          <div class="header">
+            <h2>WaitLess - Ticket</h2>
+            <h1>${currentTicket.ticket_number}</h1>
+          </div>
+          <div class="info">
+            <span class="label">Service:</span> ${currentTicket.service_name}
+          </div>
+          <div class="info">
+            <span class="label">Statut:</span> ${getStatusText(currentTicket.status)}
+          </div>
+          <div class="info">
+            <span class="label">Position:</span> ${currentTicket.position_in_queue || 'N/A'}
+          </div>
+          <div class="info">
+            <span class="label">Date:</span> ${APIUtils.formatDate(currentTicket.created_at)}
+          </div>
+        </div>
+      </body>
+    </html>
+  `);
+  printWindow.document.close();
+  printWindow.print();
+}
+
+// Filter history function
+function filterHistory(filter) {
+  currentFilter = filter;
+  
+  // Update active button
+  const filterButtons = document.querySelectorAll('.filter-btn');
+  filterButtons.forEach(btn => btn.classList.remove('active'));
+  event.target.classList.add('active');
+  
+  renderHistoryList();
+}
+
 // Exposer les fonctions globalement
 window.closeModal = closeModal;
 window.handleLogout = handleLogout;
 window.refreshTicketData = refreshTicketData;
+window.refreshTicket = refreshTicket;
+window.shareTicket = shareTicket;
+window.printTicket = printTicket;
+window.filterHistory = filterHistory;

@@ -39,9 +39,14 @@ async function handleLogin(event) {
       
       // Redirect based on user role
       const user = apiClient.getCurrentUser();
-      if (user && (user.role === 'admin' || user.role === 'doctor')) {
-        // Redirect to admin dashboard with welcome message
-        APIUtils.showNotification(`Bienvenue ${user.full_name}! Accès administrateur activé.`, 'success');
+      if (user && ['admin', 'staff', 'doctor'].includes(user.role)) {
+        // Redirect to staff/admin dashboard with role-specific message
+        const roleMessages = {
+          'admin': 'Accès administrateur activé',
+          'staff': 'Accès personnel activé',
+          'doctor': 'Accès médical activé'
+        };
+        APIUtils.showNotification(`Bienvenue ${user.full_name}! ${roleMessages[user.role]}.`, 'success');
         setTimeout(() => {
           window.location.href = '../dashboard/dashboard.html';
         }, 1500);

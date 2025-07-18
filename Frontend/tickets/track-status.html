@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Suivi de Ticket - WaitLess</title>
+    <link rel="stylesheet" href="../shared/api.css">
+    <link rel="stylesheet" href="track-status.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-brand">
+            <i class="fas fa-clock"></i>
+            <span>WaitLess</span>
+        </div>
+        <div class="nav-links">
+            <a href="../Acceuil/acceuil.html">Accueil</a>
+            <a href="../qr code/qr.html">Rejoindre la Queue</a>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="container">
+        <div class="tracking-section">
+            <h1><i class="fas fa-search"></i> Suivre votre Ticket</h1>
+            
+            <!-- Ticket Number Input -->
+            <div class="input-section">
+                <div class="form-group">
+                    <label for="ticketNumber">Numéro de Ticket</label>
+                    <input type="text" id="ticketNumber" placeholder="Ex: T-20250718-A1B2C3D4">
+                    <button onclick="trackTicket()" class="btn btn-primary">
+                        <i class="fas fa-search"></i> Suivre
+                    </button>
+                </div>
+            </div>
+
+            <!-- Status Display -->
+            <div id="statusDisplay" class="status-display" style="display: none;">
+                <!-- Loading State -->
+                <div id="loadingState" class="loading-state">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <p>Recherche du ticket...</p>
+                </div>
+
+                <!-- Ticket Information -->
+                <div id="ticketInfo" class="ticket-info">
+                    <div class="ticket-header">
+                        <h2 id="ticketTitle">Ticket: <span id="ticketNumberDisplay"></span></h2>
+                        <span id="statusBadge" class="status-badge"></span>
+                    </div>
+
+                    <div class="ticket-details">
+                        <div class="detail-card">
+                            <div class="detail-icon">
+                                <i class="fas fa-hospital"></i>
+                            </div>
+                            <div class="detail-content">
+                                <h3>Service</h3>
+                                <p id="serviceName">-</p>
+                            </div>
+                        </div>
+
+                        <div class="detail-card">
+                            <div class="detail-icon">
+                                <i class="fas fa-users"></i>
+                            </div>
+                            <div class="detail-content">
+                                <h3>Position dans la Queue</h3>
+                                <p id="queuePosition">-</p>
+                            </div>
+                        </div>
+
+                        <div class="detail-card">
+                            <div class="detail-icon">
+                                <i class="fas fa-clock"></i>
+                            </div>
+                            <div class="detail-content">
+                                <h3>Temps d'Attente Estimé</h3>
+                                <p id="waitTime">-</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Real-time Updates -->
+                    <div class="realtime-section">
+                        <div class="update-controls">
+                            <button id="autoUpdateBtn" onclick="toggleAutoUpdate()" class="btn btn-secondary">
+                                <i class="fas fa-sync-alt"></i> Mise à jour Auto: OFF
+                            </button>
+                            <button onclick="refreshStatus()" class="btn btn-outline">
+                                <i class="fas fa-refresh"></i> Actualiser
+                            </button>
+                        </div>
+                        
+                        <div class="last-update">
+                            <small>Dernière mise à jour: <span id="lastUpdate">-</span></small>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Error State -->
+                <div id="errorState" class="error-state" style="display: none;">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <h3>Ticket non trouvé</h3>
+                    <p>Vérifiez votre numéro de ticket et réessayez.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="../shared/api.js"></script>
+    <script src="track-status.js"></script>
+</body>
+</html> 

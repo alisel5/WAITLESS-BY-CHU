@@ -85,16 +85,14 @@
         </div>
         
         <div class="form-group">
+          <label for="patientEmail">Adresse email</label>
+          <input type="email" id="patientEmail" placeholder="votre.email@example.com" required>
+        </div>
+        
+        <div class="form-group">
           <label for="serviceSelect">Service médical</label>
           <select id="serviceSelect" required>
-            <option value="">Sélectionnez un service</option>
-            <option value="cardiology">Cardiologie</option>
-            <option value="dermatology">Dermatologie</option>
-            <option value="neurology">Neurologie</option>
-            <option value="pediatrics">Pédiatrie</option>
-            <option value="orthopedics">Orthopédie</option>
-            <option value="radiology">Radiologie</option>
-            <option value="emergency">Urgences</option>
+            <option value="">Chargement des services...</option>
           </select>
         </div>
         
@@ -102,9 +100,9 @@
           <label for="prioritySelect">Priorité</label>
           <select id="prioritySelect" required>
             <option value="">Sélectionnez la priorité</option>
-            <option value="normal">Normale</option>
-            <option value="urgent">Urgente</option>
-            <option value="emergency">Émergence</option>
+            <option value="low">Priorité basse</option>
+            <option value="medium">Priorité normale</option>
+            <option value="high">Priorité haute</option>
           </select>
         </div>
         

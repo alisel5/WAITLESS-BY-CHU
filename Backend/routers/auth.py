@@ -33,7 +33,8 @@ async def register_user(user: UserCreate, db: Session = Depends(get_db)):
         hashed_password=hashed_password,
         full_name=user.full_name,
         phone=user.phone,
-        role=user.role
+        role=user.role,
+        assigned_service_id=user.assigned_service_id
     )
     
     db.add(db_user)
@@ -101,8 +102,9 @@ async def register_admin(user: UserCreate, db: Session = Depends(get_db)):
             detail="Email already registered"
         )
     
-    # Force admin role
+    # Force admin role and clear service assignment
     user.role = UserRole.ADMIN
+    user.assigned_service_id = None  # Admins aren't assigned to specific services
     
     # Create new user
     hashed_password = get_password_hash(user.password)
@@ -111,7 +113,8 @@ async def register_admin(user: UserCreate, db: Session = Depends(get_db)):
         hashed_password=hashed_password,
         full_name=user.full_name,
         phone=user.phone,
-        role=user.role
+        role=user.role,
+        assigned_service_id=user.assigned_service_id
     )
     
     db.add(db_user)

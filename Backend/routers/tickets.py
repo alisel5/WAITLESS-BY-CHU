@@ -135,16 +135,18 @@ async def create_ticket(
     # Update service waiting count
     service.current_waiting += 1
     
-    # Log the action
+    # Commit to get ticket ID
+    db.commit()
+    db.refresh(db_ticket)
+    
+    # Log the action after ticket is committed and has an ID
     queue_log = QueueLog(
         ticket_id=db_ticket.id,
         action="joined",
         details=f"Patient {current_user.full_name} joined queue for {service.name}"
     )
     db.add(queue_log)
-    
     db.commit()
-    db.refresh(db_ticket)
     
     return TicketSimpleResponse(
         ticket_number=ticket_number,
@@ -228,16 +230,18 @@ async def join_queue_online(ticket_data: TicketJoinOnline, db: Session = Depends
     # Update service waiting count
     service.current_waiting += 1
     
-    # Log the action
+    # Commit to get ticket ID
+    db.commit()
+    db.refresh(db_ticket)
+    
+    # Log the action after ticket is committed and has an ID
     queue_log = QueueLog(
         ticket_id=db_ticket.id,
         action="joined_online",
         details=f"Patient {ticket_data.patient_name} joined queue online for {service.name}"
     )
     db.add(queue_log)
-    
     db.commit()
-    db.refresh(db_ticket)
     
     return TicketSimpleResponse(
         ticket_number=ticket_number,

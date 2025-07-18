@@ -41,6 +41,8 @@ function populateServiceDropdown() {
     availableServices.forEach(service => {
       serviceSelect.innerHTML += `<option value="${service.id}">${service.name}</option>`;
     });
+  } else if (serviceSelect) {
+    serviceSelect.innerHTML = '<option value="">Aucun service disponible</option>';
   }
 }
 
@@ -54,11 +56,11 @@ async function initializePage() {
   // Check authentication status
   checkAuthStatus();
   
-  // Add admin quick access if user is admin
+  // Add staff quick access for staff members
   if (apiClient.isAuthenticated()) {
     const user = apiClient.getCurrentUser();
-    if (user && (user.role === 'admin' || user.role === 'doctor')) {
-      addAdminQuickAccess();
+    if (user && apiClient.isStaff()) {
+      addStaffQuickAccess();
     }
   }
   
@@ -75,31 +77,73 @@ async function initializePage() {
   animatePageLoad();
 }
 
-// Add admin quick access buttons
-function addAdminQuickAccess() {
+// Add staff quick access buttons
+function addStaffQuickAccess() {
   const header = document.querySelector('.qr-header');
-  if (header && !document.getElementById('adminQuickAccess')) {
-    const adminSection = document.createElement('div');
-    adminSection.id = 'adminQuickAccess';
-    adminSection.className = 'admin-quick-access';
-    adminSection.innerHTML = `
-      <div class="admin-notice">
-        <i class="fas fa-user-shield"></i>
-        <span>Mode Administrateur Activé</span>
-      </div>
-      <div class="admin-actions">
-        <a href="../dashboard/dashboard.html" class="admin-btn">
-          <i class="fas fa-tachometer-alt"></i> Dashboard
-        </a>
+  if (header && !document.getElementById('staffQuickAccess')) {
+    const user = apiClient.getCurrentUser();
+    const roleInfo = {
+      'admin': { icon: 'fa-user-shield', label: 'Mode Administrateur', color: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' },
+      'staff': { icon: 'fa-user-cog', label: 'Mode Personnel', color: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)' },
+      'doctor': { icon: 'fa-user-md', label: 'Mode Médical', color: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)' }
+    };
+    
+    const currentRole = roleInfo[user.role] || roleInfo['staff'];
+    
+    const staffSection = document.createElement('div');
+    staffSection.id = 'staffQuickAccess';
+    staffSection.className = 'admin-quick-access';
+    staffSection.style.background = currentRole.color;
+    
+    let buttons = '';
+    
+    // Dashboard access for all staff
+    buttons += `
+      <a href="../dashboard/dashboard.html" class="admin-btn">
+        <i class="fas fa-tachometer-alt"></i> Dashboard
+      </a>
+    `;
+    
+    // Role-specific buttons
+    if (user.role === 'admin') {
+      buttons += `
         <a href="../qr-display/qr-display.html" class="admin-btn">
-          <i class="fas fa-qrcode"></i> Gérer QR Codes
+          <i class="fas fa-qrcode"></i> QR Codes
         </a>
         <a href="../services/services.html" class="admin-btn">
           <i class="fas fa-cogs"></i> Services
         </a>
+        <a href="../patients/patients.html" class="admin-btn">
+          <i class="fas fa-users"></i> Patients
+        </a>
+      `;
+    } else if (user.role === 'staff') {
+      buttons += `
+        <a href="../patients/patients.html" class="admin-btn">
+          <i class="fas fa-users"></i> Ma File
+        </a>
+        <a href="../qr-display/qr-display.html" class="admin-btn">
+          <i class="fas fa-qrcode"></i> QR Code
+        </a>
+      `;
+    } else if (user.role === 'doctor') {
+      buttons += `
+        <a href="../patients/patients.html" class="admin-btn">
+          <i class="fas fa-users"></i> Mes Patients
+        </a>
+      `;
+    }
+    
+    staffSection.innerHTML = `
+      <div class="admin-notice">
+        <i class="fas ${currentRole.icon}"></i>
+        <span>${currentRole.label} Activé</span>
+      </div>
+      <div class="admin-actions">
+        ${buttons}
       </div>
     `;
-    header.appendChild(adminSection);
+    header.appendChild(staffSection);
   }
 }
 
@@ -523,30 +567,96 @@ function showTicketStatus(ticketData) {
 // Rejoindre la queue en ligne
 async function joinQueueOnline() {
   try {
-    // Récupérer les données du formulaire
-    const patientEmail = document.getElementById('patientEmail') ? document.getElementById('patientEmail').value : '';
+    // Récupérer les données du formulaire avec validation
+    const patientNameEl = document.getElementById('patientName');
+    const patientPhoneEl = document.getElementById('patientPhone');
+    const patientEmailEl = document.getElementById('patientEmail');
+    const serviceSelectEl = document.getElementById('serviceSelect');
+    const prioritySelectEl = document.getElementById('prioritySelect');
+    const estimatedArrivalEl = document.getElementById('estimatedArrival');
+    const notesEl = document.getElementById('notes');
     
-    const formData = {
-      patient_name: document.getElementById('patientName').value,
-      patient_phone: document.getElementById('patientPhone').value,
-      patient_email: patientEmail || `${document.getElementById('patientName').value.toLowerCase().replace(/\s/g, '.')}@waitless.chu`,
-      service_id: parseInt(document.getElementById('serviceSelect').value),
-      priority: document.getElementById('prioritySelect').value || 'medium',
-      estimated_arrival: document.getElementById('estimatedArrival').value || null
-    };
+    // Vérifier que les éléments requis existent
+    if (!patientNameEl || !patientPhoneEl || !patientEmailEl || !serviceSelectEl) {
+      APIUtils.showNotification('Formulaire incomplet. Rechargez la page.', 'error');
+      return;
+    }
+    
+    const patientName = patientNameEl.value.trim();
+    const patientPhone = patientPhoneEl.value.trim();
+    const patientEmail = patientEmailEl.value.trim();
+    const serviceId = serviceSelectEl.value;
+    const priority = prioritySelectEl ? prioritySelectEl.value : 'medium';
+    const estimatedArrival = estimatedArrivalEl ? estimatedArrivalEl.value : null;
+    const notes = notesEl ? notesEl.value.trim() : null;
     
     // Validation basique
-    if (!formData.patient_name || !formData.patient_phone || !formData.service_id) {
-      APIUtils.showNotification('Veuillez remplir tous les champs obligatoires', 'error');
+    if (!patientName) {
+      APIUtils.showNotification('Veuillez entrer votre nom', 'error');
+      return;
+    }
+    
+    if (!patientPhone) {
+      APIUtils.showNotification('Veuillez entrer votre téléphone', 'error');
+      return;
+    }
+    
+    if (!patientEmail) {
+      APIUtils.showNotification('Veuillez entrer votre email', 'error');
+      return;
+    }
+    
+    if (!serviceId || serviceId === "") {
+      APIUtils.showNotification('Veuillez sélectionner un service', 'error');
+      return;
+    }
+    
+    if (!priority || priority === "") {
+      APIUtils.showNotification('Veuillez sélectionner une priorité', 'error');
+      return;
+    }
+    
+    // Convertir service_id en entier
+    const serviceIdInt = parseInt(serviceId);
+    if (isNaN(serviceIdInt) || serviceIdInt <= 0) {
+      APIUtils.showNotification('Service sélectionné invalide', 'error');
       return;
     }
     
     // Validation email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(formData.patient_email)) {
+    if (!emailRegex.test(patientEmail)) {
       APIUtils.showNotification('Format d\'email invalide', 'error');
       return;
     }
+    
+    // Convert time to datetime if provided
+    let arrivalDateTime = null;
+    if (estimatedArrival) {
+      const today = new Date();
+      const [hours, minutes] = estimatedArrival.split(':');
+      arrivalDateTime = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 
+                                parseInt(hours), parseInt(minutes));
+      arrivalDateTime = arrivalDateTime.toISOString();
+    }
+    
+    const formData = {
+      patient_name: patientName,
+      patient_phone: patientPhone,
+      patient_email: patientEmail,
+      service_id: serviceIdInt,
+      priority: priority
+    };
+    
+    // Add optional fields if they exist
+    if (arrivalDateTime) {
+      formData.estimated_arrival = arrivalDateTime;
+    }
+    if (notes) {
+      formData.notes = notes;
+    }
+    
+    console.log('Sending data:', formData);
     
     // Appeler l'API pour rejoindre la file en ligne
     const response = await apiClient.joinQueueOnline(formData);
@@ -554,11 +664,20 @@ async function joinQueueOnline() {
     if (response) {
       // Afficher la confirmation
       showConfirmationModal(response);
+      
+      // Clear form
+      patientNameEl.value = '';
+      patientPhoneEl.value = '';
+      patientEmailEl.value = '';
+      serviceSelectEl.value = '';
+      if (prioritySelectEl) prioritySelectEl.value = '';
+      if (estimatedArrivalEl) estimatedArrivalEl.value = '';
+      if (notesEl) notesEl.value = '';
     }
     
   } catch (error) {
     console.error('Erreur lors de l\'ajout à la file:', error);
-    APIUtils.showNotification('Erreur lors de l\'ajout à la file d\'attente', 'error');
+    APIUtils.showNotification(error.message || 'Erreur lors de l\'ajout à la file d\'attente', 'error');
   }
 }
 
@@ -602,6 +721,12 @@ function closeModal() {
   
   // Retourner aux options
   showOptions();
+}
+
+// Aller à la page de suivi du ticket
+function goToTicket() {
+  const ticketNumber = document.getElementById('ticketNumber').textContent;
+  window.location.href = `../tickets/ticket.html?ticket=${encodeURIComponent(ticketNumber)}`;
 }
 
 // Logout function

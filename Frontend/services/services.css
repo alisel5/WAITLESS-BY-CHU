@@ -296,6 +296,126 @@ a {
   color: white;
 }
 
+.call-btn {
+  background: rgba(40, 167, 69, 0.1);
+  color: #28a745;
+}
+
+.call-btn:hover:not(.disabled) {
+  background: #28a745;
+  color: white;
+}
+
+.call-btn.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: rgba(108, 117, 125, 0.1);
+  color: #6c757d;
+}
+
+.queue-btn {
+  background: rgba(255, 193, 7, 0.1);
+  color: #ffc107;
+}
+
+.queue-btn:hover {
+  background: #ffc107;
+  color: #212529;
+}
+
+.qr-btn {
+  background: rgba(108, 117, 125, 0.1);
+  color: #6c757d;
+}
+
+.qr-btn:hover {
+  background: #6c757d;
+  color: white;
+}
+
+/* Queue Modal Styles */
+.queue-stats {
+  background: #f8f9fa;
+  padding: 1rem;
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+}
+
+.queue-stats p {
+  margin: 0.5rem 0;
+  color: #495057;
+}
+
+.queue-list h3 {
+  color: #495057;
+  margin-bottom: 1rem;
+  border-bottom: 2px solid #e9ecef;
+  padding-bottom: 0.5rem;
+}
+
+.queue-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  background: #ffffff;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  margin-bottom: 0.5rem;
+  transition: all 0.2s ease;
+}
+
+.queue-item:hover {
+  background: #f8f9fa;
+  transform: translateX(5px);
+}
+
+.queue-item .position {
+  background: #4A90E2;
+  color: white;
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-weight: 600;
+  min-width: 30px;
+  text-align: center;
+}
+
+.queue-item .ticket {
+  font-family: 'Courier New', monospace;
+  font-weight: 600;
+  color: #495057;
+  flex: 1;
+  margin-left: 1rem;
+}
+
+.queue-item .wait-time {
+  color: #6c757d;
+  font-size: 0.9rem;
+}
+
+.close-btn {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  color: #6c757d;
+  padding: 0.5rem;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.close-btn:hover {
+  background: #e9ecef;
+  color: #495057;
+}
+
 /* MODAL */
 .modal-overlay {
   position: fixed;

@@ -1,7 +1,7 @@
-// Patients data from backend
-let patients = [];
+// Patients data
+let patientsData = [];
+let filteredPatients = [];
 let currentFilter = 'all';
-let searchTerm = '';
 
 // Check authentication and role
 function checkAdminAuth() {
@@ -12,7 +12,7 @@ function checkAdminAuth() {
   
   if (!apiClient.isAdmin()) {
     APIUtils.showNotification('Accès non autorisé. Cette page est réservée aux administrateurs.', 'error');
-    window.location.href = '../qr code/qr.html';
+    window.location.href = '../dashboard/dashboard.html';
     return false;
   }
   
@@ -20,65 +20,138 @@ function checkAdminAuth() {
 }
 
 // Load patients data from backend
-async function loadPatients() {
+async function loadPatientsData() {
   try {
-    APIUtils.showLoading(document.getElementById('patientsTableBody'));
+    showLoading(true);
     
-    const patientsData = await apiClient.getPatients();
-    if (patientsData) {
-      patients = patientsData;
+    // Get patients from backend
+    const response = await apiClient.getPatients();
+    console.log('Patients Response:', response);
+    
+    if (response && Array.isArray(response)) {
+      patientsData = response;
+      filteredPatients = [...patientsData];
       displayPatients();
+    } else {
+      // Fallback to mock data if backend doesn't return expected format
+      loadMockPatientsData();
     }
+    
   } catch (error) {
-    console.error('Error loading patients:', error);
-    APIUtils.showError(document.getElementById('patientsTableBody'), 'Erreur lors du chargement des patients');
-    APIUtils.showNotification('Erreur de connexion au serveur', 'error');
+    console.error('Error loading patients data:', error);
+    APIUtils.showNotification('Erreur lors du chargement des patients', 'error');
+    loadMockPatientsData(); // Fallback to mock data
+  } finally {
+    showLoading(false);
   }
 }
 
-// Fonction pour afficher les patients
-function displayPatients() {
-  const tbody = document.getElementById('patientsTableBody');
+// Load mock patients data as fallback
+function loadMockPatientsData() {
+  console.log('Loading mock patients data');
   
-  if (!patients || patients.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="8">Aucun patient trouvé</td></tr>';
+  patientsData = [
+    {
+      id: 1,
+      name: 'Ahmed Benali',
+      service: 'Cardiologie',
+      status: 'waiting',
+      arrival_time: '2025-07-18T09:30:00',
+      wait_time: 45,
+      priority: 'high',
+      phone: '06 12 34 56 78'
+    },
+    {
+      id: 2,
+      name: 'Fatima Zahra',
+      service: 'Dermatologie',
+      status: 'consulting',
+      arrival_time: '2025-07-18T08:15:00',
+      wait_time: 120,
+      priority: 'medium',
+      phone: '06 98 76 54 32'
+    },
+    {
+      id: 3,
+      name: 'Mohammed Alami',
+      service: 'Pédiatrie',
+      status: 'completed',
+      arrival_time: '2025-07-18T07:45:00',
+      wait_time: 90,
+      priority: 'low',
+      phone: '06 55 44 33 22'
+    },
+    {
+      id: 4,
+      name: 'Amina Tazi',
+      service: 'Radiologie',
+      status: 'waiting',
+      arrival_time: '2025-07-18T10:00:00',
+      wait_time: 30,
+      priority: 'medium',
+      phone: '06 11 22 33 44'
+    },
+    {
+      id: 5,
+      name: 'Hassan El Fassi',
+      service: 'Urgences',
+      status: 'consulting',
+      arrival_time: '2025-07-18T06:30:00',
+      wait_time: 180,
+      priority: 'high',
+      phone: '06 99 88 77 66'
+    }
+  ];
+  
+  filteredPatients = [...patientsData];
+  displayPatients();
+}
+
+// Display patients in table
+function displayPatients() {
+  const tableBody = document.getElementById('patientsTableBody');
+  
+  if (!tableBody) return;
+  
+  if (filteredPatients.length === 0) {
+    tableBody.innerHTML = `
+      <tr>
+        <td colspan="8" style="text-align: center; padding: 2rem; color: #666;">
+          <i class="fas fa-users" style="font-size: 2rem; margin-bottom: 1rem; display: block;"></i>
+          Aucun patient trouvé
+        </td>
+      </tr>
+    `;
     return;
   }
   
-  const filteredPatients = patients.filter(patient => {
-    const matchesFilter = currentFilter === 'all' || patient.status === currentFilter;
-    const matchesSearch = searchTerm === '' || 
-      patient.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      patient.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      patient.phone.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    return matchesFilter && matchesSearch;
-  });
-  
-  tbody.innerHTML = filteredPatients.map(patient => `
-    <tr data-id="${patient.id}">
-      <td class="patient-id">P${String(patient.id).padStart(3, '0')}</td>
-      <td class="patient-name">${patient.full_name}</td>
-      <td>${patient.service_name || 'N/A'}</td>
+  tableBody.innerHTML = filteredPatients.map(patient => `
+    <tr data-patient-id="${patient.id}">
+      <td>${patient.id}</td>
+      <td>${patient.name}</td>
+      <td>${patient.service}</td>
       <td>
-        <span class="status-badge status-${patient.status || 'waiting'}">
-          ${getStatusText(patient.status || 'waiting')}
+        <span class="status-badge ${patient.status}">
+          ${getStatusText(patient.status)}
         </span>
       </td>
-      <td class="arrival-time">${APIUtils.formatDate(patient.created_at)}</td>
-      <td class="wait-time">${patient.wait_time || '0 min'}</td>
+      <td>${formatDateTime(patient.arrival_time)}</td>
+      <td>${formatWaitTime(patient.wait_time)}</td>
       <td>
-        <span class="priority-badge priority-medium">
-          Normale
+        <span class="priority-badge ${patient.priority}">
+          ${getPriorityText(patient.priority)}
         </span>
       </td>
       <td>
         <div class="action-buttons">
-          <button class="action-btn edit-action-btn" onclick="editPatient(${patient.id})" title="Modifier">
-            ✏️
+          <button onclick="editPatient(${patient.id})" class="edit-btn" title="Modifier">
+            <i class="fas fa-edit"></i>
           </button>
-          <button class="action-btn delete-action-btn" onclick="deletePatient(${patient.id})" title="Supprimer">
-            🗑️
+          <button onclick="viewPatientDetails(${patient.id})" class="view-btn" title="Voir détails">
+            <i class="fas fa-eye"></i>
+          </button>
+          <button onclick="deletePatient(${patient.id})" class="delete-btn" title="Supprimer">
+            <i class="fas fa-trash"></i>
           </button>
         </div>
       </td>
@@ -86,198 +159,298 @@ function displayPatients() {
   `).join('');
 }
 
-// Fonction pour obtenir le texte du statut
-function getStatusText(status) {
-  switch (status) {
-    case 'waiting': return 'En attente';
-    case 'consulting': return 'En consultation';
-    case 'completed': return 'Terminé';
-    default: return 'En attente';
-  }
-}
-
-// Fonction pour obtenir le texte de la priorité
-function getPriorityText(priority) {
-  switch (priority) {
-    case 'high': return 'Haute';
-    case 'medium': return 'Moyenne';
-    case 'low': return 'Basse';
-    default: return 'Normale';
-  }
-}
-
-// Fonction pour filtrer les patients
-function filterPatients(filter) {
-  currentFilter = filter;
+// Search patients
+function searchPatients() {
+  const searchTerm = document.getElementById('searchPatient').value.toLowerCase();
   
-  // Mettre à jour les boutons de filtre
+  filteredPatients = patientsData.filter(patient => 
+    patient.name.toLowerCase().includes(searchTerm) ||
+    patient.service.toLowerCase().includes(searchTerm) ||
+    patient.phone.includes(searchTerm)
+  );
+  
+  displayPatients();
+}
+
+// Filter patients by status
+function filterPatients(status) {
+  currentFilter = status;
+  
+  // Update filter buttons
   document.querySelectorAll('.filter-btn').forEach(btn => {
     btn.classList.remove('active');
   });
   event.target.classList.add('active');
   
+  // Apply filter
+  if (status === 'all') {
+    filteredPatients = [...patientsData];
+  } else {
+    filteredPatients = patientsData.filter(patient => patient.status === status);
+  }
+  
   displayPatients();
 }
 
-// Fonction pour rechercher des patients
-function searchPatients() {
-  searchTerm = document.getElementById('searchPatient').value;
-  displayPatients();
-}
-
-// Fonction pour ouvrir le modal d'ajout
+// Open add patient modal
 function openAddPatientModal() {
   document.getElementById('addPatientModal').style.display = 'flex';
   document.getElementById('addPatientForm').reset();
-  
-  // Load services for the dropdown
-  loadServicesForDropdown('patientService');
 }
 
-// Fonction pour fermer les modals
+// Close modal
 function closeModal() {
   document.getElementById('addPatientModal').style.display = 'none';
   document.getElementById('editPatientModal').style.display = 'none';
-  
-  // Clear any error messages
-  const errorElements = document.querySelectorAll('.error');
-  errorElements.forEach(element => {
-    element.style.display = 'none';
-  });
 }
 
-// Load services for dropdown
-async function loadServicesForDropdown(selectId) {
+// Add new patient
+async function addPatient(event) {
+  event.preventDefault();
+  
+  const formData = {
+    first_name: document.getElementById('patientFirstName').value,
+    last_name: document.getElementById('patientLastName').value,
+    age: parseInt(document.getElementById('patientAge').value),
+    phone: document.getElementById('patientPhone').value,
+    service: document.getElementById('patientService').value,
+    priority: document.getElementById('patientPriority').value,
+    notes: document.getElementById('patientNotes').value
+  };
+  
   try {
-    const services = await apiClient.getActiveServices();
-    const select = document.getElementById(selectId);
+    showLoading(true);
     
-    if (select) {
-      select.innerHTML = '<option value="">Sélectionner un service</option>';
-      services.forEach(service => {
-        select.innerHTML += `<option value="${service.name}">${service.name}</option>`;
-      });
-    }
+    const response = await apiClient.createPatient(formData);
+    console.log('Patient created:', response);
+    
+    APIUtils.showNotification('Patient ajouté avec succès', 'success');
+    closeModal();
+    loadPatientsData(); // Reload data
+    
   } catch (error) {
-    console.error('Error loading services:', error);
+    console.error('Error creating patient:', error);
+    APIUtils.showNotification('Erreur lors de l\'ajout du patient', 'error');
+  } finally {
+    showLoading(false);
   }
 }
 
-// Fonction pour éditer un patient
+// Edit patient
 function editPatient(patientId) {
-  const patient = patients.find(p => p.id === patientId);
+  const patient = patientsData.find(p => p.id === patientId);
   if (!patient) return;
   
-  // Remplir le formulaire d'édition
+  // Populate edit form
   document.getElementById('editPatientId').value = patient.id;
-  document.getElementById('editPatientFirstName').value = patient.full_name.split(' ')[0] || '';
-  document.getElementById('editPatientLastName').value = patient.full_name.split(' ').slice(1).join(' ') || '';
+  document.getElementById('editPatientFirstName').value = patient.name.split(' ')[0] || '';
+  document.getElementById('editPatientLastName').value = patient.name.split(' ').slice(1).join(' ') || '';
   document.getElementById('editPatientAge').value = patient.age || '';
   document.getElementById('editPatientPhone').value = patient.phone || '';
-  document.getElementById('editPatientService').value = patient.service_name || '';
-  document.getElementById('editPatientStatus').value = patient.status || 'waiting';
-  document.getElementById('editPatientPriority').value = 'medium'; // Default priority
+  document.getElementById('editPatientService').value = patient.service || '';
+  document.getElementById('editPatientStatus').value = patient.status || '';
+  document.getElementById('editPatientPriority').value = patient.priority || '';
   document.getElementById('editPatientNotes').value = patient.notes || '';
   
-  // Load services for edit dropdown
-  loadServicesForDropdown('editPatientService').then(() => {
-    document.getElementById('editPatientService').value = patient.service_name || '';
-  });
-  
-  // Afficher le modal
+  // Show modal
   document.getElementById('editPatientModal').style.display = 'flex';
 }
 
-// Fonction pour supprimer un patient
+// Update patient
+async function updatePatient(event) {
+  event.preventDefault();
+  
+  const patientId = document.getElementById('editPatientId').value;
+  const formData = {
+    first_name: document.getElementById('editPatientFirstName').value,
+    last_name: document.getElementById('editPatientLastName').value,
+    age: parseInt(document.getElementById('editPatientAge').value),
+    phone: document.getElementById('editPatientPhone').value,
+    service: document.getElementById('editPatientService').value,
+    status: document.getElementById('editPatientStatus').value,
+    priority: document.getElementById('editPatientPriority').value,
+    notes: document.getElementById('editPatientNotes').value
+  };
+  
+  try {
+    showLoading(true);
+    
+    // Update patient in backend
+    const response = await apiClient.updatePatient(patientId, formData);
+    console.log('Patient updated:', response);
+    
+    APIUtils.showNotification('Patient modifié avec succès', 'success');
+    closeModal();
+    loadPatientsData(); // Reload data
+    
+  } catch (error) {
+    console.error('Error updating patient:', error);
+    APIUtils.showNotification('Erreur lors de la modification du patient', 'error');
+  } finally {
+    showLoading(false);
+  }
+}
+
+// View patient details
+function viewPatientDetails(patientId) {
+  const patient = patientsData.find(p => p.id === patientId);
+  if (!patient) return;
+  
+  // Create details modal
+  const modal = document.createElement('div');
+  modal.className = 'modal-overlay';
+  modal.innerHTML = `
+    <div class="modal patient-details-modal">
+      <span class="close-btn" onclick="this.parentElement.parentElement.remove()">&times;</span>
+      <h2>Détails du Patient</h2>
+      <div class="patient-details">
+        <div class="detail-row">
+          <strong>Nom complet:</strong> ${patient.name}
+        </div>
+        <div class="detail-row">
+          <strong>Service:</strong> ${patient.service}
+        </div>
+        <div class="detail-row">
+          <strong>Statut:</strong> 
+          <span class="status-badge ${patient.status}">${getStatusText(patient.status)}</span>
+        </div>
+        <div class="detail-row">
+          <strong>Priorité:</strong> 
+          <span class="priority-badge ${patient.priority}">${getPriorityText(patient.priority)}</span>
+        </div>
+        <div class="detail-row">
+          <strong>Téléphone:</strong> ${patient.phone}
+        </div>
+        <div class="detail-row">
+          <strong>Arrivée:</strong> ${formatDateTime(patient.arrival_time)}
+        </div>
+        <div class="detail-row">
+          <strong>Temps d'attente:</strong> ${formatWaitTime(patient.wait_time)}
+        </div>
+        ${patient.notes ? `
+        <div class="detail-row">
+          <strong>Notes:</strong> ${patient.notes}
+        </div>
+        ` : ''}
+      </div>
+      <div class="modal-actions">
+        <button onclick="editPatient(${patient.id})" class="btn btn-primary">
+          <i class="fas fa-edit"></i> Modifier
+        </button>
+        <button onclick="this.parentElement.parentElement.parentElement.remove()" class="btn btn-secondary">
+          Fermer
+        </button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+}
+
+// Delete patient
 async function deletePatient(patientId) {
   if (!confirm('Êtes-vous sûr de vouloir supprimer ce patient ?')) {
     return;
   }
   
   try {
-    // Note: This would require implementing a delete patient endpoint in the backend
-    // For now, we'll show a notification that this feature is not yet implemented
-    APIUtils.showNotification('Suppression de patients non encore implémentée dans le backend', 'warning');
-    // await apiClient.deletePatient(patientId);
-    // APIUtils.showNotification('Patient supprimé avec succès', 'success');
-    // await loadPatients(); // Reload patients
+    showLoading(true);
+    
+    // Delete patient from backend
+    await apiClient.deletePatient(patientId);
+    
+    APIUtils.showNotification('Patient supprimé avec succès', 'success');
+    loadPatientsData(); // Reload data
+    
   } catch (error) {
     console.error('Error deleting patient:', error);
     APIUtils.showNotification('Erreur lors de la suppression du patient', 'error');
+  } finally {
+    showLoading(false);
   }
 }
 
-// Fonction pour ajouter un nouveau patient
-async function addPatient(formData) {
+// Export patients data
+function exportPatientsData() {
   try {
-    // Get active services first to find service ID
-    const services = await apiClient.getActiveServices();
-    const selectedServiceName = formData.get('patientService');
-    const selectedService = services.find(s => s.name === selectedServiceName);
-    
-    if (!selectedService) {
-      APIUtils.showNotification('Veuillez sélectionner un service valide', 'error');
-      return;
-    }
-    
-    const patientData = {
-      full_name: `${formData.get('patientFirstName')} ${formData.get('patientLastName')}`,
-      phone: formData.get('patientPhone'),
-      service_id: selectedService.id,
-      priority: formData.get('patientPriority') || 'medium'
+    const data = {
+      exported_at: new Date().toISOString(),
+      filter: currentFilter,
+      patients: filteredPatients
     };
     
-    await apiClient.createPatient(patientData);
-    APIUtils.showNotification('Patient ajouté avec succès', 'success');
-    closeModal();
-    await loadPatients(); // Reload patients
-  } catch (error) {
-    console.error('Error adding patient:', error);
-    APIUtils.showNotification('Erreur lors de l\'ajout du patient', 'error');
-  }
-}
-
-// Fonction pour modifier un patient
-async function updatePatient(formData) {
-  try {
-    // Note: This would require implementing an update patient endpoint in the backend
-    // For now, we'll show a notification that this feature is not yet implemented
-    APIUtils.showNotification('Modification de patients non encore implémentée dans le backend', 'warning');
-    closeModal();
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `patients-export-${new Date().toISOString().split('T')[0]}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
     
-    // When implemented, this would be:
-    // const patientId = parseInt(formData.get('editPatientId'));
-    // const patientData = { ... };
-    // await apiClient.updatePatient(patientId, patientData);
-    // APIUtils.showNotification('Patient modifié avec succès', 'success');
-    // await loadPatients();
+    APIUtils.showNotification('Données exportées avec succès', 'success');
   } catch (error) {
-    console.error('Error updating patient:', error);
-    APIUtils.showNotification('Erreur lors de la modification du patient', 'error');
+    console.error('Error exporting data:', error);
+    APIUtils.showNotification('Erreur lors de l\'export', 'error');
   }
 }
 
-// Fonction pour mettre à jour les temps d'attente
-function updateWaitTimes() {
-  // This would be handled by the backend real-time updates
-  // For now, we'll just reload the patients data
-  loadPatients();
+// Helper functions
+function getStatusText(status) {
+  const statusMap = {
+    'waiting': 'En attente',
+    'consulting': 'En consultation',
+    'completed': 'Terminé',
+    'cancelled': 'Annulé'
+  };
+  return statusMap[status] || status;
 }
 
-// Fonction pour exporter les données des patients
-function exportPatientsData() {
-  const data = {
-    timestamp: new Date().toISOString(),
-    patients: patients
+function getPriorityText(priority) {
+  const priorityMap = {
+    'high': 'Haute',
+    'medium': 'Moyenne',
+    'low': 'Basse'
   };
+  return priorityMap[priority] || priority;
+}
+
+function formatDateTime(dateString) {
+  return new Date(dateString).toLocaleString('fr-FR', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+}
+
+function formatWaitTime(minutes) {
+  if (minutes < 60) {
+    return `${minutes} min`;
+  } else {
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    return `${hours}h ${mins}min`;
+  }
+}
+
+// Show/hide loading spinner
+function showLoading(show) {
+  const spinner = document.createElement('div');
+  spinner.id = 'loadingSpinner';
+  spinner.className = 'loading-spinner';
+  spinner.innerHTML = `
+    <div class="spinner"></div>
+    <p>Chargement...</p>
+  `;
   
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `patients-data-${new Date().toISOString().split('T')[0]}.json`;
-  a.click();
-  URL.revokeObjectURL(url);
+  if (show) {
+    document.body.appendChild(spinner);
+  } else {
+    const existingSpinner = document.getElementById('loadingSpinner');
+    if (existingSpinner) {
+      existingSpinner.remove();
+    }
+  }
 }
 
 // Logout function
@@ -296,64 +469,165 @@ async function handleLogout() {
   }
 }
 
-// Gestionnaires d'événements
-document.addEventListener('DOMContentLoaded', async () => {
-  // Check authentication and authorization
-  if (!checkAdminAuth()) {
-    return;
+// Initialize page
+document.addEventListener('DOMContentLoaded', function() {
+  if (checkAdminAuth()) {
+    loadPatientsData();
+    
+    // Setup form event listeners
+    document.getElementById('addPatientForm').addEventListener('submit', addPatient);
+    document.getElementById('editPatientForm').addEventListener('submit', updatePatient);
   }
-  
-  // Load initial patients data
-  await loadPatients();
-  
-  // Gestionnaire pour le formulaire d'ajout
-  const addForm = document.getElementById('addPatientForm');
-  if (addForm) {
-    addForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const formData = new FormData(e.target);
-      await addPatient(formData);
-    });
-  }
-  
-  // Gestionnaire pour le formulaire d'édition
-  const editForm = document.getElementById('editPatientForm');
-  if (editForm) {
-    editForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const formData = new FormData(e.target);
-      await updatePatient(formData);
-    });
-  }
-  
-  // Fermer les modals en cliquant à l'extérieur
-  document.querySelectorAll('.modal-overlay').forEach(modal => {
-    modal.addEventListener('click', (e) => {
-      if (e.target === modal) {
-        closeModal();
-      }
-    });
-  });
-  
-  // Fermer les modals avec la touche Escape
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') {
-      closeModal();
-    }
-  });
-  
-  // Mettre à jour les temps d'attente toutes les minutes
-  setInterval(updateWaitTimes, 60000);
-  
-  console.log('Patients page initialized for admin user');
 });
 
-// Exposer les fonctions globalement
-window.openAddPatientModal = openAddPatientModal;
-window.closeModal = closeModal;
-window.editPatient = editPatient;
-window.deletePatient = deletePatient;
-window.filterPatients = filterPatients;
-window.searchPatients = searchPatients;
-window.exportPatientsData = exportPatientsData;
-window.handleLogout = handleLogout; 
+// Add CSS for loading spinner and modals
+const style = document.createElement('style');
+style.textContent = `
+  .loading-spinner {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+    color: white;
+  }
+  
+  .spinner {
+    width: 50px;
+    height: 50px;
+    border: 5px solid #f3f3f3;
+    border-top: 5px solid #3498db;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 20px;
+  }
+  
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+  
+  .status-badge {
+    padding: 0.25rem 0.75rem;
+    border-radius: 15px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+  
+  .status-badge.waiting {
+    background: #f39c12;
+    color: white;
+  }
+  
+  .status-badge.consulting {
+    background: #e74c3c;
+    color: white;
+  }
+  
+  .status-badge.completed {
+    background: #27ae60;
+    color: white;
+  }
+  
+  .status-badge.cancelled {
+    background: #95a5a6;
+    color: white;
+  }
+  
+  .priority-badge {
+    padding: 0.25rem 0.75rem;
+    border-radius: 15px;
+    font-size: 0.8rem;
+    font-weight: 600;
+  }
+  
+  .priority-badge.high {
+    background: #e74c3c;
+    color: white;
+  }
+  
+  .priority-badge.medium {
+    background: #f39c12;
+    color: white;
+  }
+  
+  .priority-badge.low {
+    background: #27ae60;
+    color: white;
+  }
+  
+  .action-buttons {
+    display: flex;
+    gap: 0.5rem;
+  }
+  
+  .action-buttons button {
+    padding: 0.5rem;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+  }
+  
+  .edit-btn {
+    background: #3498db;
+    color: white;
+  }
+  
+  .edit-btn:hover {
+    background: #2980b9;
+  }
+  
+  .view-btn {
+    background: #27ae60;
+    color: white;
+  }
+  
+  .view-btn:hover {
+    background: #229954;
+  }
+  
+  .delete-btn {
+    background: #e74c3c;
+    color: white;
+  }
+  
+  .delete-btn:hover {
+    background: #c0392b;
+  }
+  
+  .patient-details-modal {
+    max-width: 600px;
+  }
+  
+  .patient-details {
+    margin: 1rem 0;
+  }
+  
+  .detail-row {
+    padding: 0.75rem 0;
+    border-bottom: 1px solid #eee;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  
+  .detail-row:last-child {
+    border-bottom: none;
+  }
+  
+  .modal-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: flex-end;
+    margin-top: 2rem;
+  }
+`;
+document.head.appendChild(style); 

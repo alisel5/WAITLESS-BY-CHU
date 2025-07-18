@@ -87,10 +87,30 @@ def get_current_active_user(current_user: User = Depends(get_current_user)) -> U
 
 def get_admin_user(current_user: User = Depends(get_current_active_user)) -> User:
     """Get current admin user."""
-    if current_user.role not in [UserRole.ADMIN, UserRole.DOCTOR]:
+    if current_user.role != UserRole.ADMIN:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not enough permissions"
+            detail="Admin access required"
+        )
+    return current_user
+
+
+def get_staff_user(current_user: User = Depends(get_current_active_user)) -> User:
+    """Get current user with staff or higher role verification."""
+    if current_user.role not in [UserRole.ADMIN, UserRole.STAFF, UserRole.DOCTOR]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Staff access required"
+        )
+    return current_user
+
+
+def get_admin_or_staff_user(current_user: User = Depends(get_current_active_user)) -> User:
+    """Get current user with admin or staff role verification."""
+    if current_user.role not in [UserRole.ADMIN, UserRole.STAFF]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin or staff access required"
         )
     return current_user
 
