@@ -83,6 +83,65 @@ async def get_my_position(
     )
 
 
+@router.get("/ticket-status/{ticket_number}")
+async def get_ticket_status_with_queue_info(
+    ticket_number: str,
+    db: Session = Depends(get_db)
+):
+    """Get ticket status with additional queue information."""
+    ticket = db.query(Ticket).filter(Ticket.ticket_number == ticket_number).first()
+    if not ticket:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Ticket not found"
+        )
+    
+    # Get service info
+    service = db.query(Service).filter(Service.id == ticket.service_id).first()
+    
+    # Check if there are waiting tickets in the service
+    waiting_count = db.query(Ticket).filter(
+        and_(
+            Ticket.service_id == ticket.service_id,
+            Ticket.status == TicketStatus.WAITING
+        )
+    ).count()
+    
+    # AUTO-COMPLETE LOGIC: If ticket is consulting and no waiting patients, auto-complete it
+    if ticket.status == TicketStatus.CONSULTING and waiting_count == 0:
+        ticket.status = TicketStatus.COMPLETED
+        ticket.consultation_end = datetime.utcnow()
+        
+        # Log the auto-completion
+        auto_complete_log = QueueLog(
+            ticket_id=ticket.id,
+            action="auto_completed_on_status_check",
+            details=f"Ticket automatically completed during status check - no waiting patients"
+        )
+        db.add(auto_complete_log)
+        db.commit()
+        db.refresh(ticket)
+    
+    # Determine if ticket should be considered done
+    should_show_as_done = (
+        ticket.status == TicketStatus.COMPLETED or
+        ticket.status == TicketStatus.CANCELLED or
+        ticket.status == TicketStatus.EXPIRED
+    )
+    
+    return {
+        "ticket_number": ticket.ticket_number,
+        "status": ticket.status,
+        "position_in_queue": ticket.position_in_queue,
+        "estimated_wait_time": ticket.estimated_wait_time,
+        "service_name": service.name if service else "Unknown Service",
+        "service_id": ticket.service_id,
+        "waiting_count": waiting_count,
+        "should_show_as_done": should_show_as_done,
+        "created_at": ticket.created_at
+    }
+
+
 @router.post("/call-next/{service_id}")
 async def call_next_patient(
     service_id: int,
@@ -135,13 +194,37 @@ async def call_next_patient(
         # Recalculate estimated wait time
         ticket.estimated_wait_time = (i - 1) * (service.avg_wait_time if service else 15)
     
+    # AUTO-COMPLETE LOGIC: If no more waiting tickets, automatically complete all consulting tickets
+    if len(remaining_tickets) == 0:
+        # Get all consulting tickets for this service
+        consulting_tickets = db.query(Ticket).filter(
+            and_(
+                Ticket.service_id == service_id,
+                Ticket.status == TicketStatus.CONSULTING
+            )
+        ).all()
+        
+        for ticket in consulting_tickets:
+            # Mark as completed
+            ticket.status = TicketStatus.COMPLETED
+            ticket.consultation_end = datetime.utcnow()
+            
+            # Log the auto-completion
+            auto_complete_log = QueueLog(
+                ticket_id=ticket.id,
+                action="auto_completed",
+                details=f"Ticket automatically completed - no more waiting patients"
+            )
+            db.add(auto_complete_log)
+    
     db.commit()
     db.refresh(next_ticket)
     
     return {
         "message": "Next patient called successfully",
         "ticket": TicketResponse.from_orm(next_ticket),
-        "patient_name": next_ticket.patient.full_name
+        "patient_name": next_ticket.patient.full_name,
+        "auto_completed": len(remaining_tickets) == 0
     }
 
 

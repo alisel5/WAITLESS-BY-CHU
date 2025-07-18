@@ -19,6 +19,57 @@ function checkAuthStatus() {
   }
 }
 
+// Auto-fill user information in the form
+function autoFillUserInfo() {
+  if (apiClient.isAuthenticated()) {
+    const user = apiClient.getCurrentUser();
+    if (user) {
+      // Auto-fill the form fields
+      const patientNameEl = document.getElementById('patientName');
+      const patientPhoneEl = document.getElementById('patientPhone');
+      const patientEmailEl = document.getElementById('patientEmail');
+      
+      if (patientNameEl && user.full_name) {
+        patientNameEl.value = user.full_name;
+        patientNameEl.readOnly = true;
+        patientNameEl.style.backgroundColor = '#f8f9fa';
+      }
+      
+      if (patientPhoneEl && user.phone) {
+        patientPhoneEl.value = user.phone;
+        patientPhoneEl.readOnly = true;
+        patientPhoneEl.style.backgroundColor = '#f8f9fa';
+      }
+      
+      if (patientEmailEl && user.email) {
+        patientEmailEl.value = user.email;
+        patientEmailEl.readOnly = true;
+        patientEmailEl.style.backgroundColor = '#f8f9fa';
+      }
+      
+      // Show user info notice
+      showUserInfoNotice();
+    }
+  }
+}
+
+// Show notice that user info is pre-filled
+function showUserInfoNotice() {
+  const onlineForm = document.querySelector('.online-form');
+  if (onlineForm && !document.getElementById('userInfoNotice')) {
+    const notice = document.createElement('div');
+    notice.id = 'userInfoNotice';
+    notice.className = 'user-info-notice';
+    notice.innerHTML = `
+      <i class="fas fa-user-check"></i>
+      <span>Vos informations sont pré-remplies depuis votre compte</span>
+    `;
+    
+    // Insert at the beginning of the form
+    onlineForm.insertBefore(notice, onlineForm.firstChild);
+  }
+}
+
 // Load available services from backend
 async function loadAvailableServices() {
   try {
@@ -232,6 +283,9 @@ function showOnlineSection() {
     onlineSection.style.opacity = '1';
     onlineSection.style.transform = 'translateX(0)';
   }, 100);
+  
+  // Auto-fill user information if authenticated
+  autoFillUserInfo();
   
   // Définir l'heure d'arrivée par défaut (maintenant)
   const now = new Date();
@@ -475,15 +529,37 @@ function showPatientInfoModal(qrData, scanResponse) {
   // Créer et afficher un modal pour collecter les informations du patient
   const modal = document.createElement('div');
   modal.className = 'modal-overlay';
+  
+  // Check if user is authenticated
+  const isAuthenticated = apiClient.isAuthenticated();
+  const user = isAuthenticated ? apiClient.getCurrentUser() : null;
+  
+  let userInfoNotice = '';
+  if (isAuthenticated && user) {
+    userInfoNotice = `
+      <div class="user-info-notice">
+        <i class="fas fa-user-check"></i>
+        <span>Vos informations sont pré-remplies depuis votre compte</span>
+      </div>
+    `;
+  }
+  
   modal.innerHTML = `
     <div class="modal">
       <h2>Rejoindre la file d'attente</h2>
       <p><strong>Service:</strong> ${scanResponse.service_name}</p>
       <p><strong>Localisation:</strong> ${scanResponse.location}</p>
+      ${userInfoNotice}
       <form id="patientInfoForm">
-        <input type="text" id="patientName" placeholder="Nom complet" required>
-        <input type="tel" id="patientPhone" placeholder="Téléphone" required>
-        <input type="email" id="patientEmail" placeholder="Email" required>
+        <input type="text" id="patientName" placeholder="Nom complet" required 
+               value="${isAuthenticated && user ? user.full_name : ''}"
+               ${isAuthenticated ? 'readonly style="background-color: #f8f9fa;"' : ''}>
+        <input type="tel" id="patientPhone" placeholder="Téléphone" required
+               value="${isAuthenticated && user && user.phone ? user.phone : ''}"
+               ${isAuthenticated ? 'readonly style="background-color: #f8f9fa;"' : ''}>
+        <input type="email" id="patientEmail" placeholder="Email" required
+               value="${isAuthenticated && user ? user.email : ''}"
+               ${isAuthenticated ? 'readonly style="background-color: #f8f9fa;"' : ''}>
         <select id="patientPriority">
           <option value="medium">Priorité normale</option>
           <option value="high">Priorité haute</option>
@@ -536,8 +612,30 @@ async function joinQueueViaScan(qrData) {
       return;
     }
     
-    // Appeler l'API scan-to-join
-    const joinResponse = await apiClient.scanToJoin(qrData, patientData);
+    let joinResponse;
+    
+    // Check if user is authenticated - use different endpoints
+    if (apiClient.isAuthenticated()) {
+      // For authenticated users, we need to get the service ID from the QR scan response
+      // and use the create ticket endpoint
+      const serviceId = window.currentScanResponse.service_id;
+      if (!serviceId) {
+        APIUtils.showNotification('Impossible de déterminer le service', 'error');
+        return;
+      }
+      
+      const formData = {
+        service_id: serviceId,
+        priority: patientData.priority
+      };
+      
+      console.log('Creating ticket for authenticated user via QR scan:', formData);
+      joinResponse = await apiClient.createTicket(formData);
+    } else {
+      // For anonymous users, use the scan-to-join endpoint
+      console.log('Joining queue as anonymous user via QR scan:', patientData);
+      joinResponse = await apiClient.scanToJoin(qrData, patientData);
+    }
     
     if (joinResponse) {
       // Fermer le modal
@@ -640,39 +738,62 @@ async function joinQueueOnline() {
       arrivalDateTime = arrivalDateTime.toISOString();
     }
     
-    const formData = {
-      patient_name: patientName,
-      patient_phone: patientPhone,
-      patient_email: patientEmail,
-      service_id: serviceIdInt,
-      priority: priority
-    };
+    let response;
     
-    // Add optional fields if they exist
-    if (arrivalDateTime) {
-      formData.estimated_arrival = arrivalDateTime;
+    // Check if user is authenticated - use different endpoints
+    if (apiClient.isAuthenticated()) {
+      // Use authenticated endpoint - ticket will be linked to user account
+      const formData = {
+        service_id: serviceIdInt,
+        priority: priority,
+        notes: notes,
+        estimated_arrival: arrivalDateTime
+      };
+      
+      console.log('Creating ticket for authenticated user:', formData);
+      response = await apiClient.createTicket(formData);
+    } else {
+      // Use anonymous endpoint - creates temporary user
+      const formData = {
+        patient_name: patientName,
+        patient_phone: patientPhone,
+        patient_email: patientEmail,
+        service_id: serviceIdInt,
+        priority: priority
+      };
+      
+      // Add optional fields if they exist
+      if (arrivalDateTime) {
+        formData.estimated_arrival = arrivalDateTime;
+      }
+      if (notes) {
+        formData.notes = notes;
+      }
+      
+      console.log('Joining queue as anonymous user:', formData);
+      response = await apiClient.joinQueueOnline(formData);
     }
-    if (notes) {
-      formData.notes = notes;
-    }
-    
-    console.log('Sending data:', formData);
-    
-    // Appeler l'API pour rejoindre la file en ligne
-    const response = await apiClient.joinQueueOnline(formData);
     
     if (response) {
       // Afficher la confirmation
       showConfirmationModal(response);
       
-      // Clear form
-      patientNameEl.value = '';
-      patientPhoneEl.value = '';
-      patientEmailEl.value = '';
-      serviceSelectEl.value = '';
-      if (prioritySelectEl) prioritySelectEl.value = '';
-      if (estimatedArrivalEl) estimatedArrivalEl.value = '';
-      if (notesEl) notesEl.value = '';
+      // Clear form only if not authenticated (since fields are read-only for authenticated users)
+      if (!apiClient.isAuthenticated()) {
+        patientNameEl.value = '';
+        patientPhoneEl.value = '';
+        patientEmailEl.value = '';
+        serviceSelectEl.value = '';
+        if (prioritySelectEl) prioritySelectEl.value = '';
+        if (estimatedArrivalEl) estimatedArrivalEl.value = '';
+        if (notesEl) notesEl.value = '';
+      } else {
+        // Clear only editable fields for authenticated users
+        serviceSelectEl.value = '';
+        if (prioritySelectEl) prioritySelectEl.value = '';
+        if (estimatedArrivalEl) estimatedArrivalEl.value = '';
+        if (notesEl) notesEl.value = '';
+      }
     }
     
   } catch (error) {

@@ -322,6 +322,36 @@ a {
   transform: translateY(-2px);
 }
 
+/* User info notice */
+.user-info-notice {
+  background: linear-gradient(135deg, #4CAF50, #45a049);
+  color: white;
+  padding: 1rem;
+  border-radius: 10px;
+  margin-bottom: 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
+  animation: slideInDown 0.5s ease-out;
+}
+
+.user-info-notice i {
+  font-size: 1.1rem;
+}
+
+@keyframes slideInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .submit-btn {
   background: #4A90E2;
   color: white;

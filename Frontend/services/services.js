@@ -252,7 +252,16 @@ async function callNextPatient(serviceId, serviceName) {
   try {
     const result = await apiClient.callNextPatient(serviceId);
     if (result) {
-      APIUtils.showNotification(`Patient appelé pour ${serviceName}`, 'success');
+      let message = `Patient appelé pour ${serviceName}`;
+      
+      // Check if tickets were auto-completed
+      if (result.auto_completed) {
+        message += ' - Tous les tickets en consultation ont été automatiquement terminés';
+        APIUtils.showNotification(message, 'warning');
+      } else {
+        APIUtils.showNotification(message, 'success');
+      }
+      
       // Refresh the services to update waiting count
       await loadServices();
     }

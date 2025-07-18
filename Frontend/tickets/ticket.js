@@ -65,15 +65,25 @@ async function loadUserTickets() {
     const tickets = await apiClient.getMyTickets();
     if (tickets && tickets.length > 0) {
       ticketsHistory = tickets;
-      // Set the most recent ticket as current ticket
-      const activeTicket = tickets.find(ticket => ticket.status === 'waiting' || ticket.status === 'consulting');
+      
+      // Find the most recent active ticket (waiting or consulting)
+      const activeTicket = tickets.find(ticket => 
+        ticket.status === 'waiting' || ticket.status === 'consulting'
+      );
+      
       if (activeTicket) {
         currentTicket = activeTicket;
         displayCurrentTicket();
+      } else {
+        // No active tickets, show empty state
+        currentTicket = null;
+        showEmptyState();
       }
+      
       renderHistoryList();
     } else {
       // No tickets found, show empty state
+      currentTicket = null;
       showEmptyState();
     }
   } catch (error) {
@@ -102,23 +112,62 @@ function loadLocalStorageTickets() {
 // Load a specific ticket by its number
 async function loadTicketByNumber(ticketNumber) {
   try {
-    // Use the QR scan API to get ticket status
-    const ticketData = await apiClient.scanQR(ticketNumber);
-    if (ticketData && ticketData.type === 'ticket_status') {
+    // Use the new endpoint that provides queue information
+    const ticketData = await apiClient.getTicketStatusWithQueueInfo(ticketNumber);
+    if (ticketData) {
       currentTicket = {
         id: ticketData.id,
         ticket_number: ticketData.ticket_number,
         service_name: ticketData.service_name,
+        service_id: ticketData.service_id,
         status: ticketData.status,
         position_in_queue: ticketData.position_in_queue,
         estimated_wait_time: ticketData.estimated_wait_time,
-        created_at: ticketData.created_at
+        created_at: ticketData.created_at,
+        priority: 'medium' // Default priority
       };
-      displayCurrentTicket();
+      
+      // Check if ticket should be shown as done
+      if (ticketData.should_show_as_done) {
+        // Ticket should be considered done, show empty state
+        currentTicket = null;
+        showEmptyState();
+      } else {
+        // Ticket is active, display it
+        displayCurrentTicket();
+      }
     }
   } catch (error) {
     console.error('Error loading ticket:', error);
-    showEmptyState();
+    // Fallback to old method
+    try {
+      const ticketData = await apiClient.scanQR(ticketNumber);
+      if (ticketData && ticketData.type === 'ticket_status') {
+        currentTicket = {
+          id: ticketData.id,
+          ticket_number: ticketData.ticket_number,
+          service_name: ticketData.service_name,
+          service: ticketData.service, // Keep both for compatibility
+          status: ticketData.status,
+          position_in_queue: ticketData.position_in_queue,
+          estimated_wait_time: ticketData.estimated_wait_time,
+          created_at: ticketData.created_at,
+          priority: ticketData.priority || 'medium'
+        };
+        
+        // Check if ticket is active before displaying
+        if (currentTicket.status === 'waiting' || currentTicket.status === 'consulting') {
+          displayCurrentTicket();
+        } else {
+          // Ticket is completed/cancelled, show empty state
+          currentTicket = null;
+          showEmptyState();
+        }
+      }
+    } catch (fallbackError) {
+      console.error('Fallback method also failed:', fallbackError);
+      showEmptyState();
+    }
   }
 }
 
@@ -128,10 +177,31 @@ function showEmptyState() {
   if (mainCard) {
     mainCard.innerHTML = `
       <div class="empty-state">
-        <i class="fas fa-ticket-alt"></i>
-        <h3>Aucun ticket actif</h3>
-        <p>Vous n'avez pas de ticket en cours.</p>
-        <a href="../qr code/qr.html" class="btn">Rejoindre une file d'attente</a>
+        <i class="fas fa-check-circle"></i>
+        <h3>Votre consultation est terminée</h3>
+        <p>Votre ticket a été traité avec succès. Merci de votre patience !</p>
+        <div class="empty-state-actions">
+          <a href="../qr code/qr.html" class="btn primary-btn">Nouveau ticket</a>
+          <a href="../Acceuil/acceuil.html" class="btn secondary-btn">Retour à l'accueil</a>
+        </div>
+      </div>
+    `;
+  }
+}
+
+// Show auto-completed state when ticket is auto-completed
+function showAutoCompletedState() {
+  const mainCard = document.getElementById('mainTicketCard');
+  if (mainCard) {
+    mainCard.innerHTML = `
+      <div class="empty-state auto-completed">
+        <i class="fas fa-user-check"></i>
+        <h3>Consultation terminée automatiquement</h3>
+        <p>Votre consultation a été marquée comme terminée car il n'y a plus de patients en attente. Merci !</p>
+        <div class="empty-state-actions">
+          <a href="../qr code/qr.html" class="btn primary-btn">Nouveau ticket</a>
+          <a href="../Acceuil/acceuil.html" class="btn secondary-btn">Retour à l'accueil</a>
+        </div>
       </div>
     `;
   }
@@ -144,24 +214,70 @@ function displayCurrentTicket() {
     return;
   }
   
+  // Check if ticket is completed - if so, don't show in main card
+  if (currentTicket.status === 'completed' || currentTicket.status === 'cancelled' || currentTicket.status === 'expired') {
+    showEmptyState();
+    return;
+  }
+  
+  // Special handling for consulting status
+  if (currentTicket.status === 'consulting') {
+    // Show consulting status with appropriate messaging
+    displayConsultingStatus();
+    return;
+  }
+  
   const ticketNumber = document.getElementById('ticketNumber');
   const ticketStatus = document.getElementById('ticketStatus');
   const serviceName = document.getElementById('serviceName');
   const ticketType = document.getElementById('ticketType');
-  const currentPosition = document.getElementById('currentPosition');
+  const positionNumber = document.getElementById('positionNumber');
   const peopleAhead = document.getElementById('peopleAhead');
   const estimatedTime = document.getElementById('estimatedTime');
+  const issueDate = document.getElementById('issueDate');
+  const priority = document.getElementById('priority');
   
   if (ticketNumber) ticketNumber.textContent = currentTicket.ticket_number;
   if (ticketStatus) {
     ticketStatus.textContent = getStatusText(currentTicket.status);
     ticketStatus.className = `ticket-status ${currentTicket.status}`;
   }
-  if (serviceName) serviceName.textContent = currentTicket.service_name;
+  
+  // Fix service name display
+  if (serviceName) {
+    let serviceDisplay = '';
+    if (typeof currentTicket.service_name === 'string') {
+      serviceDisplay = currentTicket.service_name;
+    } else if (currentTicket.service && typeof currentTicket.service === 'object') {
+      serviceDisplay = currentTicket.service.name || 'Service inconnu';
+    } else if (currentTicket.service && typeof currentTicket.service === 'string') {
+      serviceDisplay = currentTicket.service;
+    } else {
+      serviceDisplay = 'Service inconnu';
+    }
+    serviceName.textContent = serviceDisplay;
+  }
+  
   if (ticketType) ticketType.textContent = 'Standard';
-  if (currentPosition) currentPosition.textContent = currentTicket.position_in_queue || 0;
+  if (positionNumber) positionNumber.textContent = currentTicket.position_in_queue || 0;
   if (peopleAhead) peopleAhead.textContent = Math.max(0, (currentTicket.position_in_queue || 1) - 1);
   if (estimatedTime) estimatedTime.textContent = APIUtils.formatWaitTime(currentTicket.estimated_wait_time || 0);
+  
+  // Set issue date
+  if (issueDate && currentTicket.created_at) {
+    const date = new Date(currentTicket.created_at);
+    issueDate.textContent = date.toLocaleDateString('fr-FR');
+  }
+  
+  // Set priority
+  if (priority) {
+    const priorityText = {
+      'low': 'Basse',
+      'medium': 'Normale', 
+      'high': 'Haute'
+    };
+    priority.textContent = priorityText[currentTicket.priority] || 'Normale';
+  }
   
   // Update progress bar
   updateProgressBar();
@@ -187,6 +303,64 @@ function updateProgressBar() {
 function showAlert() {
   const alertMessage = `Attention! Il ne reste que ${currentTicket.position_in_queue} personne(s) avant vous.`;
   APIUtils.showNotification(alertMessage, 'warning');
+}
+
+// Display consulting status with appropriate messaging
+function displayConsultingStatus() {
+  const mainCard = document.getElementById('mainTicketCard');
+  if (!mainCard) return;
+  
+  mainCard.innerHTML = `
+    <div class="ticket-card-header">
+      <div class="ticket-number">
+        <h2 id="ticketNumber">${currentTicket.ticket_number}</h2>
+        <span class="ticket-status consulting" id="ticketStatus">En consultation</span>
+      </div>
+      <div class="ticket-qr">
+        <div class="qr-code" id="qrCode">
+          <i class="fas fa-qrcode"></i>
+        </div>
+      </div>
+    </div>
+
+    <div class="ticket-info">
+      <div class="info-row">
+        <span class="label">Service</span>
+        <span class="value" id="serviceName">${currentTicket.service_name || 'Service inconnu'}</span>
+      </div>
+      <div class="info-row">
+        <span class="label">Type</span>
+        <span class="value" id="ticketType">Standard</span>
+      </div>
+      <div class="info-row">
+        <span class="label">Priorité</span>
+        <span class="value" id="priority">Normale</span>
+      </div>
+      <div class="info-row">
+        <span class="label">Date d'émission</span>
+        <span class="value" id="issueDate">${currentTicket.created_at ? new Date(currentTicket.created_at).toLocaleDateString('fr-FR') : 'N/A'}</span>
+      </div>
+    </div>
+
+    <div class="consulting-status">
+      <div class="consulting-message">
+        <i class="fas fa-user-md"></i>
+        <h3>Votre consultation est en cours</h3>
+        <p>Veuillez vous présenter au service. Votre ticket a été appelé.</p>
+      </div>
+      
+      <div class="consulting-actions">
+        <button class="action-btn refresh-btn" onclick="refreshTicket()">
+          <i class="fas fa-sync-alt"></i>
+          Actualiser
+        </button>
+        <button class="action-btn complete-btn" onclick="markAsCompleted()">
+          <i class="fas fa-check"></i>
+          Marquer comme terminé
+        </button>
+      </div>
+    </div>
+  `;
 }
 
 // Configurer les écouteurs d'événements
@@ -234,15 +408,43 @@ async function loadTicketData() {
   try {
     // Update current ticket status if we have one
     if (currentTicket) {
-      const updatedTicket = await apiClient.scanQR(currentTicket.ticket_number);
-      if (updatedTicket && updatedTicket.type === 'ticket_status') {
+      // Use the new endpoint that provides queue information
+      const ticketStatus = await apiClient.getTicketStatusWithQueueInfo(currentTicket.ticket_number);
+      if (ticketStatus) {
+        // Check if ticket should be considered done based on backend logic
+        const shouldShowAsDone = ticketStatus.should_show_as_done;
+        
         currentTicket = {
           ...currentTicket,
-          status: updatedTicket.status,
-          position_in_queue: updatedTicket.position_in_queue,
-          estimated_wait_time: updatedTicket.estimated_wait_time
+          status: ticketStatus.status,
+          position_in_queue: ticketStatus.position_in_queue,
+          estimated_wait_time: ticketStatus.estimated_wait_time,
+          service_id: ticketStatus.service_id,
+          service_name: ticketStatus.service_name
         };
-        displayCurrentTicket();
+        
+        // If ticket should be shown as done, clear it and show appropriate state
+        if (shouldShowAsDone) {
+          console.log('Ticket should be shown as done, clearing display');
+          
+          // Check if this was an auto-completion (status changed from consulting to completed)
+          const wasAutoCompleted = ticketStatus.status === 'completed' && 
+                                 currentTicket && 
+                                 currentTicket.status === 'consulting';
+          
+          currentTicket = null;
+          
+          if (wasAutoCompleted) {
+            showAutoCompletedState();
+          } else {
+            showEmptyState();
+          }
+          
+          // Stop auto-update since ticket is done
+          stopAutoUpdate();
+        } else {
+          displayCurrentTicket();
+        }
       }
     }
     
@@ -254,6 +456,23 @@ async function loadTicketData() {
     
   } catch (error) {
     console.error('Error updating ticket data:', error);
+    // Fallback to old method if new endpoint fails
+    try {
+      if (currentTicket) {
+        const updatedTicket = await apiClient.scanQR(currentTicket.ticket_number);
+        if (updatedTicket && updatedTicket.type === 'ticket_status') {
+          currentTicket = {
+            ...currentTicket,
+            status: updatedTicket.status,
+            position_in_queue: updatedTicket.position_in_queue,
+            estimated_wait_time: updatedTicket.estimated_wait_time
+          };
+          displayCurrentTicket();
+        }
+      }
+    } catch (fallbackError) {
+      console.error('Fallback method also failed:', fallbackError);
+    }
   }
 }
 
@@ -306,13 +525,21 @@ function renderHistoryList() {
   
   // Appliquer le filtre
   if (currentFilter !== 'all') {
-    filteredTickets = ticketsHistory.filter(ticket => ticket.status === currentFilter);
+    if (currentFilter === 'active') {
+      // Filter for active tickets (waiting or consulting)
+      filteredTickets = ticketsHistory.filter(ticket => 
+        ticket.status === 'waiting' || ticket.status === 'consulting'
+      );
+    } else {
+      // Filter by specific status
+      filteredTickets = ticketsHistory.filter(ticket => ticket.status === currentFilter);
+    }
   }
   
   historyList.innerHTML = '';
   
   if (filteredTickets.length === 0) {
-    historyList.innerHTML = '<p>Aucun ticket trouvé</p>';
+    historyList.innerHTML = '<p class="no-tickets">Aucun ticket trouvé</p>';
     return;
   }
   
@@ -320,6 +547,18 @@ function renderHistoryList() {
     const historyItem = document.createElement('div');
     historyItem.className = 'history-item';
     historyItem.onclick = () => showTicketDetails(ticket);
+    
+    // Fix service name display
+    let serviceDisplay = '';
+    if (typeof ticket.service_name === 'string') {
+      serviceDisplay = ticket.service_name;
+    } else if (ticket.service && typeof ticket.service === 'object') {
+      serviceDisplay = ticket.service.name || 'Service inconnu';
+    } else if (ticket.service && typeof ticket.service === 'string') {
+      serviceDisplay = ticket.service;
+    } else {
+      serviceDisplay = 'Service inconnu';
+    }
     
     historyItem.innerHTML = `
       <div class="history-item-header">
@@ -329,7 +568,7 @@ function renderHistoryList() {
       <div class="history-details">
         <div class="history-detail">
           <span class="history-label">Service:</span>
-          <span class="history-value">${ticket.service_name || ticket.service}</span>
+          <span class="history-value">${serviceDisplay}</span>
         </div>
         <div class="history-detail">
           <span class="history-label">Type:</span>
@@ -355,6 +594,18 @@ function showTicketDetails(ticket) {
   const modal = document.getElementById('ticketModal');
   const modalContent = document.getElementById('modalContent');
   
+  // Fix service name display
+  let serviceDisplay = '';
+  if (typeof ticket.service_name === 'string') {
+    serviceDisplay = ticket.service_name;
+  } else if (ticket.service && typeof ticket.service === 'object') {
+    serviceDisplay = ticket.service.name || 'Service inconnu';
+  } else if (ticket.service && typeof ticket.service === 'string') {
+    serviceDisplay = ticket.service;
+  } else {
+    serviceDisplay = 'Service inconnu';
+  }
+  
   modalContent.innerHTML = `
     <div class="ticket-details">
       <div class="detail-section">
@@ -366,7 +617,7 @@ function showTicketDetails(ticket) {
           </div>
           <div class="detail-item">
             <span class="detail-label">Service:</span>
-            <span class="detail-value">${ticket.service_name || ticket.service}</span>
+            <span class="detail-value">${serviceDisplay}</span>
           </div>
           <div class="detail-item">
             <span class="detail-label">Type:</span>
@@ -417,6 +668,23 @@ async function handleLogout() {
       apiClient.removeToken();
       window.location.href = '../Acceuil/acceuil.html';
     }
+  }
+}
+
+// Mark ticket as completed (for client-side use)
+async function markAsCompleted() {
+  if (!currentTicket) return;
+  
+  try {
+    // Update local status to completed
+    currentTicket.status = 'completed';
+    showEmptyState();
+    stopAutoUpdate();
+    
+    APIUtils.showNotification('Ticket marqué comme terminé', 'success');
+  } catch (error) {
+    console.error('Error marking ticket as completed:', error);
+    APIUtils.showNotification('Erreur lors de la mise à jour du statut', 'error');
   }
 }
 
@@ -494,7 +762,19 @@ function shareTicket() {
 function copyTicketToClipboard() {
   if (!currentTicket) return;
   
-  const ticketInfo = `Ticket: ${currentTicket.ticket_number}\nService: ${currentTicket.service_name}\nStatut: ${getStatusText(currentTicket.status)}\nPosition: ${currentTicket.position_in_queue || 'N/A'}`;
+  // Fix service name display
+  let serviceDisplay = '';
+  if (typeof currentTicket.service_name === 'string') {
+    serviceDisplay = currentTicket.service_name;
+  } else if (currentTicket.service && typeof currentTicket.service === 'object') {
+    serviceDisplay = currentTicket.service.name || 'Service inconnu';
+  } else if (currentTicket.service && typeof currentTicket.service === 'string') {
+    serviceDisplay = currentTicket.service;
+  } else {
+    serviceDisplay = 'Service inconnu';
+  }
+  
+  const ticketInfo = `Ticket: ${currentTicket.ticket_number}\nService: ${serviceDisplay}\nStatut: ${getStatusText(currentTicket.status)}\nPosition: ${currentTicket.position_in_queue || 'N/A'}`;
   
   navigator.clipboard.writeText(ticketInfo)
     .then(() => APIUtils.showNotification('Informations du ticket copiées', 'success'))
@@ -506,6 +786,18 @@ function printTicket() {
   if (!currentTicket) {
     APIUtils.showNotification('Aucun ticket à imprimer', 'warning');
     return;
+  }
+  
+  // Fix service name display
+  let serviceDisplay = '';
+  if (typeof currentTicket.service_name === 'string') {
+    serviceDisplay = currentTicket.service_name;
+  } else if (currentTicket.service && typeof currentTicket.service === 'object') {
+    serviceDisplay = currentTicket.service.name || 'Service inconnu';
+  } else if (currentTicket.service && typeof currentTicket.service === 'string') {
+    serviceDisplay = currentTicket.service;
+  } else {
+    serviceDisplay = 'Service inconnu';
   }
   
   const printWindow = window.open('', '_blank');
@@ -528,7 +820,7 @@ function printTicket() {
             <h1>${currentTicket.ticket_number}</h1>
           </div>
           <div class="info">
-            <span class="label">Service:</span> ${currentTicket.service_name}
+            <span class="label">Service:</span> ${serviceDisplay}
           </div>
           <div class="info">
             <span class="label">Statut:</span> ${getStatusText(currentTicket.status)}

@@ -294,6 +294,10 @@ class APIClient {
         return await this.makeRequest(`/api/queue/service/${serviceId}`);
     }
 
+    async getTicketStatusWithQueueInfo(ticketNumber) {
+        return await this.makeRequest(`/api/queue/ticket-status/${ticketNumber}`);
+    }
+
     async callNextPatient(serviceId) {
         return await this.makeRequest(`/api/queue/call-next/${serviceId}`, {
             method: 'POST'
