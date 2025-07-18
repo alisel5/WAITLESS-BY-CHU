@@ -1,0 +1,193 @@
+# WAITLESS-CHU System Architecture - Lucidchart Format
+
+# Copy and paste the sections below into Lucidchart
+
+## Main Actors (Create 4 rectangles):
+
+Patient (Utilisateur)
+- Shape: Rectangle
+- Text: "👤 Patient\n(Utilisateur)"
+
+Frontend (Vanilla JS)  
+- Shape: Rectangle
+- Text: "🖥️ Frontend\n(Vanilla JS)"
+
+Backend (FastAPI)
+- Shape: Rectangle  
+- Text: "⚙️ Backend\n(FastAPI)"
+
+Database (PostgreSQL)
+- Shape: Rectangle
+- Text: "🗄️ Database\n(PostgreSQL)"
+
+Medical Staff
+- Shape: Rectangle
+- Text: "👨‍⚕️ Medical Staff\n(Personnel)"
+
+Admin
+- Shape: Rectangle
+- Text: "🛡️ Admin\n(Administrateur)"
+
+## Patient Flow Arrows and Labels:
+
+Arrow 1: Patient → Frontend
+Label: "📱 Scan QR Code + Enter Info"
+
+Arrow 2: Frontend → Backend  
+Label: "🔐 POST /api/auth/login"
+
+Arrow 3: Backend → Frontend
+Label: "✅ JWT Token"
+
+Arrow 4: Frontend → Patient
+Label: "🎫 Digital Ticket + Queue Position"
+
+Arrow 5: Frontend ↔ Backend
+Label: "📊 GET /api/queue/status"
+
+Arrow 6: Frontend → Patient
+Label: "📍 Real-time Position Updates"
+
+Arrow 7: Frontend → Backend
+Label: "🎯 POST /api/tickets/create"
+
+Arrow 8: Backend → Frontend
+Label: "✅ Ticket Created"
+
+Arrow 9: Frontend → Patient
+Label: "🆔 Ticket Generation"
+
+## Medical Staff Flow Arrows and Labels:
+
+Arrow 10: Medical Staff → Frontend
+Label: "🔐 Login to Dashboard"
+
+Arrow 11: Frontend → Backend
+Label: "🔑 POST /api/auth/staff-login"
+
+Arrow 12: Backend → Frontend
+Label: "✅ Staff JWT Token"
+
+Arrow 13: Frontend → Medical Staff
+Label: "📊 Access Dashboard"
+
+Arrow 14: Medical Staff → Frontend
+Label: "📋 Manage Queue (Next Patient)"
+
+Arrow 15: Frontend → Backend
+Label: "🎯 PUT /api/queue/next"
+
+Arrow 16: Backend → Frontend
+Label: "✅ Queue Updated"
+
+Arrow 17: Frontend → Medical Staff
+Label: "📊 Updated Queue Status"
+
+Arrow 18: Medical Staff → Frontend
+Label: "📈 View Analytics"
+
+Arrow 19: Frontend → Backend
+Label: "📊 GET /api/admin/reports"
+
+Arrow 20: Backend → Frontend
+Label: "📈 Analytics Data"
+
+Arrow 21: Frontend → Medical Staff
+Label: "📊 Reports & Analytics"
+
+## Admin Flow Arrows and Labels:
+
+Arrow 22: Admin → Frontend
+Label: "🔐 Admin Login"
+
+Arrow 23: Frontend → Backend
+Label: "🔑 POST /api/auth/admin-login"
+
+Arrow 24: Backend → Frontend
+Label: "✅ Admin JWT Token"
+
+Arrow 25: Frontend → Admin
+Label: "⚙️ System Configuration"
+
+Arrow 26: Admin → Frontend
+Label: "🏥 Manage Services"
+
+Arrow 27: Frontend → Backend
+Label: "⚙️ POST /api/admin/services"
+
+Arrow 28: Backend → Frontend
+Label: "✅ Service Configuration"
+
+Arrow 29: Frontend → Admin
+Label: "✅ Services Updated"
+
+Arrow 30: Admin → Frontend
+Label: "👥 User Management"
+
+Arrow 31: Frontend → Backend
+Label: "👤 GET/POST /api/admin/users"
+
+Arrow 32: Backend → Frontend
+Label: "👥 User Data"
+
+Arrow 33: Frontend → Admin
+Label: "👥 User List & Roles"
+
+## Database Connections:
+
+Arrow 34: Backend ↔ Database
+Label: "📊 Database Operations"
+
+## Database Details Box:
+Create a text box connected to Database with:
+"📊 Database Operations
+• Users
+• Services  
+• Tickets
+• Queue
+• Analytics"
+
+## Layout Instructions for Lucidchart:
+
+1. Position the main actors horizontally:
+   Patient --- Frontend --- Backend --- Database
+
+2. Position Medical Staff below Patient
+3. Position Admin below Medical Staff
+
+4. Use different arrow colors for each user type:
+   - Patient flows: Blue arrows
+   - Medical Staff flows: Green arrows  
+   - Admin flows: Red arrows
+   - Database flows: Purple arrows
+
+5. Group related arrows and labels together
+
+6. Add a title at the top: "🏥 WAITLESS-CHU System Architecture"
+
+## Additional Information Boxes:
+
+System Features Box:
+"🎯 Key Features:
+• QR Scan-to-Join (No app required)
+• Real-time Queue Management  
+• JWT Authentication
+• Role-based Access Control
+• Smart Wait Time Estimation
+• Comprehensive Analytics"
+
+Technical Stack Box:
+"🏗️ Technical Stack:
+Frontend: Vanilla JS + Modern CSS
+Backend: FastAPI + PostgreSQL
+Security: JWT + CORS
+Features: QR Codes + Real-time Updates"
+
+API Endpoints Box:
+"📱 API Endpoints:
+/api/auth/ - Authentication
+/api/services/ - Service Management
+/api/tickets/ - Ticket Operations  
+/api/queue/ - Queue Management
+/api/admin/ - Admin Operations
+/api/tickets-qr/ - QR Features"
