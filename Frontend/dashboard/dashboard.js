@@ -32,8 +32,6 @@ class DashboardManager {
         
         // Setup UI components
         this.setupEventListeners();
-        this.createRealtimeToggle();
-        this.createRefreshButton();
         
         // Load initial data
         await this.loadInitialData();
@@ -45,7 +43,6 @@ class DashboardManager {
         this.startPeriodicRefresh();
         
         console.log('✅ Dashboard Enhanced loaded successfully');
-        MessageManager.success('Dashboard chargé avec succès', { duration: 3000 });
     }
     
     checkAuth() {
@@ -231,8 +228,7 @@ class DashboardManager {
             // Listen for WebSocket events
             wsClient.addEventListener('dashboard_connected', () => {
                 this.isRealTimeEnabled = true;
-                this.updateRealTimeStatus(true);
-                MessageManager.info('Mises à jour en temps réel activées', { duration: 3000 });
+                console.log('✅ Real-time updates connected');
             });
             
             wsClient.addEventListener('dashboard_initial_state', ({ data }) => {
@@ -509,8 +505,8 @@ class DashboardManager {
         `).join('');
     }
     
-    // UI Creation Methods
-    createRealtimeToggle() {
+    // UI Creation Methods (disabled for cleaner interface)
+    createRealtimeToggle_disabled() {
         const header = document.querySelector('.dashboard-header');
         if (!header) return;
         
@@ -609,7 +605,7 @@ class DashboardManager {
         });
     }
     
-    createRefreshButton() {
+    createRefreshButton_disabled() {
         const header = document.querySelector('.dashboard-header p');
         if (!header) return;
         

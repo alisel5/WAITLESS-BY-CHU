@@ -223,7 +223,15 @@ async def call_next_patient(
     
     # Send real-time WebSocket notifications
     try:
-        # Notify about patient being called
+        # Notify the specific patient being called
+        await connection_manager.ticket_status_update(next_ticket.ticket_number, {
+            "status": "consulting",
+            "message": "C'est votre tour! Présentez-vous au service.",
+            "position_in_queue": 0,
+            "estimated_wait_time": 0
+        })
+        
+        # Notify service dashboard about patient being called
         await connection_manager.patient_called(str(service_id), {
             "ticket_number": next_ticket.ticket_number,
             "patient_name": next_ticket.patient.full_name,
@@ -231,7 +239,7 @@ async def call_next_patient(
             "service_id": service_id
         })
         
-        # Notify about queue position updates
+        # Notify about queue position updates for remaining patients
         if remaining_tickets:
             queue_data = []
             for ticket in remaining_tickets:
@@ -240,7 +248,15 @@ async def call_next_patient(
                     "ticket_number": ticket.ticket_number,
                     "estimated_wait_time": ticket.estimated_wait_time
                 })
+                
+                # Send individual position updates to each remaining ticket
+                await connection_manager.ticket_status_update(ticket.ticket_number, {
+                    "position_in_queue": ticket.position_in_queue,
+                    "estimated_wait_time": ticket.estimated_wait_time,
+                    "status": "waiting"
+                })
             
+            # Send overall queue update to service dashboard
             await connection_manager.queue_position_update(str(service_id), {
                 "total_waiting": len(remaining_tickets),
                 "queue": queue_data

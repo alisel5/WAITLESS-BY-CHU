@@ -3,9 +3,10 @@ let currentTicket = null;
 let updateInterval = null;
 let ticketsHistory = [];
 let currentFilter = 'all';
+let wsConnection = null;
 
 // Configuration
-const UPDATE_INTERVAL = 10000; // 10 secondes
+const UPDATE_INTERVAL = 30000; // 30 secondes (reduced since we have real-time updates)
 const ALERT_THRESHOLD = 3; // Alert quand il reste 3 personnes
 
 // Check if user is authenticated and show appropriate UI
@@ -74,6 +75,8 @@ async function loadUserTickets() {
       if (activeTicket) {
         currentTicket = activeTicket;
         displayCurrentTicket();
+        // Setup real-time updates for this ticket
+        setupRealTimeUpdates();
       } else {
         // No active tickets, show empty state
         currentTicket = null;
@@ -850,6 +853,177 @@ function filterHistory(filter) {
   
   renderHistoryList();
 }
+
+// Setup real-time WebSocket updates for ticket tracking
+function setupRealTimeUpdates() {
+  if (!currentTicket || !window.wsClient) {
+    console.log('Cannot setup real-time updates: missing ticket or WebSocket client');
+    return;
+  }
+
+  try {
+    // Connect to ticket-specific updates
+    wsConnection = wsClient.connectToTicket(currentTicket.ticket_number, handleRealTimeUpdate);
+    
+    // Also connect to service updates for broader queue changes
+    if (currentTicket.service_id) {
+      wsClient.connectToService(currentTicket.service_id, handleServiceUpdate);
+    }
+    
+    console.log(`🔗 Real-time updates connected for ticket: ${currentTicket.ticket_number}`);
+  } catch (error) {
+    console.error('Failed to setup real-time updates:', error);
+  }
+}
+
+// Handle real-time ticket updates
+function handleRealTimeUpdate(data) {
+  console.log('📦 Received real-time ticket update:', data);
+  
+  switch (data.type) {
+    case 'initial_ticket_state':
+    case 'ticket_update':
+      if (data.ticket_number === currentTicket?.ticket_number) {
+        updateTicketFromRealTimeData(data);
+      }
+      break;
+      
+    default:
+      console.log('Unhandled ticket update type:', data.type);
+  }
+}
+
+// Handle real-time service updates
+function handleServiceUpdate(data) {
+  console.log('🏥 Received real-time service update:', data);
+  
+  switch (data.type) {
+    case 'queue_update':
+      if (data.event === 'position_change' && currentTicket) {
+        // Update position from queue data
+        updatePositionFromQueueData(data.data);
+      }
+      break;
+      
+    case 'patient_called':
+      if (data.data.ticket_number === currentTicket?.ticket_number) {
+        // This patient was called!
+        handlePatientCalled();
+      } else {
+        // Someone else was called, update positions
+        refreshTicketData();
+      }
+      break;
+      
+    default:
+      console.log('Unhandled service update type:', data.type);
+  }
+}
+
+// Update ticket data from real-time WebSocket data
+function updateTicketFromRealTimeData(data) {
+  if (!currentTicket) return;
+  
+  let updated = false;
+  
+  // Update position
+  if (data.position_in_queue !== undefined && data.position_in_queue !== currentTicket.position_in_queue) {
+    currentTicket.position_in_queue = data.position_in_queue;
+    updated = true;
+  }
+  
+  // Update estimated wait time
+  if (data.estimated_wait_time !== undefined && data.estimated_wait_time !== currentTicket.estimated_wait_time) {
+    currentTicket.estimated_wait_time = data.estimated_wait_time;
+    updated = true;
+  }
+  
+  // Update status
+  if (data.status && data.status !== currentTicket.status) {
+    currentTicket.status = data.status;
+    updated = true;
+    
+    // Show notification for status change
+    if (window.MessageManager) {
+      const statusMessages = {
+        'consulting': '🎉 C\'est votre tour! Présentez-vous au service.',
+        'completed': '✅ Votre consultation est terminée.',
+        'cancelled': '❌ Votre ticket a été annulé.'
+      };
+      
+      const message = statusMessages[data.status] || `Statut mis à jour: ${data.status}`;
+      window.MessageManager.info(message, { duration: 5000 });
+    }
+  }
+  
+  if (updated) {
+    console.log('🔄 Ticket updated from real-time data');
+    displayCurrentTicket();
+    
+    // Check for alerts
+    checkAlerts();
+  }
+}
+
+// Update position from queue data
+function updatePositionFromQueueData(queueData) {
+  if (!currentTicket || !queueData.queue) return;
+  
+  // Find this ticket in the queue data
+  const ticketInQueue = queueData.queue.find(item => 
+    item.ticket_number === currentTicket.ticket_number
+  );
+  
+  if (ticketInQueue && ticketInQueue.position !== currentTicket.position_in_queue) {
+    currentTicket.position_in_queue = ticketInQueue.position;
+    currentTicket.estimated_wait_time = ticketInQueue.estimated_wait_time;
+    
+    console.log(`📍 Position updated to: ${ticketInQueue.position}`);
+    displayCurrentTicket();
+    checkAlerts();
+  }
+}
+
+// Handle when this patient is called
+function handlePatientCalled() {
+  currentTicket.status = 'consulting';
+  displayCurrentTicket();
+  
+  // Show prominent notification
+  if (window.MessageManager) {
+    window.MessageManager.success('🎉 C\'est votre tour!', {
+      title: 'Patient Appelé',
+      duration: 10000,
+      persistent: true,
+      actions: [
+        {
+          text: 'J\'y vais!',
+          primary: true,
+          callback: () => {
+            // Optionally redirect or update UI
+          }
+        }
+      ]
+    });
+  }
+  
+  // Update UI to show consulting status
+  updateTicketStatus('consulting');
+}
+
+// Clean up WebSocket connections
+function cleanupRealTimeUpdates() {
+  if (window.wsClient && currentTicket) {
+    wsClient.disconnect(`ticket_${currentTicket.ticket_number}`);
+    if (currentTicket.service_id) {
+      wsClient.disconnect(`service_${currentTicket.service_id}`);
+    }
+    console.log('🔌 Real-time connections cleaned up');
+  }
+}
+
+// Clean up on page unload
+window.addEventListener('beforeunload', cleanupRealTimeUpdates);
 
 // Exposer les fonctions globalement
 window.closeModal = closeModal;
