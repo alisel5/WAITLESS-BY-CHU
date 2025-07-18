@@ -601,6 +601,13 @@ a {
   margin: 0;
 }
 
+.scanner-loading .loading-subtitle {
+  color: #888;
+  font-size: 0.9rem;
+  margin-top: 0.5rem;
+  font-style: italic;
+}
+
 .retry-btn {
   background: #4A90E2;
   color: white;

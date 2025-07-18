@@ -4,6 +4,8 @@ let html5QrCode = null;
 let currentOption = null;
 let isScanning = false;
 let availableServices = [];
+let scannerInitializationAttempts = 0;
+let maxScannerAttempts = 3;
 
 // Check if user is authenticated and show appropriate UI
 function checkAuthStatus() {
@@ -104,6 +106,37 @@ document.addEventListener('DOMContentLoaded', async function() {
 
 // Initialisation de la page
 async function initializePage() {
+  // Vérifier que la bibliothèque HTML5-QRCode est chargée
+  if (typeof Html5QrcodeScanner === 'undefined') {
+    console.error('❌ Bibliothèque HTML5-QRCode non chargée');
+    // Attendre un peu et réessayer
+    setTimeout(async () => {
+      if (typeof Html5QrcodeScanner === 'undefined') {
+        console.error('❌ Bibliothèque HTML5-QRCode toujours non chargée après délai');
+        // Afficher un message d'erreur sur la page
+        const qrSection = document.getElementById('qrSection');
+        if (qrSection) {
+          qrSection.innerHTML = `
+            <div class="scanner-error">
+              <i class="fas fa-exclamation-triangle"></i>
+              <h3>Erreur de chargement</h3>
+              <p>La bibliothèque de scan QR n'a pas pu être chargée.</p>
+              <button class="retry-btn" onclick="location.reload()">
+                <i class="fas fa-sync"></i>
+                Recharger la page
+              </button>
+            </div>
+          `;
+        }
+        return;
+      } else {
+        console.log('✅ Bibliothèque HTML5-QRCode chargée avec succès');
+      }
+    }, 2000);
+  } else {
+    console.log('✅ Bibliothèque HTML5-QRCode disponible');
+  }
+  
   // Check authentication status
   checkAuthStatus();
   
@@ -313,11 +346,21 @@ function showQRSection() {
     qrSection.style.transform = 'translateX(0)';
   }, 100);
   
-  // Diagnostic et initialisation du scanner
+  // Réinitialiser les tentatives
+  scannerInitializationAttempts = 0;
+  
+  // Nettoyer d'abord le scanner existant (solution découverte par l'utilisateur)
+  stopQRScanner();
+  
+  // Diagnostic et initialisation du scanner avec délai plus long
   setTimeout(() => {
     diagnoseCameraIssues();
-    initializeQRScanner();
-  }, 600);
+    // Attendre un peu plus pour s'assurer que le nettoyage est terminé
+    setTimeout(() => {
+      // Utiliser l'approche directe qui laisse la bibliothèque gérer les permissions
+      initializeQRScannerDirect();
+    }, 300);
+  }, 800);
 }
 
 // Diagnostic des problèmes de caméra
@@ -338,6 +381,9 @@ function diagnoseCameraIssues() {
       })
       .catch(err => {
         console.error('❌ Erreur caméra:', err.name, err.message);
+        if (err.name === 'NotAllowedError') {
+          console.log('Permission refusée - l\'utilisateur doit autoriser la caméra');
+        }
       });
   }
 }
@@ -363,6 +409,185 @@ function stopQRScanner() {
   }
   
   html5QrCode = null;
+}
+
+// Initialiser le scanner QR avec vérification des permissions
+async function initializeQRScannerWithPermissionCheck() {
+  const reader = document.getElementById('reader');
+  
+  if (!reader) {
+    console.error('Élément reader non trouvé');
+    return;
+  }
+  
+  // Nettoyer le contenu précédent
+  reader.innerHTML = '';
+  
+  // Afficher un message de chargement
+  reader.innerHTML = `
+    <div class="scanner-loading">
+      <i class="fas fa-spinner fa-spin"></i>
+      <p>Initialisation de la caméra...</p>
+      <p class="loading-subtitle">Veuillez autoriser l'accès à la caméra si demandé</p>
+    </div>
+  `;
+  
+  // Vérifier si la bibliothèque est chargée
+  if (typeof Html5QrcodeScanner === 'undefined') {
+    console.error('Bibliothèque Html5QrcodeScanner non chargée');
+    showScannerError('La bibliothèque de scan QR n\'est pas chargée. Veuillez recharger la page.');
+    return;
+  }
+  
+  // Vérifier si getUserMedia est supporté
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    console.error('getUserMedia non supporté');
+    showScannerError('Votre navigateur ne supporte pas l\'accès à la caméra. Veuillez utiliser un navigateur moderne.');
+    return;
+  }
+  
+  try {
+    // Vérifier les permissions de la caméra d'abord
+    if (navigator.permissions && navigator.permissions.query) {
+      try {
+        const permissionStatus = await navigator.permissions.query({ name: 'camera' });
+        console.log('Statut permission caméra:', permissionStatus.state);
+        
+        if (permissionStatus.state === 'denied') {
+          showScannerError('L\'accès à la caméra a été refusé. Veuillez autoriser l\'accès dans les paramètres de votre navigateur.');
+          return;
+        }
+      } catch (permError) {
+        console.log('Impossible de vérifier les permissions, continuation...');
+      }
+    }
+    
+    // Mettre à jour le message pour indiquer qu'on attend l'autorisation
+    reader.innerHTML = `
+      <div class="scanner-loading">
+        <i class="fas fa-camera"></i>
+        <p>Demande d'accès à la caméra...</p>
+        <p class="loading-subtitle">Veuillez autoriser l'accès à la caméra dans la popup de votre navigateur</p>
+      </div>
+    `;
+    
+    // Essayer d'accéder à la caméra pour déclencher la demande de permission
+    const stream = await navigator.mediaDevices.getUserMedia({ 
+      video: { 
+        facingMode: 'environment',
+        width: { ideal: 1280 },
+        height: { ideal: 720 }
+      } 
+    });
+    
+    // Arrêter le stream de test
+    stream.getTracks().forEach(track => track.stop());
+    
+    console.log('✅ Permission caméra accordée, initialisation du scanner...');
+    
+    // Mettre à jour le message pour indiquer l'initialisation
+    reader.innerHTML = `
+      <div class="scanner-loading">
+        <i class="fas fa-spinner fa-spin"></i>
+        <p>Initialisation du scanner...</p>
+        <p class="loading-subtitle">Caméra autorisée, configuration en cours</p>
+      </div>
+    `;
+    
+    // Attendre un peu avant d'initialiser le scanner pour s'assurer que tout est prêt
+    setTimeout(() => {
+      initializeQRScanner();
+    }, 1000);
+    
+  } catch (error) {
+    console.error('Erreur lors de la vérification des permissions:', error);
+    
+    if (error.name === 'NotAllowedError') {
+      showScannerError('L\'accès à la caméra a été refusé. Veuillez autoriser l\'accès et réessayer.');
+    } else if (error.name === 'NotFoundError') {
+      showScannerError('Aucune caméra trouvée sur votre appareil.');
+    } else if (error.name === 'NotReadableError') {
+      showScannerError('La caméra est utilisée par une autre application. Veuillez fermer les autres applications utilisant la caméra.');
+    } else {
+      showScannerError('Erreur lors de l\'accès à la caméra: ' + error.message);
+    }
+  }
+}
+
+// Initialiser le scanner QR directement (approche alternative)
+function initializeQRScannerDirect() {
+  const reader = document.getElementById('reader');
+  
+  if (!reader) {
+    console.error('Élément reader non trouvé');
+    return;
+  }
+  
+  // Nettoyer le contenu précédent
+  reader.innerHTML = '';
+  
+  // Afficher un message de chargement
+  reader.innerHTML = `
+    <div class="scanner-loading">
+      <i class="fas fa-spinner fa-spin"></i>
+      <p>Initialisation du scanner...</p>
+      <p class="loading-subtitle">La bibliothèque va demander l'accès à la caméra</p>
+    </div>
+  `;
+  
+  // Vérifier si la bibliothèque est chargée
+  if (typeof Html5QrcodeScanner === 'undefined') {
+    console.error('Bibliothèque Html5QrcodeScanner non chargée');
+    showScannerError('La bibliothèque de scan QR n\'est pas chargée. Veuillez recharger la page.');
+    return;
+  }
+  
+  // Configuration simple et robuste
+  const config = {
+    fps: 10,
+    qrbox: { width: 250, height: 250 },
+    aspectRatio: 1.0,
+    disableFlip: false,
+    verbose: false
+  };
+  
+  try {
+    // Arrêter le scanner précédent s'il existe
+    if (html5QrcodeScanner) {
+      try {
+        html5QrcodeScanner.clear();
+      } catch (e) {
+        console.log('Erreur lors du nettoyage du scanner précédent:', e);
+      }
+      html5QrcodeScanner = null;
+    }
+    
+    console.log('Création du scanner avec config:', config);
+    
+    html5QrcodeScanner = new Html5QrcodeScanner(
+      "reader",
+      config,
+      false
+    );
+    
+    console.log('Scanner créé, rendu en cours...');
+    
+    // Rendre le scanner immédiatement - la bibliothèque gérera les permissions
+    html5QrcodeScanner.render(onScanSuccess, onScanFailure);
+    console.log('✅ Scanner QR initialisé avec succès');
+    isScanning = true;
+    scannerInitializationAttempts = 0; // Réinitialiser le compteur
+    
+    // Masquer l'overlay une fois le scanner initialisé
+    const overlay = document.querySelector('.qr-overlay');
+    if (overlay) {
+      overlay.style.display = 'none';
+    }
+    
+  } catch (error) {
+    console.error('❌ Erreur lors de l\'initialisation du scanner:', error);
+    showScannerError('Impossible d\'initialiser le scanner QR: ' + error.message);
+  }
 }
 
 // Initialiser le scanner QR
@@ -391,79 +616,55 @@ function initializeQRScanner() {
     return;
   }
   
-  // Essayer plusieurs configurations
-  tryScannerWithConfig({
+  // Configuration simple et robuste
+  const config = {
     fps: 10,
-    qrbox: { width: 200, height: 200 },
+    qrbox: { width: 250, height: 250 },
     aspectRatio: 1.0,
     disableFlip: false,
     verbose: false
-  });
-}
-
-// Essayer le scanner avec une configuration spécifique
-function tryScannerWithConfig(config, attempt = 1) {
-  const reader = document.getElementById('reader');
-  
-  if (!reader) return;
-  
-  console.log(`Tentative ${attempt} avec config:`, config);
+  };
   
   try {
+    // Arrêter le scanner précédent s'il existe
+    if (html5QrcodeScanner) {
+      try {
+        html5QrcodeScanner.clear();
+      } catch (e) {
+        console.log('Erreur lors du nettoyage du scanner précédent:', e);
+      }
+      html5QrcodeScanner = null;
+    }
+    
+    console.log('Création du scanner avec config:', config);
+    
     html5QrcodeScanner = new Html5QrcodeScanner(
       "reader",
       config,
       false
     );
     
-    setTimeout(() => {
-      try {
-        html5QrcodeScanner.render(onScanSuccess, onScanFailure);
-        console.log('Scanner QR initialisé avec succès');
-        isScanning = true;
-        
-        // Masquer l'overlay une fois le scanner initialisé
-        const overlay = document.querySelector('.qr-overlay');
-        if (overlay) {
-          overlay.style.display = 'none';
-        }
-        
-      } catch (renderError) {
-        console.error('Erreur lors du rendu du scanner:', renderError);
-        
-        // Essayer une configuration plus simple si c'est la première tentative
-        if (attempt === 1) {
-          console.log('Tentative avec configuration simplifiée...');
-          tryScannerWithConfig({
-            fps: 5,
-            qrbox: { width: 150, height: 150 },
-            aspectRatio: 1.0,
-            disableFlip: false,
-            verbose: false
-          }, 2);
-        } else {
-          showScannerError('Impossible d\'initialiser la caméra. Veuillez vérifier les permissions et réessayer.');
-        }
-      }
-    }, 200);
+    console.log('Scanner créé, rendu en cours...');
+    
+    // Rendre le scanner immédiatement
+    html5QrcodeScanner.render(onScanSuccess, onScanFailure);
+    console.log('✅ Scanner QR initialisé avec succès');
+    isScanning = true;
+    scannerInitializationAttempts = 0; // Réinitialiser le compteur
+    
+    // Masquer l'overlay une fois le scanner initialisé
+    const overlay = document.querySelector('.qr-overlay');
+    if (overlay) {
+      overlay.style.display = 'none';
+    }
     
   } catch (error) {
-    console.error('Erreur lors de l\'initialisation du scanner:', error);
-    
-    if (attempt === 1) {
-      // Essayer une configuration encore plus simple
-      tryScannerWithConfig({
-        fps: 1,
-        qrbox: { width: 100, height: 100 },
-        aspectRatio: 1.0,
-        disableFlip: false,
-        verbose: false
-      }, 2);
-    } else {
-      showScannerError('Impossible d\'initialiser le scanner QR. Veuillez vérifier les permissions de caméra.');
-    }
+    console.error('❌ Erreur lors de l\'initialisation du scanner:', error);
+    showScannerError('Impossible d\'initialiser le scanner QR: ' + error.message);
   }
 }
+
+// Fonction supprimée - remplacée par une approche plus simple
 
 // Afficher une erreur de scanner
 function showScannerError(customMessage = null) {
@@ -479,6 +680,8 @@ function showScannerError(customMessage = null) {
         <div class="scanner-tips">
           <p><strong>Solutions possibles :</strong></p>
           <ul>
+            <li>Cliquez sur "Réessayer" ci-dessous (solution recommandée)</li>
+            <li>Si ça ne marche pas, essayez "Initialisation directe"</li>
             <li>Autorisez l'accès à la caméra dans votre navigateur</li>
             <li>Utilisez HTTPS (requis pour la caméra)</li>
             <li>Vérifiez que votre caméra fonctionne</li>
@@ -487,9 +690,13 @@ function showScannerError(customMessage = null) {
           </ul>
         </div>
         <p>En attendant, utilisez la saisie manuelle ci-dessous.</p>
-        <button class="retry-btn" onclick="retryScanner()">
+        <button class="retry-btn" onclick="retryScanner()" style="background: #28a745; font-weight: bold;">
           <i class="fas fa-redo"></i>
-          Réessayer
+          Réessayer (Solution recommandée)
+        </button>
+        <button class="retry-btn" onclick="retryScannerDirect()" style="background: #17a2b8; margin-left: 10px;">
+          <i class="fas fa-bolt"></i>
+          Initialisation directe
         </button>
         <button class="retry-btn" onclick="location.reload()" style="margin-left: 10px; background: #6c757d;">
           <i class="fas fa-sync"></i>
@@ -504,58 +711,33 @@ function showScannerError(customMessage = null) {
 function retryScanner() {
   console.log('Tentative de réinitialisation du scanner...');
   
+  // Réinitialiser le compteur de tentatives
+  scannerInitializationAttempts = 0;
+  
+  // Arrêter le scanner actuel s'il existe (solution découverte par l'utilisateur)
+  stopQRScanner();
+  
+  // Attendre que le nettoyage soit terminé avant de réinitialiser
+  setTimeout(() => {
+    // Utiliser l'approche directe qui laisse la bibliothèque gérer les permissions
+    initializeQRScannerDirect();
+  }, 300);
+}
+
+// Réessayer le scanner avec initialisation directe
+function retryScannerDirect() {
+  console.log('Tentative de réinitialisation directe du scanner...');
+  
+  // Réinitialiser le compteur de tentatives
+  scannerInitializationAttempts = 0;
+  
   // Arrêter le scanner actuel s'il existe
   stopQRScanner();
   
-  const reader = document.getElementById('reader');
-  if (reader) {
-    reader.innerHTML = '';
-    
-    // Afficher un message de chargement
-    reader.innerHTML = `
-      <div class="scanner-loading">
-        <i class="fas fa-spinner fa-spin"></i>
-        <p>Initialisation de la caméra...</p>
-      </div>
-    `;
-    
-    // Attendre un peu avant de réinitialiser
-    setTimeout(() => {
-      if (typeof Html5QrcodeScanner !== 'undefined') {
-        try {
-          const simpleConfig = {
-            fps: 10,
-            qrbox: { width: 200, height: 200 },
-            aspectRatio: 1.0,
-            disableFlip: false,
-            verbose: false
-          };
-          
-          html5QrcodeScanner = new Html5QrcodeScanner(
-            "reader",
-            simpleConfig,
-            false
-          );
-          
-          html5QrcodeScanner.render(onScanSuccess, onScanFailure);
-          console.log('Scanner QR réinitialisé avec configuration simple');
-          isScanning = true;
-          
-          // Masquer l'overlay une fois le scanner initialisé
-          const overlay = document.querySelector('.qr-overlay');
-          if (overlay) {
-            overlay.style.display = 'none';
-          }
-          
-        } catch (error) {
-          console.error('Erreur lors de la réinitialisation:', error);
-          showScannerError('Erreur lors de la réinitialisation du scanner. Veuillez recharger la page.');
-        }
-      } else {
-        showScannerError('Bibliothèque de scan non disponible. Veuillez recharger la page.');
-      }
-    }, 1000);
-  }
+  // Initialisation directe immédiate
+  setTimeout(() => {
+    initializeQRScannerDirect();
+  }, 100);
 }
 
 // Vérifier la disponibilité de la caméra
