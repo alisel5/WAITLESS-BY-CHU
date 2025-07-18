@@ -249,6 +249,21 @@ function exportReportsData() {
   }
 }
 
+// Export report function (for action buttons)
+function exportReport() {
+  exportReportsData(); // Use the same functionality
+}
+
+// Schedule report function
+function scheduleReport() {
+  APIUtils.showNotification('Fonctionnalité de programmation de rapports à venir', 'info');
+}
+
+// Share report function
+function shareReport() {
+  APIUtils.showNotification('Fonctionnalité de partage à venir', 'info');
+}
+
 // Show/hide loading spinner
 function showLoading(show) {
   const spinner = document.createElement('div');

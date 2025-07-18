@@ -2,7 +2,7 @@
 
 ## Organisation des Pages
 
-### 📱 Pages pour Patients (Utilisateurs finaux)
+### Pages pour Patients (Utilisateurs finaux)
 
 Ces pages sont destinées aux patients qui utilisent l'application pour gérer leurs rendez-vous et suivre leur file d'attente.
 

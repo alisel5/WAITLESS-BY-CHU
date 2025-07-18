@@ -50,33 +50,43 @@ function displayServices() {
     <div class="service-card" data-id="${service.id}">
       <div class="service-header">
         <div class="service-title">
-          <h3>${service.name}</h3>
+          <h3><i class="fas fa-hospital-alt"></i> ${service.name}</h3>
           <span class="service-priority ${service.priority}">
-            ${getPriorityText(service.priority)} Priorité
+            <i class="fas fa-exclamation-triangle"></i> ${getPriorityText(service.priority)} Priorité
           </span>
         </div>
         <div class="service-status ${service.status}">
-          ${getStatusText(service.status)}
+          <i class="fas ${getStatusIcon(service.status)}"></i> ${getStatusText(service.status)}
         </div>
       </div>
       
       <div class="service-info">
-        <p><strong>📍 Localisation:</strong> ${service.location}</p>
-        <p><strong>⏱️ Temps max:</strong> ${service.max_wait_time} minutes</p>
-        <p><strong>👥 En attente:</strong> ${service.current_waiting} patients</p>
-        <p><strong>📊 Temps moyen:</strong> ${APIUtils.formatWaitTime(service.avg_wait_time)}</p>
-        <p><strong>📝 Description:</strong> ${service.description}</p>
+        <p><strong><i class="fas fa-map-marker-alt"></i> Localisation:</strong> ${service.location}</p>
+        <p><strong><i class="fas fa-clock"></i> Temps max:</strong> ${service.max_wait_time} minutes</p>
+        <p><strong><i class="fas fa-users"></i> En attente:</strong> ${service.current_waiting} patients</p>
+        <p><strong><i class="fas fa-chart-line"></i> Temps moyen:</strong> ${APIUtils.formatWaitTime(service.avg_wait_time)}</p>
+        <p><strong><i class="fas fa-file-alt"></i> Description:</strong> ${service.description}</p>
       </div>
       
       <div class="service-actions">
-        <button class="qr-btn" onclick="showServiceQR(${service.id}, '${service.name}')">🔳 QR Code</button>
+        <button class="qr-btn" onclick="showServiceQR(${service.id}, '${service.name}')">
+          <i class="fas fa-qrcode"></i> QR Code
+        </button>
         ${service.current_waiting > 0 ? 
-          `<button class="call-btn" onclick="callNextPatient(${service.id}, '${service.name}')">📞 Appeler Suivant</button>` : 
-          '<button class="call-btn disabled" disabled>📞 Aucun Patient</button>'
+          `<button class="call-btn" onclick="callNextPatient(${service.id}, '${service.name}')">
+            <i class="fas fa-phone"></i> Appeler Suivant
+          </button>` : 
+          '<button class="call-btn disabled" disabled><i class="fas fa-phone-slash"></i> Aucun Patient</button>'
         }
-        <button class="queue-btn" onclick="viewQueue(${service.id}, '${service.name}')">👥 Voir Queue</button>
-        <button class="edit-btn" onclick="editService(${service.id})">Modifier</button>
-        <button class="delete-btn" onclick="deleteService(${service.id})">Supprimer</button>
+        <button class="queue-btn" onclick="viewQueue(${service.id}, '${service.name}')">
+          <i class="fas fa-list-ol"></i> Voir Queue
+        </button>
+        <button class="edit-btn" onclick="editService(${service.id})">
+          <i class="fas fa-edit"></i> Modifier
+        </button>
+        <button class="delete-btn" onclick="deleteService(${service.id})">
+          <i class="fas fa-trash"></i> Supprimer
+        </button>
       </div>
     </div>
   `).join('');
@@ -115,6 +125,15 @@ function getStatusText(status) {
     case 'inactive': return 'Inactif';
     case 'emergency': return 'Urgence';
     default: return status;
+  }
+}
+
+function getStatusIcon(status) {
+  switch (status) {
+    case 'active': return 'fa-check-circle';
+    case 'inactive': return 'fa-pause-circle';
+    case 'emergency': return 'fa-exclamation-circle';
+    default: return 'fa-question-circle';
   }
 }
 
