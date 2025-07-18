@@ -617,8 +617,8 @@ async function processScannedCode(qrData) {
     const scanResponse = await apiClient.scanQR(qrData.trim());
     
     if (scanResponse && scanResponse.type === 'service_join') {
-      // C'est un QR code de service - demander les informations du patient
-      showPatientInfoModal(qrData, scanResponse);
+      // C'est un QR code de service - auto-join immédiatement
+      await autoJoinQueueViaScan(qrData, scanResponse);
     } else if (scanResponse && scanResponse.type === 'ticket_status') {
       // C'est un QR code de ticket - afficher le statut
       showTicketStatus(scanResponse);
@@ -636,6 +636,76 @@ async function processScannedCode(qrData) {
       APIUtils.showNotification('Erreur de connexion. Vérifiez votre internet.', 'error');
     } else {
       APIUtils.showNotification('Erreur lors du scan du QR code', 'error');
+    }
+  }
+}
+
+// Auto-join queue via QR scan without manual intervention
+async function autoJoinQueueViaScan(qrData, scanResponse) {
+  try {
+    let joinResponse;
+    
+    // Check if user is authenticated
+    if (apiClient.isAuthenticated()) {
+      // For authenticated users, get service ID and use create ticket endpoint
+      const serviceId = scanResponse.service_id;
+      if (!serviceId) {
+        APIUtils.showNotification('Impossible de déterminer le service', 'error');
+        return;
+      }
+      
+      const formData = {
+        service_id: serviceId,
+        priority: 'low', // Auto-select "Priorité basse" as specified
+        notes: 'Rejoint via scan QR automatique'
+      };
+      
+      console.log('Creating ticket for authenticated user via QR scan:', formData);
+      APIUtils.showNotification(`Joining ${scanResponse.service_name}...`, 'info');
+      joinResponse = await apiClient.createTicket(formData);
+    } else {
+      // For anonymous users, create a minimal ticket with default info
+      // Generate a temporary anonymous patient ID
+      const timestamp = Date.now();
+      const anonymousId = `anonymous_${timestamp}`;
+      
+      const anonymousPatientData = {
+        name: `Patient Anonyme ${timestamp.toString().slice(-4)}`,
+        phone: `0600000${timestamp.toString().slice(-3)}`,
+        email: `anonymous.${timestamp}@temp.waitless.chu`,
+        priority: 'low' // Auto-select "Priorité basse" as specified
+      };
+      
+      console.log('Creating ticket for anonymous user via QR scan:', anonymousPatientData);
+      APIUtils.showNotification(`Joining ${scanResponse.service_name} as anonymous user...`, 'info');
+      joinResponse = await apiClient.scanToJoin(qrData, anonymousPatientData);
+    }
+    
+    if (joinResponse) {
+      // Show quick success notification
+      APIUtils.showNotification(`Ticket créé: ${joinResponse.ticket_number}`, 'success');
+      
+      // Store ticket number for ticket.html
+      sessionStorage.setItem('currentTicketNumber', joinResponse.ticket_number);
+      
+      // Auto-redirect immediately to ticket.html
+      setTimeout(() => {
+        window.location.href = '../tickets/ticket.html';
+      }, 1000);
+    }
+    
+  } catch (error) {
+    console.error('Erreur lors de l\'auto-join à la file:', error);
+    
+    // Handle specific error cases
+    if (error.message && error.message.includes('already have an active ticket')) {
+      APIUtils.showNotification('Vous avez déjà un ticket actif', 'warning');
+      // Redirect to ticket page to show existing ticket
+      setTimeout(() => {
+        window.location.href = '../tickets/ticket.html';
+      }, 2000);
+    } else {
+      APIUtils.showNotification('Erreur lors de l\'ajout automatique à la file d\'attente', 'error');
     }
   }
 }

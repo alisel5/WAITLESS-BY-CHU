@@ -398,6 +398,39 @@ async def scan_qr_code(qr_data: QRCodeScan, db: Session = Depends(get_db)):
                     detail="Service not found"
                 )
             
+            # Enhanced validation for security
+            action = parsed_data.get("action")
+            if action != "join_queue":
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Invalid QR code action"
+                )
+            
+            # Validate timestamp (optional, for enhanced security)
+            timestamp_str = parsed_data.get("timestamp")
+            if timestamp_str:
+                try:
+                    from datetime import datetime, timedelta
+                    qr_timestamp = datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
+                    current_time = datetime.utcnow()
+                    
+                    # QR code is valid for 24 hours
+                    if (current_time - qr_timestamp) > timedelta(hours=24):
+                        raise HTTPException(
+                            status_code=status.HTTP_400_BAD_REQUEST,
+                            detail="QR code has expired"
+                        )
+                except (ValueError, TypeError):
+                    # If timestamp parsing fails, continue (backward compatibility)
+                    pass
+            
+            # Validate service is active
+            if service.status.value != "active":
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Service is not currently active"
+                )
+            
             return QRScanResponse(
                 type="service_join",
                 service_id=service.id,
