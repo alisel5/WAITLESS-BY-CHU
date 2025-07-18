@@ -1,0 +1,183 @@
+@startuml WaitLess_CHU_ClassDiagram
+
+!theme plain
+title WaitLess CHU - Class Diagram
+
+' Enumerations
+enum UserRole {
+    PATIENT
+    ADMIN
+    STAFF
+    DOCTOR
+}
+
+enum ServicePriority {
+    LOW
+    MEDIUM
+    HIGH
+}
+
+enum ServiceStatus {
+    ACTIVE
+    INACTIVE
+    EMERGENCY
+}
+
+enum TicketStatus {
+    WAITING
+    CONSULTING
+    COMPLETED
+    CANCELLED
+    EXPIRED
+}
+
+' Main Classes
+class User {
+    +id: Integer
+    +email: String
+    +hashed_password: String
+    +full_name: String
+    +phone: String
+    +role: UserRole
+    +assigned_service_id: Integer
+    +is_active: Boolean
+    +created_at: DateTime
+    +updated_at: DateTime
+    --
+    +login()
+    +logout()
+    +updateProfile()
+    +validateCredentials()
+}
+
+class Service {
+    +id: Integer
+    +name: String
+    +description: String
+    +location: String
+    +max_wait_time: Integer
+    +priority: ServicePriority
+    +status: ServiceStatus
+    +current_waiting: Integer
+    +avg_wait_time: Integer
+    +created_at: DateTime
+    +updated_at: DateTime
+    --
+    +addTicket()
+    +removeTicket()
+    +calculateWaitTime()
+    +updateStatus()
+}
+
+class Ticket {
+    +id: Integer
+    +ticket_number: String
+    +patient_id: Integer
+    +service_id: Integer
+    +status: TicketStatus
+    +priority: ServicePriority
+    +position_in_queue: Integer
+    +estimated_wait_time: Integer
+    +qr_code: String
+    +notes: String
+    +estimated_arrival: DateTime
+    +actual_arrival: DateTime
+    +consultation_start: DateTime
+    +consultation_end: DateTime
+    +created_at: DateTime
+    +updated_at: DateTime
+    --
+    +generateQRCode()
+    +updatePosition()
+    +calculateWaitTime()
+    +markAsConsulting()
+    +markAsCompleted()
+    +cancel()
+}
+
+class QueueLog {
+    +id: Integer
+    +ticket_id: Integer
+    +action: String
+    +timestamp: DateTime
+    +details: String
+    --
+    +logAction()
+    +getHistory()
+}
+
+class Alert {
+    +id: Integer
+    +type: String
+    +message: String
+    +service_id: Integer
+    +is_read: Boolean
+    +created_at: DateTime
+    --
+    +markAsRead()
+    +send()
+}
+
+' Business Logic Classes
+class QueueManager {
+    +calculatePosition(ticket: Ticket): Integer
+    +calculateWaitTime(service: Service): Integer
+    +callNextPatient(service: Service): Ticket
+    +updateQueuePositions(service: Service): void
+    +handlePriorityChange(ticket: Ticket): void
+}
+
+class QRCodeGenerator {
+    +generateQRCode(ticket: Ticket): String
+    +validateQRCode(qrData: String): Boolean
+    +decodeQRCode(qrData: String): Ticket
+}
+
+class NotificationService {
+    +sendPositionUpdate(ticket: Ticket): void
+    +sendCallNotification(ticket: Ticket): void
+    +sendAlert(alert: Alert): void
+    +sendEmailNotification(user: User, message: String): void
+}
+
+class WebSocketManager {
+    +connectToService(serviceId: Integer): void
+    +broadcastQueueUpdate(service: Service): void
+    +sendPersonalUpdate(ticket: Ticket): void
+    +disconnectClient(clientId: String): void
+}
+
+' Relationships
+User ||--o{ Ticket : creates
+User }o--|| UserRole : has
+User }o--o| Service : assigned_to
+
+Service ||--o{ Ticket : manages
+Service }o--|| ServicePriority : has
+Service }o--|| ServiceStatus : has
+Service ||--o{ Alert : triggers
+
+Ticket }o--|| User : belongs_to
+Ticket }o--|| Service : belongs_to
+Ticket }o--|| TicketStatus : has
+Ticket }o--|| ServicePriority : has
+Ticket ||--o{ QueueLog : generates
+
+QueueLog }o--|| Ticket : references
+Alert }o--|| Service : belongs_to
+
+' Business Logic Relationships
+QueueManager ..> Ticket : manages
+QueueManager ..> Service : manages
+QRCodeGenerator ..> Ticket : generates_for
+NotificationService ..> Ticket : notifies_about
+NotificationService ..> Alert : sends
+WebSocketManager ..> Service : broadcasts_for
+WebSocketManager ..> Ticket : updates
+
+' Layout hints
+User -[hidden]down- Service
+Service -[hidden]down- Ticket
+Ticket -[hidden]down- QueueLog
+
+@enduml

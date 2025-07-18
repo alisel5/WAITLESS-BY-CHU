@@ -1,0 +1,162 @@
+@startuml Patient_QR_Journey
+
+!theme plain
+title Patient QR Code Journey - Sequence Diagram
+
+actor Patient as P
+participant "QR Scanner\n(Frontend)" as QR
+participant "FastAPI\nBackend" as API
+participant "Database" as DB
+participant "WebSocket\nManager" as WS
+participant "Staff\nDashboard" as STAFF
+
+P -> QR: Scan QR Code at Service
+QR -> API: GET /api/services/{service_id}/qr-info
+API -> DB: Query service details
+DB --> API: Service information
+API --> QR: Service details + form
+
+QR -> P: Display patient info form
+P -> QR: Enter name, phone, priority
+QR -> API: POST /api/tickets-qr/join-online
+
+API -> DB: Create user (if new)
+API -> DB: Create ticket
+API -> API: Generate QR code
+API -> DB: Calculate queue position
+DB --> API: Position and wait time
+
+API -> WS: Notify queue update
+WS -> STAFF: Broadcast queue changes
+
+API --> QR: Ticket created with QR
+QR --> P: Display ticket + position
+
+loop Real-time Updates
+    WS -> P: Send position updates
+    P -> API: GET /api/tickets/{ticket_id}/status
+    API -> DB: Get current position
+    DB --> API: Updated position
+    API --> P: Current status
+end
+
+STAFF -> API: POST /api/queue/call-next
+API -> DB: Update ticket status
+API -> WS: Notify patient called
+WS -> P: "Your turn!" notification
+
+@enduml
+
+@startuml Staff_Queue_Management
+
+!theme plain
+title Staff Queue Management - Sequence Diagram
+
+actor "Staff/Doctor" as S
+participant "Dashboard\n(Frontend)" as DASH
+participant "FastAPI\nBackend" as API
+participant "Database" as DB
+participant "WebSocket\nManager" as WS
+participant "Patient" as P
+
+S -> DASH: Login to dashboard
+DASH -> API: POST /api/auth/login
+API -> DB: Validate credentials
+DB --> API: User authenticated
+API --> DASH: JWT token + user info
+
+DASH -> API: GET /api/admin/dashboard
+API -> DB: Query queue statistics
+DB --> API: Queue data
+API --> DASH: Dashboard metrics
+
+DASH -> WS: Connect to real-time updates
+WS --> DASH: Connection established
+
+loop Queue Management
+    S -> DASH: View service queue
+    DASH -> API: GET /api/queue/service/{service_id}
+    API -> DB: Get waiting tickets
+    DB --> API: Queue positions
+    API --> DASH: Current queue status
+    
+    S -> DASH: Call next patient
+    DASH -> API: POST /api/queue/call-next/{service_id}
+    API -> DB: Update ticket to CONSULTING
+    API -> DB: Recalculate positions
+    API -> WS: Broadcast queue update
+    
+    WS -> P: Notify patient called
+    WS -> DASH: Update queue display
+    
+    S -> DASH: Mark consultation complete
+    DASH -> API: PUT /api/tickets/{ticket_id}/complete
+    API -> DB: Update ticket to COMPLETED
+    API -> DB: Log queue action
+    API -> WS: Broadcast completion
+    WS -> DASH: Remove from queue
+end
+
+@enduml
+
+@startuml Authentication_Flow
+
+!theme plain
+title Authentication & Authorization Flow
+
+actor User as U
+participant "Frontend\nApplication" as FE
+participant "Auth Router\n(/api/auth)" as AUTH
+participant "Auth Service\n(auth.py)" as AS
+participant "Database" as DB
+participant "JWT Service" as JWT
+
+U -> FE: Enter credentials
+FE -> AUTH: POST /api/auth/login
+AUTH -> AS: validate_credentials()
+AS -> DB: Query user by email
+DB --> AS: User record
+
+alt User exists and password valid
+    AS -> AS: verify_password()
+    AS -> JWT: create_access_token()
+    JWT --> AS: JWT token
+    AS --> AUTH: Authentication success
+    AUTH --> FE: Token + User info
+    FE -> FE: Store token in localStorage
+    FE --> U: Login successful
+else Invalid credentials
+    AS --> AUTH: Authentication failed
+    AUTH --> FE: Error response
+    FE --> U: Login failed
+end
+
+note right of FE
+    For subsequent requests:
+    - Include JWT in Authorization header
+    - Validate token on each API call
+    - Check user role for authorization
+end note
+
+U -> FE: Make authenticated request
+FE -> AUTH: API call with JWT header
+AUTH -> AS: verify_token()
+AS -> JWT: Decode and validate
+JWT --> AS: Token payload
+
+alt Token valid
+    AS -> DB: Get current user
+    DB --> AS: User data
+    AS -> AS: Check role permissions
+    AS --> AUTH: Authorization granted
+    AUTH -> AUTH: Process request
+    AUTH --> FE: Response data
+    FE --> U: Display results
+else Token invalid/expired
+    AS --> AUTH: Authorization denied
+    AUTH --> FE: 401 Unauthorized
+    FE -> FE: Clear stored token
+    FE --> U: Redirect to login
+end
+
+@enduml

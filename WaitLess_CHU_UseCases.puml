@@ -1,0 +1,119 @@
+@startuml WaitLess_CHU_UseCases
+
+!theme plain
+title WaitLess CHU - Use Case Diagram
+
+left to right direction
+
+actor Patient as P
+actor Doctor as D
+actor Staff as S
+actor Admin as A
+actor System as SYS
+
+rectangle "WaitLess CHU System" {
+    
+    ' Patient Use Cases
+    usecase "Scan QR Code" as UC1
+    usecase "Join Queue Online" as UC2
+    usecase "Track Queue Position" as UC3
+    usecase "Receive Notifications" as UC4
+    usecase "View Ticket Details" as UC5
+    usecase "Cancel Ticket" as UC6
+    
+    ' Doctor Use Cases
+    usecase "View Queue Dashboard" as UC7
+    usecase "Call Next Patient" as UC8
+    usecase "Update Patient Status" as UC9
+    usecase "Mark Consultation Complete" as UC10
+    usecase "View Patient History" as UC11
+    usecase "Handle Emergency Cases" as UC12
+    
+    ' Staff Use Cases
+    usecase "Manage Service Queue" as UC13
+    usecase "Generate Reports" as UC14
+    usecase "Handle Cancellations" as UC15
+    usecase "Priority Management" as UC16
+    usecase "Monitor Queue Status" as UC17
+    usecase "Manual Ticket Creation" as UC18
+    
+    ' Admin Use Cases
+    usecase "Manage Services" as UC19
+    usecase "Manage Users" as UC20
+    usecase "System Configuration" as UC21
+    usecase "View Analytics" as UC22
+    usecase "Monitor System Health" as UC23
+    usecase "Role Management" as UC24
+    usecase "Backup & Recovery" as UC25
+    
+    ' System Use Cases
+    usecase "Calculate Wait Times" as UC26
+    usecase "Send Real-time Updates" as UC27
+    usecase "Generate QR Codes" as UC28
+    usecase "Log Queue Actions" as UC29
+    usecase "Auto-cleanup Expired Tickets" as UC30
+    usecase "Send Notifications" as UC31
+    usecase "Update Queue Positions" as UC32
+}
+
+' Patient Relationships
+P --> UC1
+P --> UC2
+P --> UC3
+P --> UC4
+P --> UC5
+P --> UC6
+
+' Doctor Relationships
+D --> UC7
+D --> UC8
+D --> UC9
+D --> UC10
+D --> UC11
+D --> UC12
+
+' Staff Relationships
+S --> UC13
+S --> UC14
+S --> UC15
+S --> UC16
+S --> UC17
+S --> UC18
+S --> UC7 : shares
+
+' Admin Relationships
+A --> UC19
+A --> UC20
+A --> UC21
+A --> UC22
+A --> UC23
+A --> UC24
+A --> UC25
+A --> UC14 : includes
+
+' System Relationships
+SYS --> UC26
+SYS --> UC27
+SYS --> UC28
+SYS --> UC29
+SYS --> UC30
+SYS --> UC31
+SYS --> UC32
+
+' Include Relationships
+UC1 ..> UC2 : <<include>>
+UC2 ..> UC28 : <<include>>
+UC2 ..> UC26 : <<include>>
+UC3 ..> UC27 : <<include>>
+UC8 ..> UC9 : <<include>>
+UC9 ..> UC32 : <<include>>
+UC10 ..> UC29 : <<include>>
+UC13 ..> UC7 : <<include>>
+UC16 ..> UC32 : <<include>>
+
+' Extend Relationships
+UC12 ..> UC8 : <<extend>>
+UC6 ..> UC15 : <<extend>>
+UC30 ..> UC29 : <<extend>>
+
+@enduml

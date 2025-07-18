@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.0" xmlns:uml="http://www.eclipse.org/uml2/3.0.0/UML" xmlns:xmi="http://www.omg.org/XMI">
+  <uml:Model xmi:id="WaitLessCHU" name="WaitLess CHU System">
+    
+    <!-- User Class -->
+    <packagedElement xmi:type="uml:Class" xmi:id="User" name="User">
+      <ownedAttribute xmi:id="User.id" name="id" type="Integer"/>
+      <ownedAttribute xmi:id="User.email" name="email" type="String"/>
+      <ownedAttribute xmi:id="User.hashed_password" name="hashed_password" type="String"/>
+      <ownedAttribute xmi:id="User.full_name" name="full_name" type="String"/>
+      <ownedAttribute xmi:id="User.phone" name="phone" type="String"/>
+      <ownedAttribute xmi:id="User.role" name="role" type="UserRole"/>
+      <ownedAttribute xmi:id="User.assigned_service_id" name="assigned_service_id" type="Integer"/>
+      <ownedAttribute xmi:id="User.is_active" name="is_active" type="Boolean"/>
+      <ownedAttribute xmi:id="User.created_at" name="created_at" type="DateTime"/>
+      <ownedAttribute xmi:id="User.updated_at" name="updated_at" type="DateTime"/>
+    </packagedElement>
+
+    <!-- Service Class -->
+    <packagedElement xmi:type="uml:Class" xmi:id="Service" name="Service">
+      <ownedAttribute xmi:id="Service.id" name="id" type="Integer"/>
+      <ownedAttribute xmi:id="Service.name" name="name" type="String"/>
+      <ownedAttribute xmi:id="Service.description" name="description" type="String"/>
+      <ownedAttribute xmi:id="Service.location" name="location" type="String"/>
+      <ownedAttribute xmi:id="Service.max_wait_time" name="max_wait_time" type="Integer"/>
+      <ownedAttribute xmi:id="Service.priority" name="priority" type="ServicePriority"/>
+      <ownedAttribute xmi:id="Service.status" name="status" type="ServiceStatus"/>
+      <ownedAttribute xmi:id="Service.current_waiting" name="current_waiting" type="Integer"/>
+      <ownedAttribute xmi:id="Service.avg_wait_time" name="avg_wait_time" type="Integer"/>
+      <ownedAttribute xmi:id="Service.created_at" name="created_at" type="DateTime"/>
+      <ownedAttribute xmi:id="Service.updated_at" name="updated_at" type="DateTime"/>
+    </packagedElement>
+
+    <!-- Ticket Class -->
+    <packagedElement xmi:type="uml:Class" xmi:id="Ticket" name="Ticket">
+      <ownedAttribute xmi:id="Ticket.id" name="id" type="Integer"/>
+      <ownedAttribute xmi:id="Ticket.ticket_number" name="ticket_number" type="String"/>
+      <ownedAttribute xmi:id="Ticket.patient_id" name="patient_id" type="Integer"/>
+      <ownedAttribute xmi:id="Ticket.service_id" name="service_id" type="Integer"/>
+      <ownedAttribute xmi:id="Ticket.status" name="status" type="TicketStatus"/>
+      <ownedAttribute xmi:id="Ticket.priority" name="priority" type="ServicePriority"/>
+      <ownedAttribute xmi:id="Ticket.position_in_queue" name="position_in_queue" type="Integer"/>
+      <ownedAttribute xmi:id="Ticket.estimated_wait_time" name="estimated_wait_time" type="Integer"/>
+      <ownedAttribute xmi:id="Ticket.qr_code" name="qr_code" type="String"/>
+      <ownedAttribute xmi:id="Ticket.notes" name="notes" type="String"/>
+      <ownedAttribute xmi:id="Ticket.estimated_arrival" name="estimated_arrival" type="DateTime"/>
+      <ownedAttribute xmi:id="Ticket.actual_arrival" name="actual_arrival" type="DateTime"/>
+      <ownedAttribute xmi:id="Ticket.consultation_start" name="consultation_start" type="DateTime"/>
+      <ownedAttribute xmi:id="Ticket.consultation_end" name="consultation_end" type="DateTime"/>
+      <ownedAttribute xmi:id="Ticket.created_at" name="created_at" type="DateTime"/>
+      <ownedAttribute xmi:id="Ticket.updated_at" name="updated_at" type="DateTime"/>
+    </packagedElement>
+
+    <!-- QueueLog Class -->
+    <packagedElement xmi:type="uml:Class" xmi:id="QueueLog" name="QueueLog">
+      <ownedAttribute xmi:id="QueueLog.id" name="id" type="Integer"/>
+      <ownedAttribute xmi:id="QueueLog.ticket_id" name="ticket_id" type="Integer"/>
+      <ownedAttribute xmi:id="QueueLog.action" name="action" type="String"/>
+      <ownedAttribute xmi:id="QueueLog.timestamp" name="timestamp" type="DateTime"/>
+      <ownedAttribute xmi:id="QueueLog.details" name="details" type="String"/>
+    </packagedElement>
+
+    <!-- Alert Class -->
+    <packagedElement xmi:type="uml:Class" xmi:id="Alert" name="Alert">
+      <ownedAttribute xmi:id="Alert.id" name="id" type="Integer"/>
+      <ownedAttribute xmi:id="Alert.type" name="type" type="String"/>
+      <ownedAttribute xmi:id="Alert.message" name="message" type="String"/>
+      <ownedAttribute xmi:id="Alert.service_id" name="service_id" type="Integer"/>
+      <ownedAttribute xmi:id="Alert.is_read" name="is_read" type="Boolean"/>
+      <ownedAttribute xmi:id="Alert.created_at" name="created_at" type="DateTime"/>
+    </packagedElement>
+
+    <!-- UserRole Enumeration -->
+    <packagedElement xmi:type="uml:Enumeration" xmi:id="UserRole" name="UserRole">
+      <ownedLiteral xmi:id="UserRole.PATIENT" name="PATIENT"/>
+      <ownedLiteral xmi:id="UserRole.ADMIN" name="ADMIN"/>
+      <ownedLiteral xmi:id="UserRole.STAFF" name="STAFF"/>
+      <ownedLiteral xmi:id="UserRole.DOCTOR" name="DOCTOR"/>
+    </packagedElement>
+
+    <!-- ServicePriority Enumeration -->
+    <packagedElement xmi:type="uml:Enumeration" xmi:id="ServicePriority" name="ServicePriority">
+      <ownedLiteral xmi:id="ServicePriority.LOW" name="LOW"/>
+      <ownedLiteral xmi:id="ServicePriority.MEDIUM" name="MEDIUM"/>
+      <ownedLiteral xmi:id="ServicePriority.HIGH" name="HIGH"/>
+    </packagedElement>
+
+    <!-- ServiceStatus Enumeration -->
+    <packagedElement xmi:type="uml:Enumeration" xmi:id="ServiceStatus" name="ServiceStatus">
+      <ownedLiteral xmi:id="ServiceStatus.ACTIVE" name="ACTIVE"/>
+      <ownedLiteral xmi:id="ServiceStatus.INACTIVE" name="INACTIVE"/>
+      <ownedLiteral xmi:id="ServiceStatus.EMERGENCY" name="EMERGENCY"/>
+    </packagedElement>
+
+    <!-- TicketStatus Enumeration -->
+    <packagedElement xmi:type="uml:Enumeration" xmi:id="TicketStatus" name="TicketStatus">
+      <ownedLiteral xmi:id="TicketStatus.WAITING" name="WAITING"/>
+      <ownedLiteral xmi:id="TicketStatus.CONSULTING" name="CONSULTING"/>
+      <ownedLiteral xmi:id="TicketStatus.COMPLETED" name="COMPLETED"/>
+      <ownedLiteral xmi:id="TicketStatus.CANCELLED" name="CANCELLED"/>
+      <ownedLiteral xmi:id="TicketStatus.EXPIRED" name="EXPIRED"/>
+    </packagedElement>
+
+    <!-- Associations -->
+    <packagedElement xmi:type="uml:Association" xmi:id="User_Ticket_Association" name="User_Creates_Tickets">
+      <memberEnd xmi:idref="User_Ticket_Association.user"/>
+      <memberEnd xmi:idref="User_Ticket_Association.ticket"/>
+      <ownedEnd xmi:id="User_Ticket_Association.user" name="patient" type="User">
+        <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+        <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+      </ownedEnd>
+      <ownedEnd xmi:id="User_Ticket_Association.ticket" name="tickets" type="Ticket">
+        <lowerValue xmi:type="uml:LiteralInteger" value="0"/>
+        <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="*"/>
+      </ownedEnd>
+    </packagedElement>
+
+    <packagedElement xmi:type="uml:Association" xmi:id="Service_Ticket_Association" name="Service_Manages_Tickets">
+      <memberEnd xmi:idref="Service_Ticket_Association.service"/>
+      <memberEnd xmi:idref="Service_Ticket_Association.ticket"/>
+      <ownedEnd xmi:id="Service_Ticket_Association.service" name="service" type="Service">
+        <lowerValue xmi:type="uml:LiteralInteger" value="1"/>
+        <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+      </ownedEnd>
+      <ownedEnd xmi:id="Service_Ticket_Association.ticket" name="tickets" type="Ticket">
+        <lowerValue xmi:type="uml:LiteralInteger" value="0"/>
+        <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="*"/>
+      </ownedEnd>
+    </packagedElement>
+
+    <packagedElement xmi:type="uml:Association" xmi:id="User_Service_Association" name="User_Assigned_To_Service">
+      <memberEnd xmi:idref="User_Service_Association.user"/>
+      <memberEnd xmi:idref="User_Service_Association.service"/>
+      <ownedEnd xmi:id="User_Service_Association.user" name="assigned_users" type="User">
+        <lowerValue xmi:type="uml:LiteralInteger" value="0"/>
+        <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="*"/>
+      </ownedEnd>
+      <ownedEnd xmi:id="User_Service_Association.service" name="assigned_service" type="Service">
+        <lowerValue xmi:type="uml:LiteralInteger" value="0"/>
+        <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+      </ownedEnd>
+    </packagedElement>
+
+    <packagedElement xmi:type="uml:Association" xmi:id="Ticket_QueueLog_Association" name="Ticket_Generates_QueueLogs">
+      <memberEnd xmi:idref="Ticket_QueueLog_Association.ticket"/>
+      <memberEnd xmi:idref="Ticket_QueueLog_Association.queuelog"/>
+      <ownedEnd xmi:id="Ticket_QueueLog_Association.ticket" name="ticket" type="Ticket">
+        <lowerValue xmi:type="uml:LiteralInteger" value="0"/>
+        <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+      </ownedEnd>
+      <ownedEnd xmi:id="Ticket_QueueLog_Association.queuelog" name="queue_logs" type="QueueLog">
+        <lowerValue xmi:type="uml:LiteralInteger" value="0"/>
+        <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="*"/>
+      </ownedEnd>
+    </packagedElement>
+
+    <packagedElement xmi:type="uml:Association" xmi:id="Service_Alert_Association" name="Service_Triggers_Alerts">
+      <memberEnd xmi:idref="Service_Alert_Association.service"/>
+      <memberEnd xmi:idref="Service_Alert_Association.alert"/>
+      <ownedEnd xmi:id="Service_Alert_Association.service" name="service" type="Service">
+        <lowerValue xmi:type="uml:LiteralInteger" value="0"/>
+        <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="1"/>
+      </ownedEnd>
+      <ownedEnd xmi:id="Service_Alert_Association.alert" name="alerts" type="Alert">
+        <lowerValue xmi:type="uml:LiteralInteger" value="0"/>
+        <upperValue xmi:type="uml:LiteralUnlimitedNatural" value="*"/>
+      </ownedEnd>
+    </packagedElement>
+
+  </uml:Model>
+</xmi:XMI>
