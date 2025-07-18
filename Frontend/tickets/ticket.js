@@ -286,6 +286,13 @@ function displayCurrentTicket() {
   if (currentTicket.position_in_queue <= ALERT_THRESHOLD && currentTicket.status === 'waiting') {
     showAlert();
   }
+  
+  // Check if it's the patient's turn (position 1)
+  if (currentTicket.position_in_queue === 1 && currentTicket.status === 'waiting') {
+    showTurnNotification();
+  } else {
+    hideTurnNotification();
+  }
 }
 
 // Update progress bar based on position
@@ -303,6 +310,129 @@ function updateProgressBar() {
 function showAlert() {
   const alertMessage = `Attention! Il ne reste que ${currentTicket.position_in_queue} personne(s) avant vous.`;
   APIUtils.showNotification(alertMessage, 'warning');
+}
+
+// Show turn notification when it's the patient's turn
+function showTurnNotification() {
+  const turnNotification = document.getElementById('turnNotification');
+  if (turnNotification) {
+    turnNotification.style.display = 'flex';
+    
+    // Play sound notification if available
+    playNotificationSound();
+    
+    // Hide the regular alert notification when showing turn notification
+    const regularAlert = document.getElementById('notificationAlert');
+    if (regularAlert) {
+      regularAlert.style.display = 'none';
+    }
+    
+    // Auto-scroll to the notification
+    setTimeout(() => {
+      turnNotification.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }, 500);
+  }
+}
+
+// Hide turn notification
+function hideTurnNotification() {
+  const turnNotification = document.getElementById('turnNotification');
+  if (turnNotification) {
+    turnNotification.style.display = 'none';
+  }
+}
+
+// Play notification sound
+function playNotificationSound() {
+  // Create audio context for notification sound
+  try {
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+    
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+    
+    oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+    oscillator.frequency.setValueAtTime(1000, audioContext.currentTime + 0.1);
+    oscillator.frequency.setValueAtTime(800, audioContext.currentTime + 0.2);
+    
+    gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+    
+    oscillator.start(audioContext.currentTime);
+    oscillator.stop(audioContext.currentTime + 0.3);
+  } catch (error) {
+    console.log('Audio notification not available');
+  }
+}
+
+// Confirm presence - called when patient clicks confirmation button
+async function confirmPresence() {
+  try {
+    APIUtils.showNotification('Confirmation envoyée...', 'info');
+    
+    // Hide the turn notification
+    hideTurnNotification();
+    
+    // Update local status to show patient is heading to secretary
+    const mainCard = document.getElementById('mainTicketCard');
+    if (mainCard) {
+      // Add a "heading to secretary" status display
+      const headingMessage = document.createElement('div');
+      headingMessage.className = 'heading-status';
+      headingMessage.innerHTML = `
+        <div class="heading-message">
+          <i class="fas fa-walking"></i>
+          <h3>En route vers le secrétariat</h3>
+          <p>Merci d'avoir confirmé. Dirigez-vous maintenant vers le secrétariat.</p>
+          <div class="countdown-timer">
+            <i class="fas fa-hourglass-half"></i>
+            <span>Temps restant: <strong id="countdownTime">60</strong> secondes</span>
+          </div>
+        </div>
+      `;
+      
+      // Insert after the ticket info section
+      const ticketInfo = mainCard.querySelector('.ticket-info');
+      if (ticketInfo) {
+        ticketInfo.after(headingMessage);
+      }
+      
+      // Start countdown timer
+      startCountdownTimer();
+    }
+    
+    APIUtils.showNotification('Dirigez-vous vers le secrétariat maintenant !', 'success');
+  } catch (error) {
+    console.error('Error confirming presence:', error);
+    APIUtils.showNotification('Erreur lors de la confirmation', 'error');
+  }
+}
+
+// Start countdown timer (1 minute)
+function startCountdownTimer() {
+  let timeLeft = 60;
+  const countdownElement = document.getElementById('countdownTime');
+  
+  const timer = setInterval(() => {
+    timeLeft--;
+    if (countdownElement) {
+      countdownElement.textContent = timeLeft;
+      
+      // Change color when time is running out
+      if (timeLeft <= 10) {
+        countdownElement.style.color = '#dc3545';
+        countdownElement.parentElement.style.animation = 'pulse 0.5s infinite';
+      }
+    }
+    
+    if (timeLeft <= 0) {
+      clearInterval(timer);
+      // Auto-refresh the ticket data when time is up
+      refreshTicketData();
+    }
+  }, 1000);
 }
 
 // Display consulting status with appropriate messaging
@@ -859,3 +989,4 @@ window.refreshTicket = refreshTicket;
 window.shareTicket = shareTicket;
 window.printTicket = printTicket;
 window.filterHistory = filterHistory;
+window.confirmPresence = confirmPresence;

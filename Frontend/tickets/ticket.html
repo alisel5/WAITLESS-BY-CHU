@@ -124,6 +124,27 @@
           <p>Il ne reste que <strong id="alertCount">3</strong> personnes avant vous. Préparez-vous !</p>
         </div>
       </div>
+
+      <!-- TURN NOTIFICATION -->
+      <div class="turn-notification" id="turnNotification" style="display: none;">
+        <div class="turn-icon">
+          <i class="fas fa-hand-point-right"></i>
+        </div>
+        <div class="turn-content">
+          <h3>C'est votre tour !</h3>
+          <p>Veuillez vous diriger vers le secrétariat <strong>immédiatement</strong></p>
+          <div class="turn-timer">
+            <i class="fas fa-clock"></i>
+            <span>Vous avez <strong>1 minute</strong> pour vous présenter</span>
+          </div>
+        </div>
+        <div class="turn-actions">
+          <button class="confirm-btn" onclick="confirmPresence()">
+            <i class="fas fa-check"></i>
+            Je me dirige au secrétariat
+          </button>
+        </div>
+      </div>
     </div>
 
     <!-- ACTIONS -->
@@ -200,9 +221,6 @@
   </footer>
 
   <script src="../shared/api.js"></script>
-  <script src="../shared/websocket-client.js"></script>
-  <script src="../shared/loading-manager.js"></script>
-  <script src="../shared/message-manager.js"></script>
   <script src="ticket.js"></script>
 </body>
 </html>
