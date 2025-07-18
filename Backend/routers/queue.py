@@ -7,6 +7,7 @@ from database import get_db
 from models import Ticket, Service, TicketStatus, ServicePriority, QueueLog, User
 from schemas import QueueStatus, QueuePosition, TicketResponse
 from auth import get_admin_user, get_current_active_user
+from websocket_manager import connection_manager
 
 router = APIRouter()
 
@@ -219,6 +220,34 @@ async def call_next_patient(
     
     db.commit()
     db.refresh(next_ticket)
+    
+    # Send real-time WebSocket notifications
+    try:
+        # Notify about patient being called
+        await connection_manager.patient_called(str(service_id), {
+            "ticket_number": next_ticket.ticket_number,
+            "patient_name": next_ticket.patient.full_name,
+            "status": "consulting",
+            "service_id": service_id
+        })
+        
+        # Notify about queue position updates
+        if remaining_tickets:
+            queue_data = []
+            for ticket in remaining_tickets:
+                queue_data.append({
+                    "position": ticket.position_in_queue,
+                    "ticket_number": ticket.ticket_number,
+                    "estimated_wait_time": ticket.estimated_wait_time
+                })
+            
+            await connection_manager.queue_position_update(str(service_id), {
+                "total_waiting": len(remaining_tickets),
+                "queue": queue_data
+            })
+    except Exception as e:
+        # Don't fail the API call if WebSocket notification fails
+        print(f"WebSocket notification failed: {e}")
     
     return {
         "message": "Next patient called successfully",

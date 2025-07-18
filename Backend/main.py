@@ -8,7 +8,7 @@ from config import settings
 import uvicorn
 
 # Import routers
-from routers import auth, services, tickets, queue, admin
+from routers import auth, services, tickets, queue, admin, websocket
 from routers import tickets_enhanced
 
 # Create database tables
@@ -17,7 +17,7 @@ Base.metadata.create_all(bind=engine)
 # Initialize FastAPI app
 app = FastAPI(
     title=settings.app_name,
-    description="Smart Queue Management System for CHU Hospitals",
+    description="Smart Queue Management System for CHU Hospitals with Real-time Updates",
     version="1.0.0",
     debug=settings.debug
 )
@@ -41,6 +41,9 @@ app.include_router(admin.router, prefix="/api/admin", tags=["Admin"])
 
 # Include enhanced QR features
 app.include_router(tickets_enhanced.router, prefix="/api/tickets-qr", tags=["QR Features"])
+
+# Include WebSocket endpoints
+app.include_router(websocket.router, prefix="/ws", tags=["Real-time Updates"])
 
 
 @app.get("/")

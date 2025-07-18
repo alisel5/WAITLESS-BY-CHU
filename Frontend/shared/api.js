@@ -378,8 +378,8 @@ const APIUtils = {
             message = 'Impossible de charger les données. Actualisez la page.';
         }
         
-        if (showNotification) {
-            this.showNotification(message, 'error');
+        if (showNotification && window.MessageManager) {
+            window.MessageManager.error(message, { duration: 5000 });
         }
         
         return message;
@@ -407,20 +407,14 @@ const APIUtils = {
         }
     },
 
-    // Show notification
+    // Show notification (deprecated - use MessageManager instead)
     showNotification(message, type = 'info') {
-        // Create notification element
-        const notification = document.createElement('div');
-        notification.className = `notification notification-${type}`;
-        notification.textContent = message;
-        
-        // Add to page
-        document.body.appendChild(notification);
-        
-        // Remove after 3 seconds
-        setTimeout(() => {
-            notification.remove();
-        }, 3000);
+        if (window.MessageManager) {
+            window.MessageManager.show(type, message, { duration: 3000 });
+        } else {
+            // Fallback for when MessageManager is not available
+            console.log(`${type.toUpperCase()}: ${message}`);
+        }
     },
 
     // Real-time status tracker
