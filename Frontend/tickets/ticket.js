@@ -40,14 +40,21 @@ async function initializePage() {
   // Animation d'entrée
   animatePageLoad();
   
-  // Check for ticket parameter in URL
+  // Check for ticket parameter in URL or sessionStorage (from QR scan)
   const urlParams = new URLSearchParams(window.location.search);
   const ticketParam = urlParams.get('ticket');
+  const sessionTicket = sessionStorage.getItem('currentTicketNumber');
   
   if (ticketParam) {
     // Load specific ticket from URL parameter
     console.log('Loading ticket from URL parameter:', ticketParam);
     await loadTicketByNumber(ticketParam);
+  } else if (sessionTicket) {
+    // Load ticket from QR scan redirection
+    console.log('Loading ticket from QR scan session:', sessionTicket);
+    await loadTicketByNumber(sessionTicket);
+    // Clear the session storage after loading
+    sessionStorage.removeItem('currentTicketNumber');
   } else {
     // Load user's tickets if authenticated
     if (apiClient.isAuthenticated()) {

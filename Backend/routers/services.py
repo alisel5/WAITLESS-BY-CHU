@@ -15,12 +15,17 @@ router = APIRouter()
 
 def generate_service_qr_code(service_id: int, service_name: str) -> str:
     """Generate QR code for service that users can scan to join queue."""
-    # Create service join data
+    # Add timestamp for validation
+    from datetime import datetime
+    
+    # Create service join data with enhanced security
     service_data = {
         "type": "service_join",
         "service_id": service_id,
         "service_name": service_name,
-        "action": "join_queue"
+        "action": "join_queue",
+        "timestamp": datetime.utcnow().isoformat(),
+        "validation_key": f"waitless_qr_{service_id}_{service_name.lower().replace(' ', '_')}"
     }
     
     # Convert to JSON string
