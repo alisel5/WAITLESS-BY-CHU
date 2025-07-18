@@ -516,6 +516,61 @@ a {
   font-size: 1rem;
 }
 
+.scanner-tips {
+  margin: 1.5rem 0;
+  text-align: left;
+  background: rgba(255, 193, 7, 0.1);
+  padding: 1rem;
+  border-radius: 10px;
+  border-left: 4px solid #ffc107;
+}
+
+.scanner-tips p {
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  color: #333;
+}
+
+.scanner-tips ul {
+  list-style: none;
+  padding-left: 0;
+}
+
+.scanner-tips li {
+  padding: 0.3rem 0;
+  color: #666;
+  position: relative;
+  padding-left: 1.5rem;
+}
+
+.scanner-tips li::before {
+  content: '•';
+  color: #ffc107;
+  font-weight: bold;
+  position: absolute;
+  left: 0;
+}
+
+.scanner-loading {
+  text-align: center;
+  padding: 3rem;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 15px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+}
+
+.scanner-loading i {
+  font-size: 3rem;
+  color: #4A90E2;
+  margin-bottom: 1rem;
+}
+
+.scanner-loading p {
+  color: #666;
+  font-size: 1.1rem;
+  margin: 0;
+}
+
 .retry-btn {
   background: #4A90E2;
   color: white;

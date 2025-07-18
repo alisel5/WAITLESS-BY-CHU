@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="services.css" />
   <link rel="stylesheet" href="../shared/api.css" />
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 <body>
 
@@ -31,9 +32,11 @@
 
   <div class="services-container">
     <div class="services-header">
-      <h1>Gestion des Services</h1>
-      <p>Configuration et gestion des services médicaux</p>
-      <button class="add-service-btn" onclick="openAddServiceModal()">+ Ajouter un Service</button>
+      <h1><i class="fas fa-hospital-alt"></i> Gestion des Services</h1>
+      <p>Configuration et gestion des services médicaux du CHU</p>
+      <button class="add-service-btn" onclick="openAddServiceModal()">
+        <i class="fas fa-plus"></i> Ajouter un Service
+      </button>
     </div>
 
     <div class="services-grid" id="servicesGrid">
@@ -45,21 +48,40 @@
   <div class="modal-overlay" id="addServiceModal">
     <div class="modal">
       <span class="close-btn" onclick="closeModal()">&times;</span>
-      <h2>Ajouter un Service</h2>
+      <h2><i class="fas fa-plus-circle"></i> Ajouter un Service</h2>
       <form id="addServiceForm">
-        <input type="text" id="serviceName" placeholder="Nom du service" required>
-        <input type="text" id="serviceLocation" placeholder="Localisation" required>
-        <input type="number" id="maxWaitTime" placeholder="Temps d'attente max (min)" required>
-        <select id="servicePriority" required>
-          <option value="">Sélectionner la priorité</option>
-          <option value="high">Haute</option>
-          <option value="medium">Moyenne</option>
-          <option value="low">Basse</option>
-        </select>
-        <textarea id="serviceDescription" placeholder="Description du service" rows="3"></textarea>
+        <div class="input-group">
+          <i class="fas fa-hospital"></i>
+          <input type="text" id="serviceName" placeholder="Nom du service" required>
+        </div>
+        <div class="input-group">
+          <i class="fas fa-map-marker-alt"></i>
+          <input type="text" id="serviceLocation" placeholder="Localisation" required>
+        </div>
+        <div class="input-group">
+          <i class="fas fa-clock"></i>
+          <input type="number" id="maxWaitTime" placeholder="Temps d'attente max (min)" required>
+        </div>
+        <div class="input-group">
+          <i class="fas fa-exclamation-triangle"></i>
+          <select id="servicePriority" required>
+            <option value="">Sélectionner la priorité</option>
+            <option value="high">Haute</option>
+            <option value="medium">Moyenne</option>
+            <option value="low">Basse</option>
+          </select>
+        </div>
+        <div class="input-group">
+          <i class="fas fa-file-alt"></i>
+          <textarea id="serviceDescription" placeholder="Description du service" rows="3"></textarea>
+        </div>
         <div class="form-buttons">
-          <button type="button" onclick="closeModal()">Annuler</button>
-          <button type="submit">Ajouter</button>
+          <button type="button" onclick="closeModal()">
+            <i class="fas fa-times"></i> Annuler
+          </button>
+          <button type="submit">
+            <i class="fas fa-check"></i> Ajouter
+          </button>
         </div>
       </form>
     </div>
@@ -69,22 +91,41 @@
   <div class="modal-overlay" id="editServiceModal">
     <div class="modal">
       <span class="close-btn" onclick="closeModal()">&times;</span>
-      <h2>Modifier le Service</h2>
+      <h2><i class="fas fa-edit"></i> Modifier le Service</h2>
       <form id="editServiceForm">
         <input type="hidden" id="editServiceId">
-        <input type="text" id="editServiceName" placeholder="Nom du service" required>
-        <input type="text" id="editServiceLocation" placeholder="Localisation" required>
-        <input type="number" id="editMaxWaitTime" placeholder="Temps d'attente max (min)" required>
-        <select id="editServicePriority" required>
-          <option value="">Sélectionner la priorité</option>
-          <option value="high">Haute</option>
-          <option value="medium">Moyenne</option>
-          <option value="low">Basse</option>
-        </select>
-        <textarea id="editServiceDescription" placeholder="Description du service" rows="3"></textarea>
+        <div class="input-group">
+          <i class="fas fa-hospital"></i>
+          <input type="text" id="editServiceName" placeholder="Nom du service" required>
+        </div>
+        <div class="input-group">
+          <i class="fas fa-map-marker-alt"></i>
+          <input type="text" id="editServiceLocation" placeholder="Localisation" required>
+        </div>
+        <div class="input-group">
+          <i class="fas fa-clock"></i>
+          <input type="number" id="editMaxWaitTime" placeholder="Temps d'attente max (min)" required>
+        </div>
+        <div class="input-group">
+          <i class="fas fa-exclamation-triangle"></i>
+          <select id="editServicePriority" required>
+            <option value="">Sélectionner la priorité</option>
+            <option value="high">Haute</option>
+            <option value="medium">Moyenne</option>
+            <option value="low">Basse</option>
+          </select>
+        </div>
+        <div class="input-group">
+          <i class="fas fa-file-alt"></i>
+          <textarea id="editServiceDescription" placeholder="Description du service" rows="3"></textarea>
+        </div>
         <div class="form-buttons">
-          <button type="button" onclick="closeModal()">Annuler</button>
-          <button type="submit">Modifier</button>
+          <button type="button" onclick="closeModal()">
+            <i class="fas fa-times"></i> Annuler
+          </button>
+          <button type="submit">
+            <i class="fas fa-save"></i> Modifier
+          </button>
         </div>
       </form>
     </div>
@@ -94,26 +135,26 @@
   <footer>
     <div class="footer-content">
       <div class="footer-section">
-        <h3>WaitLess CHU</h3>
+        <h3><i class="fas fa-hospital-alt"></i> WaitLess CHU</h3>
         <p>Gestion intelligente des temps d'attente</p>
       </div>
       <div class="footer-section">
-        <h4>Contact</h4>
-        <p>Email : contact@waitless-chu.app</p>
-        <p>Téléphone : +212 6 00 00 00 00</p>
+        <h4><i class="fas fa-phone"></i> Contact</h4>
+        <p><i class="fas fa-envelope"></i> Email : contact@waitless-chu.app</p>
+        <p><i class="fas fa-phone-alt"></i> Téléphone : +212 6 00 00 00 00</p>
       </div>
       <div class="footer-section">
-        <h4>Liens rapides</h4>
+        <h4><i class="fas fa-link"></i> Liens rapides</h4>
         <ul>
-          <li><a href="../Acceuil/acceuil.html">Accueil</a></li>
-          <li><a href="../dashboard/dashboard.html">Dashboard</a></li>
-          <li><a href="services.html">Services</a></li>
-          <li><a href="../patients/patients.html">Patients</a></li>
+          <li><a href="../Acceuil/acceuil.html"><i class="fas fa-home"></i> Accueil</a></li>
+          <li><a href="../dashboard/dashboard.html"><i class="fas fa-chart-line"></i> Dashboard</a></li>
+          <li><a href="services.html"><i class="fas fa-hospital"></i> Services</a></li>
+          <li><a href="../patients/patients.html"><i class="fas fa-users"></i> Patients</a></li>
         </ul>
       </div>
     </div>
     <div class="footer-bottom">
-      <p>© 2025 WaitLess CHU. Tous droits réservés.</p>
+      <p><i class="fas fa-copyright"></i> 2025 WaitLess CHU. Tous droits réservés.</p>
     </div>
   </footer>
 
