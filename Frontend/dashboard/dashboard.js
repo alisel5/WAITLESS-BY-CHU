@@ -1,194 +1,639 @@
-// Dashboard data from backend
-let dashboardData = {
-  services: [],
-  alerts: [],
-  stats: {
-    total_waiting: 0,
-    total_consulting: 0,
-    active_services: 0,
-    avg_wait_time: 0
-  }
+/**
+ * Enhanced Dashboard with Real-time Updates
+ * Beautiful UX with WebSocket integration and loading states
+ */
+
+class DashboardManager {
+    constructor() {
+        this.dashboardData = {
+            stats: {
+                total_waiting: 0,
+                total_consulting: 0,
+                active_services: 0,
+                avg_wait_time: 0
+            },
+            services: [],
+            alerts: [],
+            connection_stats: {}
+        };
+        
+        this.refreshInterval = null;
+        this.isRealTimeEnabled = false;
+        
+        this.init();
+    }
+    
+    async init() {
+        console.log('🚀 Initializing Enhanced Dashboard...');
+        
+        // Check authentication
+        if (!this.checkAuth()) return;
+        
+        // Setup UI components
+        this.setupEventListeners();
+        
+        // Load initial data
+        await this.loadInitialData();
+        
+        // Setup real-time updates
+        this.setupRealTimeUpdates();
+        
+        // Start periodic refresh as backup
+        this.startPeriodicRefresh();
+        
+        console.log('✅ Dashboard Enhanced loaded successfully');
+        MessageManager.success('Dashboard chargé avec succès', { duration: 3000 });
+    }
+    
+    checkAuth() {
+        if (!apiClient.isAuthenticated()) {
+            MessageManager.error('Vous devez être connecté pour accéder au dashboard');
+            setTimeout(() => {
+                window.location.href = '../Acceuil/acceuil.html';
+            }, 2000);
+            return false;
+        }
+        
+        const user = apiClient.getCurrentUser();
+        if (!user || !apiClient.isStaff()) {
+            MessageManager.error('Accès non autorisé. Vous devez être membre du personnel.');
+            setTimeout(() => {
+                window.location.href = '../Acceuil/acceuil.html';
+            }, 2000);
+            return false;
+        }
+        
+        return true;
+    }
+    
+    async loadInitialData() {
+        const container = document.getElementById('queueList');
+        const alertsContainer = document.getElementById('alertsList');
+        
+        // Show loading states
+        LoadingManager.show(container, {
+            message: 'Chargement des files d\'attente...',
+            type: 'dots'
+        });
+        
+        LoadingManager.showSkeleton(alertsContainer, {
+            type: 'list',
+            count: 3
+        });
+        
+        try {
+            // Load dashboard stats and services
+            const [dashboardStats, alerts] = await Promise.all([
+                apiClient.getDashboardStats().catch(err => {
+                    console.warn('Dashboard stats failed, using fallback:', err);
+                    return this.getFallbackStats();
+                }),
+                apiClient.getAlerts().catch(err => {
+                    console.warn('Alerts failed, using fallback:', err);
+                    return [];
+                })
+            ]);
+            
+            if (dashboardStats) {
+                this.dashboardData.stats = dashboardStats;
+                this.dashboardData.services = dashboardStats.services || [];
+            }
+            
+            this.dashboardData.alerts = alerts || [];
+            
+            // Update UI
+            this.updateStats();
+            this.displayServices();
+            this.displayAlerts();
+            
+        } catch (error) {
+            console.error('Error loading initial data:', error);
+            MessageManager.error('Erreur lors du chargement des données', {
+                duration: 5000,
+                actions: [
+                    {
+                        text: 'Réessayer',
+                        primary: true,
+                        callback: () => this.loadInitialData()
+                    }
+                ]
+            });
+            
+            // Show fallback data
+            this.showFallbackData();
+        } finally {
+            LoadingManager.hide(container);
+            LoadingManager.hide(alertsContainer);
+        }
+    }
+    
+    setupEventListeners() {
+        // Handle logout
+        window.handleLogout = () => {
+            MessageManager.confirm(
+                'Déconnexion',
+                'Êtes-vous sûr de vouloir vous déconnecter ?',
+                async () => {
+                    LoadingManager.showGlobal({
+                        message: 'Déconnexion en cours...',
+                        type: 'dots'
+                    });
+                    
+                    try {
+                        await apiClient.logout();
+                        window.location.href = '../Acceuil/acceuil.html';
+                    } catch (error) {
+                        console.error('Logout error:', error);
+                        LoadingManager.hideGlobal();
+                        MessageManager.error('Erreur lors de la déconnexion');
+                    }
+                }
+            );
+        };
+        
+        // Handle queue actions
+        this.setupQueueActions();
+        
+        // Handle keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (e.ctrlKey || e.metaKey) {
+                switch (e.key) {
+                    case 'r':
+                        e.preventDefault();
+                        this.refreshData();
+                        break;
+                }
+            }
+        });
+    }
+    
+    setupQueueActions() {
+        // Call next patient function
+        window.callNextPatient = async (serviceId, serviceName) => {
+            const confirmResult = await new Promise(resolve => {
+                MessageManager.confirm(
+                    'Appeler le patient suivant',
+                    `Voulez-vous appeler le patient suivant pour le service ${serviceName} ?`,
+                    () => resolve(true),
+                    () => resolve(false)
+                );
+            });
+            
+            if (!confirmResult) return;
+            
+            const button = document.querySelector(`[onclick*="callNextPatient(${serviceId})"]`);
+            if (button) {
+                LoadingManager.showButtonLoading(button, 'Appel...');
+            }
+            
+            try {
+                const result = await apiClient.callNextPatient(serviceId);
+                
+                MessageManager.success(
+                    `Patient ${result.patient_name} appelé avec succès`,
+                    { duration: 4000 }
+                );
+                
+                // Refresh data to show updates
+                setTimeout(() => this.refreshData(), 1000);
+                
+            } catch (error) {
+                console.error('Error calling next patient:', error);
+                MessageManager.error(
+                    apiClient.getErrorMessage(error.status || 500),
+                    { duration: 5000 }
+                );
+            } finally {
+                if (button) {
+                    LoadingManager.hideButtonLoading(button);
+                }
+            }
+        };
+    }
+    
+    setupRealTimeUpdates() {
+        try {
+            // Connect to admin dashboard WebSocket
+            wsClient.connectToAdminDashboard((data) => {
+                this.handleRealTimeUpdate(data);
+            });
+            
+            // Listen for WebSocket events
+            wsClient.addEventListener('dashboard_connected', () => {
+                this.isRealTimeEnabled = true;
+                MessageManager.info('Mises à jour activées', { duration: 3000 });
+            });
+            
+            wsClient.addEventListener('dashboard_initial_state', ({ data }) => {
+                console.log('📊 Received initial dashboard state:', data);
+                this.updateDashboardFromWebSocket(data);
+            });
+            
+            wsClient.addEventListener('dashboard_queue_updated', ({ data }) => {
+                console.log('🔄 Queue updated via WebSocket:', data);
+                this.handleQueueUpdate(data);
+            });
+            
+        } catch (error) {
+            console.error('Failed to setup real-time updates:', error);
+            this.isRealTimeEnabled = false;
+        }
+    }
+    
+    handleRealTimeUpdate(data) {
+        switch (data.type) {
+            case 'initial_dashboard_state':
+                this.updateDashboardFromWebSocket(data);
+                break;
+                
+            case 'queue_update':
+                this.handleQueueUpdate(data);
+                break;
+                
+            case 'patient_called':
+                this.handlePatientCalled(data);
+                break;
+                
+            case 'emergency_alert':
+                this.handleEmergencyAlert(data);
+                break;
+                
+            default:
+                console.log('🔔 Unhandled real-time update:', data);
+        }
+        
+
+    }
+    
+    updateDashboardFromWebSocket(data) {
+        if (data.stats) {
+            this.dashboardData.stats = data.stats;
+            this.updateStats();
+        }
+        
+        if (data.services) {
+            this.dashboardData.services = data.services;
+            this.displayServices();
+        }
+        
+        if (data.connection_stats) {
+            this.dashboardData.connection_stats = data.connection_stats;
+            this.updateConnectionStats();
+        }
+    }
+    
+    handleQueueUpdate(data) {
+        // Find and update the specific service
+        const serviceIndex = this.dashboardData.services.findIndex(
+            s => s.id == data.service_id
+        );
+        
+        if (serviceIndex !== -1 && data.data) {
+            if (data.data.total_waiting !== undefined) {
+                this.dashboardData.services[serviceIndex].waiting_count = data.data.total_waiting;
+            }
+            
+            // Update overall stats
+            this.dashboardData.stats.total_waiting = this.dashboardData.services
+                .reduce((sum, s) => sum + (s.waiting_count || 0), 0);
+            
+            this.updateStats();
+            this.displayServices();
+        }
+        
+        // Show notification for position changes
+        if (data.event === 'position_change') {
+            MessageManager.info(
+                `File d'attente mise à jour: ${data.data.total_waiting} personnes en attente`,
+                { duration: 2000 }
+            );
+        }
+    }
+    
+    handlePatientCalled(data) {
+        MessageManager.success(
+            `Patient appelé: ${data.data.patient_name}`,
+            { 
+                duration: 5000,
+                title: 'Patient Appelé'
+            }
+        );
+        
+        // Update stats
+        this.dashboardData.stats.total_consulting = 
+            (this.dashboardData.stats.total_consulting || 0) + 1;
+        this.dashboardData.stats.total_waiting = 
+            Math.max(0, (this.dashboardData.stats.total_waiting || 0) - 1);
+        
+        this.updateStats();
+        
+        // Refresh full data after a delay
+        setTimeout(() => this.refreshData(), 2000);
+    }
+    
+    handleEmergencyAlert(data) {
+        MessageManager.error(
+            `🚨 URGENCE: ${data.data.message}`,
+            {
+                duration: 10000,
+                persistent: true,
+                title: 'ALERTE URGENCE'
+            }
+        );
+        
+        // Add to alerts list
+        this.dashboardData.alerts.unshift({
+            id: Date.now(),
+            type: 'error',
+            message: data.data.message,
+            created_at: new Date().toISOString(),
+            is_read: false
+        });
+        
+        this.displayAlerts();
+    }
+    
+    updateStats() {
+        const stats = this.dashboardData.stats;
+        
+        // Animate number changes
+        this.animateNumber('waitingPatients', stats.total_waiting || 0);
+        this.animateNumber('activeServices', stats.active_services || 0);
+        
+        // Update wait time with formatting
+        const avgWaitElement = document.getElementById('avgWaitTime');
+        if (avgWaitElement) {
+            avgWaitElement.textContent = APIUtils.formatWaitTime(stats.avg_wait_time || 0);
+        }
+        
+        // Update completed consultations if available
+        const completedElement = document.getElementById('completedToday');
+        if (completedElement && stats.total_completed_today !== undefined) {
+            this.animateNumber('completedToday', stats.total_completed_today);
+        }
+    }
+    
+    animateNumber(elementId, targetValue) {
+        const element = document.getElementById(elementId);
+        if (!element) return;
+        
+        const currentValue = parseInt(element.textContent) || 0;
+        const difference = targetValue - currentValue;
+        const duration = 1000; // 1 second
+        const steps = 30;
+        const stepValue = difference / steps;
+        const stepDuration = duration / steps;
+        
+        let currentStep = 0;
+        
+        const timer = setInterval(() => {
+            currentStep++;
+            const newValue = currentValue + (stepValue * currentStep);
+            
+            if (currentStep >= steps) {
+                element.textContent = targetValue;
+                clearInterval(timer);
+            } else {
+                element.textContent = Math.round(newValue);
+            }
+        }, stepDuration);
+    }
+    
+    displayServices() {
+        const queueList = document.getElementById('queueList');
+        if (!queueList) return;
+        
+        if (!this.dashboardData.services || this.dashboardData.services.length === 0) {
+            queueList.innerHTML = `
+                <div class="no-data">
+                    <i class="fas fa-hospital"></i>
+                    <p>Aucun service actif</p>
+                </div>
+            `;
+            return;
+        }
+        
+        queueList.innerHTML = this.dashboardData.services.map(service => {
+            const waitingClass = service.waiting_count > 10 ? 'high' : 
+                               service.waiting_count > 5 ? 'medium' : 'normal';
+            
+            return `
+                <div class="queue-item" data-service-id="${service.id}">
+                    <div class="queue-info">
+                        <h4>${service.name}</h4>
+                        <p class="location">
+                            <i class="fas fa-map-marker-alt"></i>
+                            ${service.location}
+                        </p>
+                        <div class="service-status">
+                            <span class="status-badge status-${service.status}">
+                                ${this.getStatusLabel(service.status)}
+                            </span>
+                            <span class="priority-badge priority-${service.priority}">
+                                ${this.getPriorityLabel(service.priority)}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="queue-stats">
+                        <div class="stat-item">
+                            <span class="stat-value waiting-count ${waitingClass}">${service.waiting_count || 0}</span>
+                            <span class="stat-label">En attente</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-value">${service.consulting_count || 0}</span>
+                            <span class="stat-label">En consultation</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-value">${APIUtils.formatWaitTime(service.avg_wait_time || 0)}</span>
+                            <span class="stat-label">Temps moyen</span>
+                        </div>
+                    </div>
+                    <div class="queue-actions">
+                        <button class="action-btn primary" 
+                                onclick="callNextPatient(${service.id}, '${service.name}')"
+                                ${(service.waiting_count || 0) === 0 ? 'disabled' : ''}>
+                            <i class="fas fa-user-plus"></i>
+                            Appeler suivant
+                        </button>
+                        <button class="action-btn secondary" 
+                                onclick="viewServiceDetails(${service.id})">
+                            <i class="fas fa-eye"></i>
+                            Détails
+                        </button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+    
+    displayAlerts() {
+        const alertsList = document.getElementById('alertsList');
+        if (!alertsList) return;
+        
+        if (!this.dashboardData.alerts || this.dashboardData.alerts.length === 0) {
+            alertsList.innerHTML = `
+                <div class="no-data">
+                    <i class="fas fa-bell"></i>
+                    <p>Aucune alerte récente</p>
+                </div>
+            `;
+            return;
+        }
+        
+        alertsList.innerHTML = this.dashboardData.alerts.slice(0, 5).map(alert => `
+            <div class="alert-item alert-${alert.type}" data-alert-id="${alert.id}">
+                <div class="alert-icon">
+                    <i class="${this.getAlertIcon(alert.type)}"></i>
+                </div>
+                <div class="alert-content">
+                    <p class="alert-message">${alert.message}</p>
+                    <span class="alert-time">${APIUtils.formatDate(alert.created_at)}</span>
+                </div>
+                <button class="alert-dismiss" onclick="dismissAlert(${alert.id})">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        `).join('');
+    }
+    
+    // UI Creation Methods
+
+    
+
+    
+    // Helper Methods
+    getStatusLabel(status) {
+        const labels = {
+            'active': 'Actif',
+            'inactive': 'Inactif',
+            'emergency': 'Urgence'
+        };
+        return labels[status] || status;
+    }
+    
+    getPriorityLabel(priority) {
+        const labels = {
+            'high': 'Haute',
+            'medium': 'Normale',
+            'low': 'Basse'
+        };
+        return labels[priority] || priority;
+    }
+    
+    getAlertIcon(type) {
+        const icons = {
+            'error': 'fas fa-exclamation-circle',
+            'warning': 'fas fa-exclamation-triangle',
+            'info': 'fas fa-info-circle',
+            'success': 'fas fa-check-circle'
+        };
+        return icons[type] || icons.info;
+    }
+    
+    updateRealTimeStatus(connected) {
+        // Removed connection status display to eliminate "Déconnecté" text
+        return;
+    }
+    
+    updateConnectionStats() {
+        const stats = this.dashboardData.connection_stats;
+        if (!stats) return;
+        
+        console.log('📊 Connection stats:', stats);
+        // Could display connection statistics in UI if needed
+    }
+    
+
+    
+    toggleRealTime(enable = null) {
+        if (enable === null) {
+            enable = !this.isRealTimeEnabled;
+        }
+        
+        if (enable) {
+            this.setupRealTimeUpdates();
+        } else {
+            wsClient.disconnect('admin_dashboard');
+            this.isRealTimeEnabled = false;
+        }
+    }
+    
+    async refreshData() {
+        try {
+            await this.loadInitialData();
+            MessageManager.success('Données actualisées', { duration: 2000 });
+        } catch (error) {
+            MessageManager.error('Erreur lors de l\'actualisation');
+        }
+    }
+    
+    startPeriodicRefresh() {
+        // Refresh every 30 seconds as backup when real-time is not available
+        this.refreshInterval = setInterval(() => {
+            if (!this.isRealTimeEnabled) {
+                this.refreshData();
+            }
+        }, 30000);
+    }
+    
+    getFallbackStats() {
+        return {
+            total_waiting: 0,
+            total_consulting: 0,
+            active_services: 0,
+            avg_wait_time: 0,
+            services: []
+        };
+    }
+    
+    showFallbackData() {
+        this.dashboardData = {
+            stats: this.getFallbackStats(),
+            services: [],
+            alerts: []
+        };
+        
+        this.updateStats();
+        this.displayServices();
+        this.displayAlerts();
+    }
+    
+    destroy() {
+        if (this.refreshInterval) {
+            clearInterval(this.refreshInterval);
+        }
+        
+        wsClient.disconnectAll();
+        LoadingManager.hideAllLoaders();
+        MessageManager.clearAll();
+    }
+}
+
+// Global functions
+window.viewServiceDetails = (serviceId) => {
+    MessageManager.info(`Détails du service ${serviceId} - Fonctionnalité à implémenter`);
 };
 
-// Load dashboard data from backend
-async function loadDashboardData() {
-  try {
-    APIUtils.showLoading(document.getElementById('queueList'));
-    
-    // Load dashboard stats
-    const stats = await apiClient.getDashboardStats();
-    if (stats) {
-      dashboardData.stats = stats;
-      dashboardData.services = stats.services || [];
-      displayQueues();
-      updateStats();
+window.dismissAlert = (alertId) => {
+    MessageManager.info(`Alerte ${alertId} supprimée`);
+    // Remove from UI
+    const alertElement = document.querySelector(`[data-alert-id="${alertId}"]`);
+    if (alertElement) {
+        alertElement.style.animation = 'fadeOut 0.3s ease';
+        setTimeout(() => alertElement.remove(), 300);
     }
-    
-    // Load alerts
-    const alerts = await apiClient.getAlerts();
-    if (alerts) {
-      dashboardData.alerts = alerts;
-      displayAlerts();
-    }
-    
-  } catch (error) {
-    console.error('Error loading dashboard data:', error);
-    APIUtils.showError(document.getElementById('queueList'), 'Erreur lors du chargement des données');
-    APIUtils.showNotification('Erreur de connexion au serveur', 'error');
-  }
-}
+};
 
-// Fonction pour afficher les files d'attente
-function displayQueues() {
-  const queueList = document.getElementById('queueList');
-  
-  if (!dashboardData.services || dashboardData.services.length === 0) {
-    queueList.innerHTML = '<p>Aucun service actif</p>';
-    return;
-  }
-  
-  queueList.innerHTML = dashboardData.services.map(service => `
-    <div class="queue-item" data-id="${service.id}">
-      <div class="queue-info">
-        <h4>${service.name}</h4>
-        <p>${service.location}</p>
-      </div>
-      <div class="queue-status">
-        <div class="waiting-count">${service.current_waiting}</div>
-        <div class="wait-time">${APIUtils.formatWaitTime(service.avg_wait_time)}</div>
-      </div>
-    </div>
-  `).join('');
-}
+// Initialize dashboard when DOM is loaded
+let dashboardManager;
 
-// Fonction pour afficher les alertes
-function displayAlerts() {
-  const alertsList = document.getElementById('alertsList');
-  
-  if (!dashboardData.alerts || dashboardData.alerts.length === 0) {
-    alertsList.innerHTML = '<p>Aucune alerte récente</p>';
-    return;
-  }
-  
-  alertsList.innerHTML = dashboardData.alerts.map(alert => `
-    <div class="alert-item ${alert.type}" data-id="${alert.id}">
-      <div class="alert-content">
-        <p>${alert.message}</p>
-        <span class="alert-time">${APIUtils.formatDate(alert.created_at)}</span>
-      </div>
-    </div>
-  `).join('');
-}
-
-// Fonction pour mettre à jour les statistiques
-function updateStats() {
-  const stats = dashboardData.stats;
-  
-  document.getElementById('waitingPatients').textContent = stats.total_waiting || 0;
-  document.getElementById('activeServices').textContent = stats.active_services || 0;
-  document.getElementById('avgWaitTime').textContent = APIUtils.formatWaitTime(stats.avg_wait_time || 0);
-  
-  // Update completed consultations (you can extend this based on backend data)
-  const completedElement = document.getElementById('completedToday');
-  if (completedElement) {
-    // This could be enhanced with actual daily completion data from backend
-    completedElement.textContent = '0'; // Placeholder
-  }
-}
-
-// Fonction pour actualiser les données
-async function refreshData() {
-  try {
-    await loadDashboardData();
-    console.log('Dashboard data refreshed');
-  } catch (error) {
-    console.error('Error refreshing dashboard data:', error);
-  }
-}
-
-// Fonction pour ajouter une nouvelle alerte (this would typically come from backend notifications)
-function addAlert(type, message) {
-  const newAlert = {
-    id: Date.now(),
-    type: type,
-    message: message,
-    created_at: new Date().toISOString()
-  };
-  
-  dashboardData.alerts.unshift(newAlert);
-  if (dashboardData.alerts.length > 5) {
-    dashboardData.alerts.pop(); // Garder seulement les 5 dernières alertes
-  }
-  
-  displayAlerts();
-}
-
-// Check authentication and role
-function checkAdminAuth() {
-  if (!apiClient.isAuthenticated()) {
-    window.location.href = '../Acceuil/acceuil.html?login=true';
-    return false;
-  }
-  
-  if (!apiClient.isAdmin()) {
-    APIUtils.showNotification('Accès non autorisé. Cette page est réservée aux administrateurs.', 'error');
-    window.location.href = '../qr code/qr.html';
-    return false;
-  }
-  
-  return true;
-}
-
-// Initialisation au chargement de la page
-document.addEventListener('DOMContentLoaded', async () => {
-  // Check authentication and authorization
-  if (!checkAdminAuth()) {
-    return;
-  }
-  
-  // Load initial data
-  await loadDashboardData();
-  
-  // Actualiser les données toutes les 30 secondes
-  setInterval(refreshData, 30000);
-  
-  console.log('Dashboard initialized for admin user');
+document.addEventListener('DOMContentLoaded', () => {
+    dashboardManager = new DashboardManager();
 });
 
-// Fonction pour exporter les données (pour les rapports)
-function exportDashboardData() {
-  const data = {
-    timestamp: new Date().toISOString(),
-    services: dashboardData.services,
-    alerts: dashboardData.alerts,
-    stats: dashboardData.stats
-  };
-  
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `dashboard-data-${new Date().toISOString().split('T')[0]}.json`;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-// Logout function
-async function handleLogout() {
-  if (confirm('Êtes-vous sûr de vouloir vous déconnecter ?')) {
-    try {
-      await apiClient.logout();
-      APIUtils.showNotification('Déconnexion réussie', 'success');
-      window.location.href = '../Acceuil/acceuil.html';
-    } catch (error) {
-      console.error('Logout error:', error);
-      // Force logout even if backend call fails
-      apiClient.removeToken();
-      window.location.href = '../Acceuil/acceuil.html';
+// Cleanup on page unload
+window.addEventListener('beforeunload', () => {
+    if (dashboardManager) {
+        dashboardManager.destroy();
     }
-  }
-}
-
-// Exposer les fonctions globalement
-window.exportDashboardData = exportDashboardData;
-window.handleLogout = handleLogout; 
+});
