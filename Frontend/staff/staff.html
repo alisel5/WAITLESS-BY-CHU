@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Gestion du Personnel - WaitLess CHU</title>
+  <link rel="stylesheet" href="staff.css" />
+  <link rel="stylesheet" href="../shared/api.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+</head>
+<body>
+
+  <!-- NAVBAR -->
+  <header class="navbar">
+    <div class="logo">
+      <img src="../Acceuil/public/logofinal.png" alt="WaitLess Logo" class="logo-img">
+    </div>
+    <ul>
+      <li><a href="../Acceuil/acceuil.html">Accueil</a></li>
+      <li><a href="../dashboard/dashboard.html">Dashboard</a></li>
+      <li><a href="staff.html" class="active">Personnel</a></li>
+      <li><a href="../services/services.html">Services</a></li>
+      <li><a href="../patients/patients.html">Patients</a></li>
+      <li><a href="../tickets/ticket.html">Tickets</a></li>
+      <li><a href="#" onclick="handleLogout()" style="color: #ff6b6b;">Déconnexion</a></li>
+    </ul>
+  </header>
+
+  <div class="staff-container">
+    <!-- HEADER SECTION -->
+    <div class="staff-header">
+      <div class="header-content">
+        <h1>Gestion du Personnel</h1>
+        <p>Gérez les membres du personnel et leurs accès</p>
+        <div class="user-info">
+          <i class="fas fa-user-shield"></i>
+          <span id="adminName">Administrateur</span>
+        </div>
+      </div>
+      <div class="header-stats">
+        <div class="stat-item">
+          <i class="fas fa-users"></i>
+          <div>
+            <span class="stat-number" id="totalStaff">0</span>
+            <span class="stat-label">Personnel</span>
+          </div>
+        </div>
+        <div class="stat-item">
+          <i class="fas fa-user-check"></i>
+          <div>
+            <span class="stat-number" id="activeStaff">0</span>
+            <span class="stat-label">Actifs</span>
+          </div>
+        </div>
+        <div class="stat-item">
+          <i class="fas fa-hospital"></i>
+          <div>
+            <span class="stat-number" id="totalServices">0</span>
+            <span class="stat-label">Services</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div class="main-content">
+      <!-- LEFT PANEL - STAFF LIST -->
+      <div class="left-panel">
+        <div class="panel-header">
+          <h2><i class="fas fa-users"></i> Liste du Personnel</h2>
+          <div class="staff-actions">
+            <button class="action-btn" onclick="refreshStaffList()">
+              <i class="fas fa-sync-alt"></i>
+              Actualiser
+            </button>
+            <button class="action-btn primary" onclick="showAddStaffModal()">
+              <i class="fas fa-plus"></i>
+              Nouveau Personnel
+            </button>
+          </div>
+        </div>
+
+        <!-- STAFF SEARCH -->
+        <div class="search-section">
+          <div class="search-box">
+            <i class="fas fa-search"></i>
+            <input type="text" id="staffSearch" placeholder="Rechercher un membre du personnel..." />
+          </div>
+          <div class="filter-options">
+            <select id="roleFilter">
+              <option value="">Tous les rôles</option>
+              <option value="staff">Secrétaire</option>
+              <option value="doctor">Médecin</option>
+              <option value="admin">Administrateur</option>
+            </select>
+            <select id="statusFilter">
+              <option value="">Tous les statuts</option>
+              <option value="active">Actif</option>
+              <option value="inactive">Inactif</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- STAFF LIST -->
+        <div class="staff-list" id="staffList">
+          <!-- Le personnel sera généré dynamiquement -->
+        </div>
+      </div>
+
+      <!-- RIGHT PANEL - STAFF DETAILS -->
+      <div class="right-panel">
+        <div class="panel-header">
+          <h2><i class="fas fa-user-edit"></i> Détails du Personnel</h2>
+          <div class="detail-actions" id="detailActions" style="display: none;">
+            <button class="action-btn" onclick="editStaff()">
+              <i class="fas fa-edit"></i>
+              Modifier
+            </button>
+            <button class="action-btn danger" onclick="deactivateStaff()">
+              <i class="fas fa-user-slash"></i>
+              Désactiver
+            </button>
+          </div>
+        </div>
+
+        <!-- STAFF DETAILS -->
+        <div class="staff-details" id="staffDetails">
+          <div class="no-selection">
+            <i class="fas fa-user"></i>
+            <h3>Sélectionnez un membre du personnel</h3>
+            <p>Cliquez sur un membre du personnel pour voir ses détails</p>
+          </div>
+        </div>
+
+        <!-- SERVICE ASSIGNMENT -->
+        <div class="service-assignment" id="serviceAssignment" style="display: none;">
+          <h3><i class="fas fa-hospital"></i> Services Assignés</h3>
+          <div class="assigned-services" id="assignedServices">
+            <!-- Services assignés -->
+          </div>
+          <button class="action-btn primary" onclick="showAssignServiceModal()">
+            <i class="fas fa-plus"></i>
+            Assigner un Service
+          </button>
+        </div>
+
+        <!-- ACTIVITY LOG -->
+        <div class="activity-log" id="activityLog" style="display: none;">
+          <h3><i class="fas fa-history"></i> Activité Récente</h3>
+          <div class="activity-list" id="activityList">
+            <!-- Activités récentes -->
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- BOTTOM SECTION - QUICK ACTIONS -->
+    <div class="quick-actions">
+      <div class="action-card" onclick="showBulkImportModal()">
+        <i class="fas fa-file-import"></i>
+        <h3>Import en Lot</h3>
+        <p>Importer plusieurs membres du personnel</p>
+      </div>
+      <div class="action-card" onclick="showPermissionsModal()">
+        <i class="fas fa-key"></i>
+        <h3>Gestion des Permissions</h3>
+        <p>Configurer les accès</p>
+      </div>
+      <div class="action-card" onclick="showReports()">
+        <i class="fas fa-chart-bar"></i>
+        <h3>Rapports Personnel</h3>
+        <p>Statistiques et analyses</p>
+      </div>
+      <div class="action-card" onclick="showBackupModal()">
+        <i class="fas fa-download"></i>
+        <h3>Export Données</h3>
+        <p>Exporter les données du personnel</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL AJOUT PERSONNEL -->
+  <div class="modal-overlay" id="addStaffModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3><i class="fas fa-user-plus"></i> Nouveau Membre du Personnel</h3>
+        <button class="close-btn" onclick="closeModal('addStaffModal')">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-content">
+        <form id="addStaffForm">
+          <div class="form-row">
+            <div class="form-group">
+              <label for="staffFirstName">Prénom *</label>
+              <input type="text" id="staffFirstName" required>
+            </div>
+            <div class="form-group">
+              <label for="staffLastName">Nom *</label>
+              <input type="text" id="staffLastName" required>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="staffEmail">Email *</label>
+              <input type="email" id="staffEmail" required>
+            </div>
+            <div class="form-group">
+              <label for="staffPhone">Téléphone</label>
+              <input type="tel" id="staffPhone">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="staffRole">Rôle *</label>
+              <select id="staffRole" required>
+                <option value="">Sélectionner un rôle</option>
+                <option value="staff">Secrétaire</option>
+                <option value="doctor">Médecin</option>
+                <option value="admin">Administrateur</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="staffService">Service Assigné</label>
+              <select id="staffService">
+                <option value="">Aucun service</option>
+                <!-- Services seront chargés dynamiquement -->
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="staffPassword">Mot de passe *</label>
+              <input type="password" id="staffPassword" required>
+            </div>
+            <div class="form-group">
+              <label for="staffConfirmPassword">Confirmer le mot de passe *</label>
+              <input type="password" id="staffConfirmPassword" required>
+            </div>
+          </div>
+          <div class="form-actions">
+            <button type="button" class="btn-secondary" onclick="closeModal('addStaffModal')">Annuler</button>
+            <button type="submit" class="btn-primary">Créer le Personnel</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL MODIFICATION PERSONNEL -->
+  <div class="modal-overlay" id="editStaffModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3><i class="fas fa-user-edit"></i> Modifier le Personnel</h3>
+        <button class="close-btn" onclick="closeModal('editStaffModal')">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-content">
+        <form id="editStaffForm">
+          <input type="hidden" id="editStaffId">
+          <div class="form-row">
+            <div class="form-group">
+              <label for="editStaffFirstName">Prénom *</label>
+              <input type="text" id="editStaffFirstName" required>
+            </div>
+            <div class="form-group">
+              <label for="editStaffLastName">Nom *</label>
+              <input type="text" id="editStaffLastName" required>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="editStaffEmail">Email *</label>
+              <input type="email" id="editStaffEmail" required>
+            </div>
+            <div class="form-group">
+              <label for="editStaffPhone">Téléphone</label>
+              <input type="tel" id="editStaffPhone">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="editStaffRole">Rôle *</label>
+              <select id="editStaffRole" required>
+                <option value="">Sélectionner un rôle</option>
+                <option value="staff">Secrétaire</option>
+                <option value="doctor">Médecin</option>
+                <option value="admin">Administrateur</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="editStaffService">Service Assigné</label>
+              <select id="editStaffService">
+                <option value="">Aucun service</option>
+                <!-- Services seront chargés dynamiquement -->
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="editStaffPassword">Nouveau mot de passe (optionnel)</label>
+              <input type="password" id="editStaffPassword">
+            </div>
+            <div class="form-group">
+              <label for="editStaffConfirmPassword">Confirmer le mot de passe</label>
+              <input type="password" id="editStaffConfirmPassword">
+            </div>
+          </div>
+          <div class="form-actions">
+            <button type="button" class="btn-secondary" onclick="closeModal('editStaffModal')">Annuler</button>
+            <button type="submit" class="btn-primary">Mettre à Jour</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL ASSIGNATION SERVICE -->
+  <div class="modal-overlay" id="assignServiceModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3><i class="fas fa-hospital"></i> Assigner un Service</h3>
+        <button class="close-btn" onclick="closeModal('assignServiceModal')">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-content">
+        <form id="assignServiceForm">
+          <input type="hidden" id="assignStaffId">
+          <div class="form-group">
+            <label for="assignServiceSelect">Service à assigner *</label>
+            <select id="assignServiceSelect" required>
+              <option value="">Sélectionner un service</option>
+              <!-- Services seront chargés dynamiquement -->
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="assignPermissions">Permissions</label>
+            <div class="permissions-list">
+              <label class="checkbox-label">
+                <input type="checkbox" id="permAddPatients" checked>
+                <span>Ajouter des patients</span>
+              </label>
+              <label class="checkbox-label">
+                <input type="checkbox" id="permManageQueue" checked>
+                <span>Gérer la file d'attente</span>
+              </label>
+              <label class="checkbox-label">
+                <input type="checkbox" id="permViewReports">
+                <span>Voir les rapports</span>
+              </label>
+              <label class="checkbox-label">
+                <input type="checkbox" id="permManageTickets">
+                <span>Gérer les tickets</span>
+              </label>
+            </div>
+          </div>
+          <div class="form-actions">
+            <button type="button" class="btn-secondary" onclick="closeModal('assignServiceModal')">Annuler</button>
+            <button type="submit" class="btn-primary">Assigner le Service</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <footer>
+    <div class="footer-content">
+      <div class="footer-section">
+        <h3>WaitLess CHU</h3>
+        <p>Gestion intelligente du personnel hospitalier</p>
+      </div>
+      <div class="footer-section">
+        <h4>Contact</h4>
+        <p>Email : contact@waitless-chu.app</p>
+        <p>Téléphone : +212 6 00 00 00 00</p>
+      </div>
+      <div class="footer-section">
+        <h4>Liens rapides</h4>
+        <ul>
+          <li><a href="../Acceuil/acceuil.html">Accueil</a></li>
+          <li><a href="../dashboard/dashboard.html">Dashboard</a></li>
+          <li><a href="staff.html">Personnel</a></li>
+          <li><a href="../services/services.html">Services</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>© 2025 WaitLess CHU. Tous droits réservés.</p>
+    </div>
+  </footer>
+
+  <script src="../shared/api.js"></script>
+  <script src="staff.js"></script>
+</body>
+</html> 

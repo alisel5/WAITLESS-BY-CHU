@@ -27,6 +27,14 @@ function initializeSecretaryPage() {
     document.getElementById('departmentName').textContent = currentDepartment;
   }
   
+  // Show staff management link for admins
+  if (userInfo.role === 'admin') {
+    const staffLink = document.getElementById('staffLink');
+    if (staffLink) {
+      staffLink.style.display = 'inline';
+    }
+  }
+  
   // Initialiser les statistiques
   updateStats();
   

@@ -7,6 +7,7 @@ from database import get_db
 from models import User, Service, Ticket, TicketStatus, ServiceStatus
 from schemas import UserResponse, ServiceResponse
 from auth import get_admin_user, get_admin_or_staff_user
+from models import UserRole
 
 router = APIRouter()
 
@@ -361,4 +362,333 @@ async def get_daily_reports(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error getting daily reports: {str(e)}"
+        )
+
+
+# STAFF MANAGEMENT ENDPOINTS
+
+@router.get("/staff")
+async def get_staff(
+    current_user: User = Depends(get_admin_user),
+    db: Session = Depends(get_db)
+):
+    """Get all staff members."""
+    try:
+        # Get all users with staff, doctor, or admin roles
+        staff_members = db.query(User).filter(
+            User.role.in_([UserRole.STAFF, UserRole.DOCTOR, UserRole.ADMIN])
+        ).all()
+        
+        staff_data = []
+        for staff in staff_members:
+            staff_data.append({
+                "id": staff.id,
+                "full_name": staff.full_name,
+                "email": staff.email,
+                "phone": staff.phone,
+                "role": staff.role.value,
+                "is_active": staff.is_active,
+                "created_at": staff.created_at,
+                "assigned_service_id": staff.assigned_service_id,
+                "assigned_service": {
+                    "id": staff.assigned_service.id,
+                    "name": staff.assigned_service.name
+                } if staff.assigned_service else None
+            })
+        
+        return staff_data
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error getting staff: {str(e)}"
+        )
+
+
+@router.get("/staff/stats")
+async def get_staff_stats(
+    current_user: User = Depends(get_admin_user),
+    db: Session = Depends(get_db)
+):
+    """Get staff statistics."""
+    try:
+        total_staff = db.query(User).filter(
+            User.role.in_([UserRole.STAFF, UserRole.DOCTOR, UserRole.ADMIN])
+        ).count()
+        
+        active_staff = db.query(User).filter(
+            and_(
+                User.role.in_([UserRole.STAFF, UserRole.DOCTOR, UserRole.ADMIN]),
+                User.is_active == True
+            )
+        ).count()
+        
+        total_services = db.query(Service).filter(Service.status == ServiceStatus.ACTIVE).count()
+        
+        return {
+            "total_staff": total_staff,
+            "active_staff": active_staff,
+            "total_services": total_services
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error getting staff stats: {str(e)}"
+        )
+
+
+@router.post("/staff")
+async def create_staff(
+    staff_data: dict,
+    current_user: User = Depends(get_admin_user),
+    db: Session = Depends(get_db)
+):
+    """Create a new staff member."""
+    try:
+        # Check if email already exists
+        existing_user = db.query(User).filter(User.email == staff_data["email"]).first()
+        if existing_user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email already exists"
+            )
+        
+        # Create full name
+        full_name = f"{staff_data.get('first_name', '')} {staff_data.get('last_name', '')}".strip()
+        
+        # Hash password
+        from auth import get_password_hash
+        hashed_password = get_password_hash(staff_data["password"])
+        
+        # Create user
+        user = User(
+            email=staff_data["email"],
+            hashed_password=hashed_password,
+            full_name=full_name,
+            phone=staff_data.get("phone"),
+            role=UserRole(staff_data["role"]),
+            assigned_service_id=staff_data.get("service_id"),
+            is_active=True
+        )
+        
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        
+        return {
+            "id": user.id,
+            "message": "Staff member created successfully"
+        }
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error creating staff member: {str(e)}"
+        )
+
+
+@router.put("/staff/{staff_id}")
+async def update_staff(
+    staff_id: int,
+    staff_data: dict,
+    current_user: User = Depends(get_admin_user),
+    db: Session = Depends(get_db)
+):
+    """Update a staff member."""
+    try:
+        user = db.query(User).filter(User.id == staff_id).first()
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Staff member not found"
+            )
+        
+        # Update basic information
+        if "first_name" in staff_data or "last_name" in staff_data:
+            first_name = staff_data.get("first_name", "")
+            last_name = staff_data.get("last_name", "")
+            user.full_name = f"{first_name} {last_name}".strip()
+        
+        if "email" in staff_data:
+            # Check if email is already taken by another user
+            existing_user = db.query(User).filter(
+                and_(
+                    User.email == staff_data["email"],
+                    User.id != staff_id
+                )
+            ).first()
+            if existing_user:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Email already exists"
+                )
+            user.email = staff_data["email"]
+        
+        if "phone" in staff_data:
+            user.phone = staff_data["phone"]
+        
+        if "role" in staff_data:
+            user.role = UserRole(staff_data["role"])
+        
+        if "service_id" in staff_data:
+            user.assigned_service_id = staff_data["service_id"]
+        
+        # Update password if provided
+        if "password" in staff_data and staff_data["password"]:
+            from auth import get_password_hash
+            user.hashed_password = get_password_hash(staff_data["password"])
+        
+        db.commit()
+        db.refresh(user)
+        
+        return {
+            "id": user.id,
+            "message": "Staff member updated successfully"
+        }
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error updating staff member: {str(e)}"
+        )
+
+
+@router.put("/staff/{staff_id}/deactivate")
+async def deactivate_staff(
+    staff_id: int,
+    current_user: User = Depends(get_admin_user),
+    db: Session = Depends(get_db)
+):
+    """Deactivate a staff member."""
+    try:
+        user = db.query(User).filter(User.id == staff_id).first()
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Staff member not found"
+            )
+        
+        user.is_active = False
+        db.commit()
+        
+        return {"message": "Staff member deactivated successfully"}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error deactivating staff member: {str(e)}"
+        )
+
+
+@router.post("/staff/{staff_id}/assign-service")
+async def assign_service_to_staff(
+    staff_id: int,
+    assignment_data: dict,
+    current_user: User = Depends(get_admin_user),
+    db: Session = Depends(get_db)
+):
+    """Assign a service to a staff member."""
+    try:
+        user = db.query(User).filter(User.id == staff_id).first()
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Staff member not found"
+            )
+        
+        service_id = assignment_data.get("service_id")
+        if service_id:
+            service = db.query(Service).filter(Service.id == service_id).first()
+            if not service:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Service not found"
+                )
+        
+        user.assigned_service_id = service_id
+        db.commit()
+        
+        return {"message": "Service assigned successfully"}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error assigning service: {str(e)}"
+        )
+
+
+@router.delete("/staff/{staff_id}/service-assignment")
+async def remove_service_assignment(
+    staff_id: int,
+    current_user: User = Depends(get_admin_user),
+    db: Session = Depends(get_db)
+):
+    """Remove service assignment from a staff member."""
+    try:
+        user = db.query(User).filter(User.id == staff_id).first()
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Staff member not found"
+            )
+        
+        user.assigned_service_id = None
+        db.commit()
+        
+        return {"message": "Service assignment removed successfully"}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error removing service assignment: {str(e)}"
+        )
+
+
+@router.get("/staff/{staff_id}/activity")
+async def get_staff_activity(
+    staff_id: int,
+    current_user: User = Depends(get_admin_user),
+    db: Session = Depends(get_db)
+):
+    """Get activity log for a staff member."""
+    try:
+        user = db.query(User).filter(User.id == staff_id).first()
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Staff member not found"
+            )
+        
+        # Get recent queue logs related to this staff member's service
+        activities = []
+        
+        if user.assigned_service_id:
+            # Get tickets managed by this staff member
+            tickets = db.query(Ticket).filter(
+                Ticket.service_id == user.assigned_service_id
+            ).order_by(Ticket.created_at.desc()).limit(10).all()
+            
+            for ticket in tickets:
+                activities.append({
+                    "type": "manage_ticket",
+                    "title": f"Ticket {ticket.ticket_number} - {ticket.status.value}",
+                    "timestamp": ticket.updated_at or ticket.created_at,
+                    "details": f"Patient: {ticket.patient.full_name if ticket.patient else 'Unknown'}"
+                })
+        
+        # Add login activity (simulated)
+        activities.append({
+            "type": "login",
+            "title": "Connexion au système",
+            "timestamp": user.updated_at or user.created_at,
+            "details": "Accès au système de gestion"
+        })
+        
+        # Sort by timestamp
+        activities.sort(key=lambda x: x["timestamp"], reverse=True)
+        
+        return activities[:20]  # Return last 20 activities
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error getting staff activity: {str(e)}"
         ) 
