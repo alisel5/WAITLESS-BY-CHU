@@ -68,31 +68,9 @@ async def _call_next_patient_atomic(service_id: int, db: Session, admin_user: Us
             # Recalculate estimated wait time
             ticket.estimated_wait_time = (i - 1) * (service.avg_wait_time if service else 15)
         
-        # AUTO-COMPLETE LOGIC: If no more waiting tickets, automatically complete all consulting tickets
+        # Note: Auto-completion removed to allow proper consultation flow
+        # Tickets should be manually completed by admin when consultation is done
         auto_completed = False
-        if len(remaining_tickets) == 0:
-            # Get all consulting tickets for this service
-            consulting_tickets = db.query(Ticket).filter(
-                and_(
-                    Ticket.service_id == service_id,
-                    Ticket.status == TicketStatus.CONSULTING
-                )
-            ).all()
-            
-            for ticket in consulting_tickets:
-                # Mark as completed
-                ticket.status = TicketStatus.COMPLETED
-                ticket.consultation_end = datetime.utcnow()
-                
-                # Log the auto-completion
-                auto_complete_log = QueueLog(
-                    ticket_id=ticket.id,
-                    action="auto_completed",
-                    details=f"Ticket automatically completed - no more waiting patients"
-                )
-                db.add(auto_complete_log)
-            
-            auto_completed = True
         
         # Commit all changes atomically
         db.commit()
@@ -234,22 +212,13 @@ async def get_ticket_status_with_queue_info(
         )
     ).count()
     
-    # Auto-complete logic check
-    if ticket.status == TicketStatus.CONSULTING and waiting_count == 0:
-        # Mark ticket as completed
-        ticket.status = TicketStatus.COMPLETED
-        ticket.consultation_end = datetime.utcnow()
-        
-        # Log the auto-completion
-        auto_complete_log = QueueLog(
-            ticket_id=ticket.id,
-            action="auto_completed",
-            details="Ticket automatically completed - no more waiting patients"
-        )
-        db.add(auto_complete_log)
-        db.commit()
-        db.refresh(ticket)
-        should_show_as_done = True
+    # Note: Auto-completion logic removed to allow proper consultation flow
+    # Consulting tickets should remain consulting until manually completed by admin
+    should_show_as_done = (
+        ticket.status == TicketStatus.COMPLETED or
+        ticket.status == TicketStatus.CANCELLED or
+        ticket.status == TicketStatus.EXPIRED
+    )
     
     return {
         "ticket_number": ticket.ticket_number,
