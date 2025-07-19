@@ -148,7 +148,7 @@ async def create_ticket(
     existing_ticket = db.query(Ticket).filter(
         and_(
             Ticket.patient_id == current_user.id,
-            Ticket.status.in_([TicketStatus.WAITING, TicketStatus.CONSULTING])
+            Ticket.status == TicketStatus.WAITING
         )
     ).first()
     
@@ -243,7 +243,7 @@ async def join_queue_online(ticket_data: TicketJoinOnline, db: Session = Depends
     existing_ticket = db.query(Ticket).filter(
         and_(
             Ticket.patient_id == user.id,
-            Ticket.status.in_([TicketStatus.WAITING, TicketStatus.CONSULTING])
+            Ticket.status == TicketStatus.WAITING
         )
     ).first()
     
@@ -370,7 +370,7 @@ async def scan_to_join_queue(
         and_(
             Ticket.patient_id == user.id,
             Ticket.service_id == service_id,
-            Ticket.status.in_([TicketStatus.WAITING, TicketStatus.CONSULTING])
+            Ticket.status == TicketStatus.WAITING
         )
     ).first()
     
@@ -563,9 +563,8 @@ async def update_ticket_status(
         ticket.status = ticket_update.status
         
         # Update timestamps based on status
-        if ticket_update.status == TicketStatus.CONSULTING:
+        if ticket_update.status == TicketStatus.COMPLETED:
             ticket.consultation_start = datetime.utcnow()
-        elif ticket_update.status == TicketStatus.COMPLETED:
             ticket.consultation_end = datetime.utcnow()
     
     if ticket_update.priority:

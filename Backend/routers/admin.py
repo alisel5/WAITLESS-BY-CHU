@@ -18,9 +18,9 @@ async def get_dashboard_stats(
 ):
     """Get dashboard statistics for admin/staff."""
     try:
-        # Get total waiting and consulting tickets
+        # Get total waiting tickets (no more consulting status in simplified flow)
         total_waiting = db.query(Ticket).filter(Ticket.status == TicketStatus.WAITING).count()
-        total_consulting = db.query(Ticket).filter(Ticket.status == TicketStatus.CONSULTING).count()
+        total_consulting = 0  # No more consulting status
         
         # Get average wait time (in minutes) - using estimated_wait_time instead of wait_time
         avg_wait_time = db.query(func.avg(Ticket.estimated_wait_time)).scalar() or 0

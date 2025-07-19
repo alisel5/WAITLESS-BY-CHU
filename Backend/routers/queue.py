@@ -36,9 +36,10 @@ async def _call_next_patient_atomic(service_id: int, db: Session, admin_user: Us
                 "code": 404
             }
         
-        # Update ticket status to consulting
-        next_ticket.status = TicketStatus.CONSULTING
+        # Update ticket status to completed (simplified flow: WAITING -> COMPLETED)
+        next_ticket.status = TicketStatus.COMPLETED
         next_ticket.consultation_start = datetime.utcnow()
+        next_ticket.consultation_end = datetime.utcnow()
         next_ticket.actual_arrival = datetime.utcnow()
         
         # Update service waiting count
@@ -50,8 +51,8 @@ async def _call_next_patient_atomic(service_id: int, db: Session, admin_user: Us
         admin_name = admin_user.full_name if admin_user else "System"
         queue_log = QueueLog(
             ticket_id=next_ticket.id,
-            action="called",
-            details=f"Patient called for consultation by {admin_name}"
+            action="called_and_completed",
+            details=f"Patient called and marked as completed by {admin_name}"
         )
         db.add(queue_log)
         
@@ -78,11 +79,11 @@ async def _call_next_patient_atomic(service_id: int, db: Session, admin_user: Us
         
         # Send real-time WebSocket notifications
         try:
-            # Notify about patient being called
+            # Notify about patient being called and completed
             await connection_manager.patient_called(str(service_id), {
                 "ticket_number": next_ticket.ticket_number,
                 "patient_name": next_ticket.patient.full_name,
-                "status": "consulting",
+                "status": "completed",
                 "service_id": service_id
             })
             
@@ -252,66 +253,15 @@ async def call_next_patient(
         )
     
     return {
-        "message": "Next patient called successfully",
+        "message": "Next patient called and completed successfully",
         "ticket": TicketResponse.from_orm(result["ticket"]),
         "patient_name": result["patient_name"],
         "auto_completed": result["auto_completed"]
     }
 
 
-@router.post("/complete-consultation/{ticket_id}")
-async def complete_consultation(
-    ticket_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_admin_user)
-):
-    """Mark consultation as completed (Admin only)."""
-    ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
-    if not ticket:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Ticket not found"
-        )
-    
-    if ticket.status != TicketStatus.CONSULTING:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Ticket is not in consulting status"
-        )
-    
-    # Update ticket status
-    ticket.status = TicketStatus.COMPLETED
-    ticket.consultation_end = datetime.utcnow()
-    
-    # Calculate actual consultation time for service statistics
-    if ticket.consultation_start:
-        consultation_duration = (ticket.consultation_end - ticket.consultation_start).total_seconds() / 60
-        
-        # Update service average wait time
-        service = db.query(Service).filter(Service.id == ticket.service_id).first()
-        if service:
-            # Simple moving average calculation
-            if service.avg_wait_time == 0:
-                service.avg_wait_time = int(consultation_duration)
-            else:
-                service.avg_wait_time = int((service.avg_wait_time + consultation_duration) / 2)
-    
-    # Log the action
-    queue_log = QueueLog(
-        ticket_id=ticket.id,
-        action="completed",
-        details=f"Consultation completed by {current_user.full_name}"
-    )
-    db.add(queue_log)
-    
-    db.commit()
-    db.refresh(ticket)
-    
-    return {
-        "message": "Consultation marked as completed",
-        "ticket": TicketResponse.from_orm(ticket)
-    }
-
+# Note: Complete consultation endpoint removed since we now use simplified WAITING -> COMPLETED flow
+# The call_next_patient endpoint now handles both calling and completing in one step
 
 @router.get("/statistics/{service_id}")
 async def get_queue_statistics(
@@ -331,9 +281,8 @@ async def get_queue_statistics(
     waiting_count = db.query(Ticket).filter(
         and_(Ticket.service_id == service_id, Ticket.status == TicketStatus.WAITING)
     ).count()
-    consulting_count = db.query(Ticket).filter(
-        and_(Ticket.service_id == service_id, Ticket.status == TicketStatus.CONSULTING)
-    ).count()
+    # Note: No more consulting status in simplified flow
+    consulting_count = 0
     completed_count = db.query(Ticket).filter(
         and_(Ticket.service_id == service_id, Ticket.status == TicketStatus.COMPLETED)
     ).count()
@@ -394,9 +343,8 @@ async def get_all_queues_overview(db: Session = Depends(get_db)):
             and_(Ticket.service_id == service.id, Ticket.status == TicketStatus.WAITING)
         ).count()
         
-        consulting_count = db.query(Ticket).filter(
-            and_(Ticket.service_id == service.id, Ticket.status == TicketStatus.CONSULTING)
-        ).count()
+        # Note: No more consulting status in simplified flow
+        consulting_count = 0
         
         overview.append({
             "service_id": service.id,
