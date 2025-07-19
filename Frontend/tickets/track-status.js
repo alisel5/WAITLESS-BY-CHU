@@ -62,7 +62,7 @@ function displayTicketInfo(ticket) {
     document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString('fr-FR');
     
     // Show notification for important status changes
-    if (ticket.status === 'consulting') {
+    if (ticket.status === 'waiting' && ticket.position_in_queue === 1) {
         APIUtils.showNotification('🔔 Votre tour est arrivé ! Présentez-vous au service.', 'success');
     }
 }
@@ -75,13 +75,12 @@ function showErrorState() {
 }
 
 // Get status text in French
-function getStatusText(status) {
-    const statusMap = {
-        'waiting': 'En Attente',
-        'consulting': 'En Consultation',
-        'completed': 'Terminé',
-        'cancelled': 'Annulé'
-    };
+  function getStatusText(status) {
+      const statusMap = {
+          'waiting': 'En Attente',
+          'completed': 'Terminé',
+          'cancelled': 'Annulé'
+      };
     return statusMap[status] || status;
 }
 

@@ -65,7 +65,7 @@ function loadMockPatientsData() {
       id: 2,
       name: 'Fatima Zahra',
       service: 'Dermatologie',
-      status: 'consulting',
+      status: 'waiting',
       arrival_time: '2025-07-18T08:15:00',
       wait_time: 120,
       priority: 'medium',
@@ -95,7 +95,7 @@ function loadMockPatientsData() {
       id: 5,
       name: 'Hassan El Fassi',
       service: 'Urgences',
-      status: 'consulting',
+      status: 'waiting',
       arrival_time: '2025-07-18T06:30:00',
       wait_time: 180,
       priority: 'high',
@@ -394,13 +394,12 @@ function exportPatientsData() {
 }
 
 // Helper functions
-function getStatusText(status) {
-  const statusMap = {
-    'waiting': 'En attente',
-    'consulting': 'En consultation',
-    'completed': 'Terminé',
-    'cancelled': 'Annulé'
-  };
+  function getStatusText(status) {
+    const statusMap = {
+      'waiting': 'En attente',
+      'completed': 'Terminé',
+      'cancelled': 'Annulé'
+    };
   return statusMap[status] || status;
 }
 

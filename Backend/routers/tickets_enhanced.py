@@ -131,7 +131,7 @@ async def scan_to_join_queue(
         and_(
             Ticket.patient_id == user.id,
             Ticket.service_id == service_id,
-            Ticket.status.in_([TicketStatus.WAITING, TicketStatus.CONSULTING])
+            Ticket.status == TicketStatus.WAITING
         )
     ).first()
     

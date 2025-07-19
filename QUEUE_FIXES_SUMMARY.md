@@ -1,8 +1,8 @@
-# Queue Logic Fixes Summary
+# Queue Logic Fixes Summary - UPDATED
 
 ## 🔧 Critical Issues Fixed
 
-### Issue #1: **Race Condition in Call Next Patient** ⚠️ **CRITICAL**
+### Issue #1: **Race Condition in Call Next Patient** ⚠️ **CRITICAL** ✅ **FIXED**
 
 **Problem:** Multiple users could be notified it's their turn simultaneously due to duplicate `call_next_patient` implementations.
 
@@ -22,7 +22,7 @@
 - `Backend/routers/queue.py` - Added atomic function with locking
 - `Backend/routers/websocket.py` - Updated to use atomic function
 
-### Issue #2: **Simplified Flow to WAITING → COMPLETED** ⚠️ **CRITICAL**
+### Issue #2: **Simplified Flow to WAITING → COMPLETED** ⚠️ **CRITICAL** ✅ **FIXED**
 
 **Problem:** Complex consultation flow with confusing auto-completion logic causing both patients to see "consultation terminée" instead of proper progression.
 
@@ -51,8 +51,22 @@ Instead of the complex WAITING → CONSULTING → COMPLETED flow, we now use a s
 - `Backend/routers/queue.py` - Updated call_next_patient, removed complete endpoint
 - `Backend/routers/tickets.py` - Updated status checks to remove CONSULTING
 - `Backend/routers/admin.py` - Updated statistics to remove CONSULTING references
+- `Backend/routers/services.py` - Removed CONSULTING status queries
+- `Backend/routers/websocket.py` - Removed CONSULTING status references
+- `Backend/routers/tickets_enhanced.py` - Updated status checks
+- `Backend/models.py` - Removed CONSULTING from TicketStatus enum
+- `Backend/schemas.py` - Removed consulting_count from schemas
+- `Backend/websocket_manager.py` - Updated status notifications
+- `Frontend/tickets/ticket.js` - Updated display logic for position-based "your turn"
+- `Frontend/tickets/track-status.js` - Removed consulting status handling
+- `Frontend/patients/patients.js` - Removed consulting status references
+- `Frontend/dashboard/dashboard.js` - Removed consulting statistics
+- `Frontend/reports/reports.js` - Updated statistics calculation
+- `Frontend/tickets/ticket.css` - Updated CSS classes for "your turn" status
+- `Frontend/tickets/track-status.css` - Updated status badge styles
+- `Frontend/patients/patients.css` - Updated status styles
 
-### Issue #3: **Inconsistent Queue Position Calculation** ⚠️ **HIGH**
+### Issue #3: **Inconsistent Queue Position Calculation** ⚠️ **HIGH** ✅ **FIXED**
 
 **Problem:** Complex and buggy position calculation logic in ticket creation.
 
@@ -73,7 +87,7 @@ for ticket in waiting_tickets:
 **Files Modified:**
 - `Backend/routers/tickets.py` - Lines 45-80
 
-### Issue #4: **Service Waiting Count Inconsistencies** ⚠️ **HIGH**
+### Issue #4: **Service Waiting Count Inconsistencies** ⚠️ **HIGH** ✅ **FIXED**
 
 **Problem:** Multiple places manually updating `current_waiting` count, leading to inconsistencies.
 
@@ -93,7 +107,7 @@ for ticket in waiting_tickets:
 - `Backend/routers/tickets_enhanced.py` - Removed manual updates
 - `Backend/routers/queue.py` - Integrated with centralized updates
 
-### Issue #5: **Missing Queue Position Updates** ⚠️ **MEDIUM**
+### Issue #5: **Missing Queue Position Updates** ⚠️ **MEDIUM** ✅ **FIXED**
 
 **Problem:** When tickets were created/updated/cancelled, other patients' positions weren't recalculated.
 
@@ -233,12 +247,16 @@ The simplified flow ensures:
 ✅ **Missing position updates** - Real-time updates after every change  
 ✅ **WebSocket notification gaps** - Proper real-time updates  
 ✅ **Status complexity** - Reduced from 4 statuses to 2
+✅ **Frontend display logic** - Updated to handle position-based "your turn"
+✅ **CSS styling** - Updated all consulting references to waiting/your-turn
+✅ **Dashboard statistics** - Removed consulting counts
+✅ **API schemas** - Cleaned up all consulting references
 
 **The system is now PERFECT for your final-year project!** 🎯🏥✨
 
 ### Final Architecture:
 - **Backend**: Simple, atomic, race-condition-free
-- **Frontend**: Position-based display logic (already implemented)
+- **Frontend**: Position-based display logic (implemented)
 - **Flow**: WAITING (pos 1) = "Your turn", COMPLETED = "Finished"
 - **Admin**: One click calls and completes patient
 - **Users**: Clear, unambiguous status messages

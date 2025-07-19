@@ -281,8 +281,6 @@ async def get_queue_statistics(
     waiting_count = db.query(Ticket).filter(
         and_(Ticket.service_id == service_id, Ticket.status == TicketStatus.WAITING)
     ).count()
-    # Note: No more consulting status in simplified flow
-    consulting_count = 0
     completed_count = db.query(Ticket).filter(
         and_(Ticket.service_id == service_id, Ticket.status == TicketStatus.COMPLETED)
     ).count()
@@ -320,7 +318,6 @@ async def get_queue_statistics(
         "service_name": service.name,
         "total_tickets": total_tickets,
         "waiting_count": waiting_count,
-        "consulting_count": consulting_count,
         "completed_count": completed_count,
         "cancelled_count": cancelled_count,
         "avg_wait_time": service.avg_wait_time,
@@ -343,23 +340,18 @@ async def get_all_queues_overview(db: Session = Depends(get_db)):
             and_(Ticket.service_id == service.id, Ticket.status == TicketStatus.WAITING)
         ).count()
         
-        # Note: No more consulting status in simplified flow
-        consulting_count = 0
-        
         overview.append({
             "service_id": service.id,
             "service_name": service.name,
             "status": service.status.value,
             "waiting_count": waiting_count,
-            "consulting_count": consulting_count,
             "avg_wait_time": service.avg_wait_time,
             "location": service.location
         })
     
     return {
         "services": overview,
-        "total_waiting": sum(s["waiting_count"] for s in overview),
-        "total_consulting": sum(s["consulting_count"] for s in overview)
+        "total_waiting": sum(s["waiting_count"] for s in overview)
     }
 
 

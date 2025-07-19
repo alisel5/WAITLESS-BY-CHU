@@ -8,7 +8,6 @@ class DashboardManager {
         this.dashboardData = {
             stats: {
                 total_waiting: 0,
-                total_consulting: 0,
                 active_services: 0,
                 avg_wait_time: 0
             },
@@ -320,8 +319,8 @@ class DashboardManager {
         );
         
         // Update stats
-        this.dashboardData.stats.total_consulting = 
-            (this.dashboardData.stats.total_consulting || 0) + 1;
+                    this.dashboardData.stats.total_waiting =
+            (this.dashboardData.stats.total_waiting || 0) + 1;
         this.dashboardData.stats.total_waiting = 
             Math.max(0, (this.dashboardData.stats.total_waiting || 0) - 1);
         
@@ -440,7 +439,7 @@ class DashboardManager {
                             <span class="stat-label">En attente</span>
                         </div>
                         <div class="stat-item">
-                            <span class="stat-value">${service.consulting_count || 0}</span>
+                            <span class="stat-value">0</span>
                             <span class="stat-label">En consultation</span>
                         </div>
                         <div class="stat-item">
@@ -579,7 +578,6 @@ class DashboardManager {
     getFallbackStats() {
         return {
             total_waiting: 0,
-            total_consulting: 0,
             active_services: 0,
             avg_wait_time: 0,
             services: []

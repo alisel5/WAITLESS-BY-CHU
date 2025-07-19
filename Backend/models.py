@@ -26,7 +26,6 @@ class ServiceStatus(enum.Enum):
 
 class TicketStatus(enum.Enum):
     WAITING = "waiting"
-    CONSULTING = "consulting"
     COMPLETED = "completed"
     CANCELLED = "cancelled"
     EXPIRED = "expired"

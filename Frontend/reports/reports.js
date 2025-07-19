@@ -60,7 +60,7 @@ function updateReportsDisplay() {
   const stats = reportsData.dashboard;
   
   // Update main statistics
-  updateStatCard('patients-treated', stats.total_waiting + stats.total_consulting, '+12.5%');
+          updateStatCard('patients-treated', stats.total_waiting, '+12.5%');
   updateStatCard('avg-wait-time', `${stats.avg_wait_time} min`, '+2.1 min');
   updateStatCard('satisfaction', '4.2/5', '+0.3');
   updateStatCard('efficiency', '87%', '+5%');
