@@ -8,8 +8,131 @@ from models import Ticket, Service, TicketStatus, ServicePriority, QueueLog, Use
 from schemas import QueueStatus, QueuePosition, TicketResponse
 from auth import get_admin_user, get_current_active_user
 from websocket_manager import connection_manager
+import asyncio
 
 router = APIRouter()
+
+# Lock to prevent race conditions when calling next patient
+_call_next_lock = asyncio.Lock()
+
+async def _call_next_patient_atomic(service_id: int, db: Session, admin_user: User = None) -> dict:
+    """
+    Atomic function to call the next patient with proper locking.
+    This prevents multiple simultaneous calls from both REST API and WebSocket.
+    """
+    async with _call_next_lock:
+        # Get next waiting ticket with a fresh query inside the lock
+        next_ticket = db.query(Ticket).filter(
+            and_(
+                Ticket.service_id == service_id,
+                Ticket.status == TicketStatus.WAITING
+            )
+        ).order_by(Ticket.priority.desc(), Ticket.created_at.asc()).first()
+        
+        if not next_ticket:
+            return {
+                "success": False,
+                "error": "No patients waiting in queue",
+                "code": 404
+            }
+        
+        # Update ticket status to consulting
+        next_ticket.status = TicketStatus.CONSULTING
+        next_ticket.consultation_start = datetime.utcnow()
+        next_ticket.actual_arrival = datetime.utcnow()
+        
+        # Update service waiting count
+        service = db.query(Service).filter(Service.id == service_id).first()
+        if service:
+            service.current_waiting = max(0, service.current_waiting - 1)
+        
+        # Log the action (include admin info if available)
+        admin_name = admin_user.full_name if admin_user else "System"
+        queue_log = QueueLog(
+            ticket_id=next_ticket.id,
+            action="called",
+            details=f"Patient called for consultation by {admin_name}"
+        )
+        db.add(queue_log)
+        
+        # Update positions for remaining tickets
+        remaining_tickets = db.query(Ticket).filter(
+            and_(
+                Ticket.service_id == service_id,
+                Ticket.status == TicketStatus.WAITING
+            )
+        ).order_by(Ticket.priority.desc(), Ticket.created_at.asc()).all()
+        
+        for i, ticket in enumerate(remaining_tickets, 1):
+            ticket.position_in_queue = i
+            # Recalculate estimated wait time
+            ticket.estimated_wait_time = (i - 1) * (service.avg_wait_time if service else 15)
+        
+        # AUTO-COMPLETE LOGIC: If no more waiting tickets, automatically complete all consulting tickets
+        auto_completed = False
+        if len(remaining_tickets) == 0:
+            # Get all consulting tickets for this service
+            consulting_tickets = db.query(Ticket).filter(
+                and_(
+                    Ticket.service_id == service_id,
+                    Ticket.status == TicketStatus.CONSULTING
+                )
+            ).all()
+            
+            for ticket in consulting_tickets:
+                # Mark as completed
+                ticket.status = TicketStatus.COMPLETED
+                ticket.consultation_end = datetime.utcnow()
+                
+                # Log the auto-completion
+                auto_complete_log = QueueLog(
+                    ticket_id=ticket.id,
+                    action="auto_completed",
+                    details=f"Ticket automatically completed - no more waiting patients"
+                )
+                db.add(auto_complete_log)
+            
+            auto_completed = True
+        
+        # Commit all changes atomically
+        db.commit()
+        db.refresh(next_ticket)
+        
+        # Send real-time WebSocket notifications
+        try:
+            # Notify about patient being called
+            await connection_manager.patient_called(str(service_id), {
+                "ticket_number": next_ticket.ticket_number,
+                "patient_name": next_ticket.patient.full_name,
+                "status": "consulting",
+                "service_id": service_id
+            })
+            
+            # Notify about queue position updates
+            if remaining_tickets:
+                queue_data = []
+                for ticket in remaining_tickets:
+                    queue_data.append({
+                        "position": ticket.position_in_queue,
+                        "ticket_number": ticket.ticket_number,
+                        "estimated_wait_time": ticket.estimated_wait_time
+                    })
+                
+                await connection_manager.queue_position_update(str(service_id), {
+                    "total_waiting": len(remaining_tickets),
+                    "queue": queue_data
+                })
+        except Exception as e:
+            # Don't fail the operation if WebSocket notification fails
+            print(f"WebSocket notification failed: {e}")
+        
+        return {
+            "success": True,
+            "ticket": next_ticket,
+            "patient_name": next_ticket.patient.full_name,
+            "auto_completed": auto_completed,
+            "remaining_count": len(remaining_tickets)
+        }
 
 
 @router.get("/service/{service_id}", response_model=QueueStatus)
@@ -100,7 +223,10 @@ async def get_ticket_status_with_queue_info(
     # Get service info
     service = db.query(Service).filter(Service.id == ticket.service_id).first()
     
-    # Check if there are waiting tickets in the service
+    # Check if this patient should be automatically completed
+    should_show_as_done = False
+    
+    # Get waiting count for the service
     waiting_count = db.query(Ticket).filter(
         and_(
             Ticket.service_id == ticket.service_id,
@@ -108,35 +234,33 @@ async def get_ticket_status_with_queue_info(
         )
     ).count()
     
-    # AUTO-COMPLETE LOGIC: If ticket is consulting and no waiting patients, auto-complete it
+    # Auto-complete logic check
     if ticket.status == TicketStatus.CONSULTING and waiting_count == 0:
+        # Mark ticket as completed
         ticket.status = TicketStatus.COMPLETED
         ticket.consultation_end = datetime.utcnow()
         
         # Log the auto-completion
         auto_complete_log = QueueLog(
             ticket_id=ticket.id,
-            action="auto_completed_on_status_check",
-            details=f"Ticket automatically completed during status check - no waiting patients"
+            action="auto_completed",
+            details="Ticket automatically completed - no more waiting patients"
         )
         db.add(auto_complete_log)
         db.commit()
         db.refresh(ticket)
-    
-    # Determine if ticket should be considered done
-    should_show_as_done = (
-        ticket.status == TicketStatus.COMPLETED or
-        ticket.status == TicketStatus.CANCELLED or
-        ticket.status == TicketStatus.EXPIRED
-    )
+        should_show_as_done = True
     
     return {
         "ticket_number": ticket.ticket_number,
-        "status": ticket.status,
-        "position_in_queue": ticket.position_in_queue,
+        "patient_name": ticket.patient.full_name,
+        "service_name": service.name if service else "Unknown",
+        "status": ticket.status.value,
+        "created_at": ticket.created_at,
         "estimated_wait_time": ticket.estimated_wait_time,
-        "service_name": service.name if service else "Unknown Service",
-        "service_id": ticket.service_id,
+        "position_in_queue": ticket.position_in_queue,
+        "consultation_start": ticket.consultation_start,
+        "consultation_end": ticket.consultation_end,
         "waiting_count": waiting_count,
         "should_show_as_done": should_show_as_done,
         "created_at": ticket.created_at
@@ -150,110 +274,19 @@ async def call_next_patient(
     current_user: User = Depends(get_admin_user)
 ):
     """Call the next patient in queue (Admin only)."""
-    # Get next waiting ticket
-    next_ticket = db.query(Ticket).filter(
-        and_(
-            Ticket.service_id == service_id,
-            Ticket.status == TicketStatus.WAITING
-        )
-    ).order_by(Ticket.priority.desc(), Ticket.created_at.asc()).first()
+    result = await _call_next_patient_atomic(service_id, db, current_user)
     
-    if not next_ticket:
+    if not result["success"]:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="No patients waiting in queue"
+            status_code=result["code"],
+            detail=result["error"]
         )
-    
-    # Update ticket status to consulting
-    next_ticket.status = TicketStatus.CONSULTING
-    next_ticket.consultation_start = datetime.utcnow()
-    next_ticket.actual_arrival = datetime.utcnow()
-    
-    # Update service waiting count
-    service = db.query(Service).filter(Service.id == service_id).first()
-    if service:
-        service.current_waiting = max(0, service.current_waiting - 1)
-    
-    # Log the action
-    queue_log = QueueLog(
-        ticket_id=next_ticket.id,
-        action="called",
-        details=f"Patient called for consultation by {current_user.full_name}"
-    )
-    db.add(queue_log)
-    
-    # Update positions for remaining tickets
-    remaining_tickets = db.query(Ticket).filter(
-        and_(
-            Ticket.service_id == service_id,
-            Ticket.status == TicketStatus.WAITING
-        )
-    ).order_by(Ticket.priority.desc(), Ticket.created_at.asc()).all()
-    
-    for i, ticket in enumerate(remaining_tickets, 1):
-        ticket.position_in_queue = i
-        # Recalculate estimated wait time
-        ticket.estimated_wait_time = (i - 1) * (service.avg_wait_time if service else 15)
-    
-    # AUTO-COMPLETE LOGIC: If no more waiting tickets, automatically complete all consulting tickets
-    if len(remaining_tickets) == 0:
-        # Get all consulting tickets for this service
-        consulting_tickets = db.query(Ticket).filter(
-            and_(
-                Ticket.service_id == service_id,
-                Ticket.status == TicketStatus.CONSULTING
-            )
-        ).all()
-        
-        for ticket in consulting_tickets:
-            # Mark as completed
-            ticket.status = TicketStatus.COMPLETED
-            ticket.consultation_end = datetime.utcnow()
-            
-            # Log the auto-completion
-            auto_complete_log = QueueLog(
-                ticket_id=ticket.id,
-                action="auto_completed",
-                details=f"Ticket automatically completed - no more waiting patients"
-            )
-            db.add(auto_complete_log)
-    
-    db.commit()
-    db.refresh(next_ticket)
-    
-    # Send real-time WebSocket notifications
-    try:
-        # Notify about patient being called
-        await connection_manager.patient_called(str(service_id), {
-            "ticket_number": next_ticket.ticket_number,
-            "patient_name": next_ticket.patient.full_name,
-            "status": "consulting",
-            "service_id": service_id
-        })
-        
-        # Notify about queue position updates
-        if remaining_tickets:
-            queue_data = []
-            for ticket in remaining_tickets:
-                queue_data.append({
-                    "position": ticket.position_in_queue,
-                    "ticket_number": ticket.ticket_number,
-                    "estimated_wait_time": ticket.estimated_wait_time
-                })
-            
-            await connection_manager.queue_position_update(str(service_id), {
-                "total_waiting": len(remaining_tickets),
-                "queue": queue_data
-            })
-    except Exception as e:
-        # Don't fail the API call if WebSocket notification fails
-        print(f"WebSocket notification failed: {e}")
     
     return {
         "message": "Next patient called successfully",
-        "ticket": TicketResponse.from_orm(next_ticket),
-        "patient_name": next_ticket.patient.full_name,
-        "auto_completed": len(remaining_tickets) == 0
+        "ticket": TicketResponse.from_orm(result["ticket"]),
+        "patient_name": result["patient_name"],
+        "auto_completed": result["auto_completed"]
     }
 
 
