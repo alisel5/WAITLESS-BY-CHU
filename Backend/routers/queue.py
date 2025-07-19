@@ -42,10 +42,8 @@ async def _call_next_patient_atomic(service_id: int, db: Session, admin_user: Us
         next_ticket.consultation_end = datetime.utcnow()
         next_ticket.actual_arrival = datetime.utcnow()
         
-        # Update service waiting count
+        # Get service object for later use
         service = db.query(Service).filter(Service.id == service_id).first()
-        if service:
-            service.current_waiting = max(0, service.current_waiting - 1)
         
         # Log the action (include admin info if available)
         admin_name = admin_user.full_name if admin_user else "System"
@@ -64,10 +62,15 @@ async def _call_next_patient_atomic(service_id: int, db: Session, admin_user: Us
             )
         ).order_by(Ticket.priority.desc(), Ticket.created_at.asc()).all()
         
+        # Update service waiting count to match reality
+        if service:
+            service.current_waiting = len(remaining_tickets)
+        
         for i, ticket in enumerate(remaining_tickets, 1):
             ticket.position_in_queue = i
             # Recalculate estimated wait time
-            ticket.estimated_wait_time = (i - 1) * (service.avg_wait_time if service else 15)
+            avg_time = service.avg_wait_time if service and service.avg_wait_time > 0 else 15
+            ticket.estimated_wait_time = (i - 1) * avg_time
         
         # Note: Auto-completion removed to allow proper consultation flow
         # Tickets should be manually completed by admin when consultation is done
@@ -133,25 +136,20 @@ async def get_queue_status(service_id: int, db: Session = Depends(get_db)):
         )
     ).order_by(Ticket.priority.desc(), Ticket.created_at.asc()).all()
     
-    # Build queue positions
+    # Build queue positions (READ-ONLY - do not update database positions here)
     queue_positions = []
     for i, ticket in enumerate(waiting_tickets, 1):
         queue_positions.append(QueuePosition(
             ticket_number=ticket.ticket_number,
-            position=i,
+            position=i,  # Use calculated position for response
             estimated_wait_time=ticket.estimated_wait_time
         ))
-        
-        # Update position in database
-        ticket.position_in_queue = i
     
     # Calculate average wait time
     avg_wait_time = 0
     if waiting_tickets:
         total_wait = sum(ticket.estimated_wait_time for ticket in waiting_tickets)
         avg_wait_time = total_wait // len(waiting_tickets)
-    
-    db.commit()
     
     return QueueStatus(
         service_id=service_id,
