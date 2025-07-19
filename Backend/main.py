@@ -6,20 +6,32 @@ from database import get_db, engine
 from models import Base
 from config import settings
 import uvicorn
+from contextlib import asynccontextmanager
 
 # Import routers
 from routers import auth, services, tickets, queue, admin, websocket
 from routers import tickets_enhanced
+from notification_service import start_notification_service, stop_notification_service
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
 
-# Initialize FastAPI app
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Handle application startup and shutdown events"""
+    # Startup: Start the notification service
+    await start_notification_service()
+    yield
+    # Shutdown: Stop the notification service
+    await stop_notification_service()
+
+# Initialize FastAPI app with lifespan events
 app = FastAPI(
     title=settings.app_name,
     description="Smart Queue Management System for CHU Hospitals with Real-time Updates",
     version="1.0.0",
-    debug=settings.debug
+    debug=settings.debug,
+    lifespan=lifespan
 )
 
 # Add CORS middleware

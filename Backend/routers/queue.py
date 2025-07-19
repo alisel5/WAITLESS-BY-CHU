@@ -3,11 +3,11 @@ from sqlalchemy.orm import Session
 from sqlalchemy import and_, func
 from typing import List, Optional
 from datetime import datetime
-from database import get_db
+from database import get_db, reorder_queue_positions_atomic, update_wait_times_atomic
 from models import Ticket, Service, TicketStatus, ServicePriority, QueueLog, User
 from schemas import QueueStatus, QueuePosition, TicketResponse
 from auth import get_admin_user, get_current_active_user
-from websocket_manager import connection_manager
+from notification_service import notification_service
 
 router = APIRouter()
 
@@ -182,78 +182,53 @@ async def call_next_patient(
     )
     db.add(queue_log)
     
-    # Update positions for remaining tickets
-    remaining_tickets = db.query(Ticket).filter(
-        and_(
-            Ticket.service_id == service_id,
-            Ticket.status == TicketStatus.WAITING
-        )
-    ).order_by(Ticket.priority.desc(), Ticket.created_at.asc()).all()
+    # Atomically reorder positions for remaining tickets (faster, race-condition free)
+    updated_count = reorder_queue_positions_atomic(service_id, db)
     
-    for i, ticket in enumerate(remaining_tickets, 1):
-        ticket.position_in_queue = i
-        # Recalculate estimated wait time
-        ticket.estimated_wait_time = (i - 1) * (service.avg_wait_time if service else 15)
+    # Update wait times atomically
+    avg_wait_time = service.avg_wait_time if service else 15
+    update_wait_times_atomic(service_id, avg_wait_time, db)
     
-    # AUTO-COMPLETE LOGIC: If no more waiting tickets, automatically complete all consulting tickets
-    if len(remaining_tickets) == 0:
-        # Get all consulting tickets for this service
-        consulting_tickets = db.query(Ticket).filter(
-            and_(
-                Ticket.service_id == service_id,
-                Ticket.status == TicketStatus.CONSULTING
-            )
-        ).all()
-        
-        for ticket in consulting_tickets:
-            # Mark as completed
-            ticket.status = TicketStatus.COMPLETED
-            ticket.consultation_end = datetime.utcnow()
-            
-            # Log the auto-completion
-            auto_complete_log = QueueLog(
-                ticket_id=ticket.id,
-                action="auto_completed",
-                details=f"Ticket automatically completed - no more waiting patients"
-            )
-            db.add(auto_complete_log)
+    # Remove AUTO-COMPLETE LOGIC (safety improvement - let admins control completion explicitly)
     
     db.commit()
     db.refresh(next_ticket)
     
-    # Send real-time WebSocket notifications
-    try:
-        # Notify about patient being called
-        await connection_manager.patient_called(str(service_id), {
-            "ticket_number": next_ticket.ticket_number,
-            "patient_name": next_ticket.patient.full_name,
-            "status": "consulting",
-            "service_id": service_id
-        })
+    # Send NON-BLOCKING real-time notifications (fire-and-forget)
+    notification_service.notify_patient_called(service_id, {
+        "ticket_number": next_ticket.ticket_number,
+        "patient_name": next_ticket.patient.full_name,
+        "status": "consulting",
+        "service_id": service_id
+    })
+    
+    # Get updated queue data for notifications (after commit)
+    if updated_count > 0:
+        remaining_tickets = db.query(Ticket).filter(
+            and_(
+                Ticket.service_id == service_id,
+                Ticket.status == TicketStatus.WAITING
+            )
+        ).order_by(Ticket.priority.desc(), Ticket.created_at.asc()).all()
         
-        # Notify about queue position updates
-        if remaining_tickets:
-            queue_data = []
-            for ticket in remaining_tickets:
-                queue_data.append({
-                    "position": ticket.position_in_queue,
-                    "ticket_number": ticket.ticket_number,
-                    "estimated_wait_time": ticket.estimated_wait_time
-                })
-            
-            await connection_manager.queue_position_update(str(service_id), {
-                "total_waiting": len(remaining_tickets),
-                "queue": queue_data
+        queue_data = []
+        for ticket in remaining_tickets:
+            queue_data.append({
+                "position": ticket.position_in_queue,
+                "ticket_number": ticket.ticket_number,
+                "estimated_wait_time": ticket.estimated_wait_time
             })
-    except Exception as e:
-        # Don't fail the API call if WebSocket notification fails
-        print(f"WebSocket notification failed: {e}")
+        
+        notification_service.notify_queue_position_update(service_id, {
+            "total_waiting": len(remaining_tickets),
+            "queue": queue_data
+        })
     
     return {
         "message": "Next patient called successfully",
         "ticket": TicketResponse.from_orm(next_ticket),
         "patient_name": next_ticket.patient.full_name,
-        "auto_completed": len(remaining_tickets) == 0
+        "updated_tickets": updated_count
     }
 
 
@@ -419,22 +394,15 @@ async def reorder_queue(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_admin_user)
 ):
-    """Reorder queue based on priority and arrival time (Admin only)."""
-    # Get all waiting tickets for the service
-    waiting_tickets = db.query(Ticket).filter(
-        and_(
-            Ticket.service_id == service_id,
-            Ticket.status == TicketStatus.WAITING
-        )
-    ).order_by(Ticket.priority.desc(), Ticket.created_at.asc()).all()
+    """Reorder queue based on priority and arrival time (Admin only) - ATOMIC VERSION."""
+    # Use atomic database operation for reordering (prevents race conditions)
+    updated_count = reorder_queue_positions_atomic(service_id, db)
     
-    # Update positions
-    for i, ticket in enumerate(waiting_tickets, 1):
-        ticket.position_in_queue = i
-        # Recalculate estimated wait time
-        service = db.query(Service).filter(Service.id == service_id).first()
-        avg_time = service.avg_wait_time if service and service.avg_wait_time > 0 else 15
-        ticket.estimated_wait_time = (i - 1) * avg_time
+    # Get service for wait time calculation
+    service = db.query(Service).filter(Service.id == service_id).first()
+    if service:
+        avg_time = service.avg_wait_time if service.avg_wait_time > 0 else 15
+        update_wait_times_atomic(service_id, avg_time, db)
     
     # Log the reordering
     queue_log = QueueLog(
@@ -446,7 +414,31 @@ async def reorder_queue(
     
     db.commit()
     
+    # Send non-blocking notification about queue changes
+    if updated_count > 0:
+        remaining_tickets = db.query(Ticket).filter(
+            and_(
+                Ticket.service_id == service_id,
+                Ticket.status == TicketStatus.WAITING
+            )
+        ).order_by(Ticket.priority.desc(), Ticket.created_at.asc()).all()
+        
+        queue_data = []
+        for ticket in remaining_tickets:
+            queue_data.append({
+                "position": ticket.position_in_queue,
+                "ticket_number": ticket.ticket_number,
+                "estimated_wait_time": ticket.estimated_wait_time
+            })
+        
+        notification_service.notify_queue_position_update(service_id, {
+            "type": "queue_reordered",
+            "total_waiting": len(remaining_tickets),
+            "queue": queue_data,
+            "reordered_by": current_user.full_name
+        })
+    
     return {
-        "message": f"Queue reordered successfully. {len(waiting_tickets)} tickets updated.",
-        "updated_count": len(waiting_tickets)
+        "message": f"Queue reordered successfully. {updated_count} tickets updated.",
+        "updated_count": updated_count
     } 

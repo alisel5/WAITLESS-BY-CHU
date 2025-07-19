@@ -43,26 +43,11 @@ def generate_qr_code(ticket_number: str) -> str:
 
 
 def calculate_position_and_wait_time(service_id: int, priority: ServicePriority, db: Session):
-    """Calculate position in queue and estimated wait time."""
-    # Get current waiting tickets for this service
-    waiting_tickets = db.query(Ticket).filter(
-        and_(
-            Ticket.service_id == service_id,
-            Ticket.status == TicketStatus.WAITING
-        )
-    ).order_by(Ticket.priority.desc(), Ticket.created_at.asc()).all()
+    """Calculate position in queue and estimated wait time - THREAD SAFE VERSION."""
+    from database import get_next_queue_position
     
-    # Calculate position based on priority
-    position = 1
-    for ticket in waiting_tickets:
-        if ticket.priority.value == priority.value:
-            position = len([t for t in waiting_tickets if t.priority.value >= priority.value]) + 1
-            break
-        elif ticket.priority.value < priority.value:
-            position = len([t for t in waiting_tickets if t.priority.value > priority.value]) + 1
-            break
-    else:
-        position = len(waiting_tickets) + 1
+    # Use atomic database operation to get position (prevents race conditions)
+    position = get_next_queue_position(service_id, priority.value, db)
     
     # Get service avg wait time
     service = db.query(Service).filter(Service.id == service_id).first()
