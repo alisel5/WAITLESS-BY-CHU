@@ -6,7 +6,7 @@ from datetime import datetime
 from database import get_db, reorder_queue_positions_atomic, update_wait_times_atomic
 from models import Ticket, Service, TicketStatus, ServicePriority, QueueLog, User
 from schemas import QueueStatus, QueuePosition, TicketResponse
-from auth import get_admin_user, get_current_active_user
+from auth import get_admin_user, get_current_active_user, get_staff_user
 from notification_service import notification_service
 
 router = APIRouter()
@@ -58,6 +58,29 @@ async def get_queue_status(service_id: int, db: Session = Depends(get_db)):
         avg_wait_time=avg_wait_time,
         queue=queue_positions
     )
+
+
+@router.get("/department/{department_name}")
+async def get_queue_by_department(
+    department_name: str, 
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_staff_user)
+):
+    """Get queue status by department name (for secretary interface)."""
+    # Find service by name
+    service = db.query(Service).filter(Service.name.ilike(f"%{department_name}%")).first()
+    if not service:
+        # Return empty queue if service not found
+        return {
+            "service_id": 0,
+            "service_name": department_name,
+            "total_waiting": 0,
+            "avg_wait_time": 0,
+            "queue": []
+        }
+    
+    # Use existing queue status logic
+    return await get_queue_status(service.id, db)
 
 
 @router.get("/my-position", response_model=Optional[QueuePosition])
@@ -289,9 +312,10 @@ async def complete_consultation(
 @router.get("/statistics/{service_id}")
 async def get_queue_statistics(
     service_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_staff_user)
 ):
-    """Get detailed queue statistics for a service."""
+    """Get queue statistics for a service."""
     service = db.query(Service).filter(Service.id == service_id).first()
     if not service:
         raise HTTPException(
@@ -299,60 +323,32 @@ async def get_queue_statistics(
             detail="Service not found"
         )
     
-    # Get ticket counts by status
-    total_tickets = db.query(Ticket).filter(Ticket.service_id == service_id).count()
-    waiting_count = db.query(Ticket).filter(
-        and_(Ticket.service_id == service_id, Ticket.status == TicketStatus.WAITING)
-    ).count()
-    consulting_count = db.query(Ticket).filter(
-        and_(Ticket.service_id == service_id, Ticket.status == TicketStatus.CONSULTING)
-    ).count()
-    completed_count = db.query(Ticket).filter(
-        and_(Ticket.service_id == service_id, Ticket.status == TicketStatus.COMPLETED)
-    ).count()
-    cancelled_count = db.query(Ticket).filter(
-        and_(Ticket.service_id == service_id, Ticket.status == TicketStatus.CANCELLED)
-    ).count()
+    # Get today's statistics
+    today = datetime.now().date()
     
-    # Get priority breakdown
-    high_priority = db.query(Ticket).filter(
+    total_waiting = db.query(Ticket).filter(
         and_(
             Ticket.service_id == service_id,
-            Ticket.priority == ServicePriority.HIGH,
             Ticket.status == TicketStatus.WAITING
         )
     ).count()
     
-    medium_priority = db.query(Ticket).filter(
+    completed_today = db.query(Ticket).filter(
         and_(
             Ticket.service_id == service_id,
-            Ticket.priority == ServicePriority.MEDIUM,
-            Ticket.status == TicketStatus.WAITING
+            Ticket.status == TicketStatus.COMPLETED,
+            func.date(Ticket.consultation_end) == today
         )
     ).count()
     
-    low_priority = db.query(Ticket).filter(
-        and_(
-            Ticket.service_id == service_id,
-            Ticket.priority == ServicePriority.LOW,
-            Ticket.status == TicketStatus.WAITING
-        )
-    ).count()
+    # Calculate average wait time from service
+    avg_wait_time = service.avg_wait_time or 15
     
     return {
-        "service_id": service_id,
-        "service_name": service.name,
-        "total_tickets": total_tickets,
-        "waiting_count": waiting_count,
-        "consulting_count": consulting_count,
-        "completed_count": completed_count,
-        "cancelled_count": cancelled_count,
-        "avg_wait_time": service.avg_wait_time,
-        "priority_breakdown": {
-            "high": high_priority,
-            "medium": medium_priority,
-            "low": low_priority
-        }
+        "total_waiting": total_waiting,
+        "avg_wait_time": avg_wait_time,
+        "completed_today": completed_today,
+        "service_name": service.name
     }
 
 

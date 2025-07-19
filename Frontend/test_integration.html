@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test d'Intégration - WaitLess CHU</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 20px;
+            line-height: 1.6;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2c5282;
+            text-align: center;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+        }
+        .test-section h3 {
+            margin-top: 0;
+            color: #2d3748;
+        }
+        button {
+            background: #4299e1;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #3182ce;
+        }
+        .result {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 4px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            background: #f7fafc;
+            border: 1px solid #e2e8f0;
+        }
+        .success {
+            background: #f0fff4;
+            border-color: #9ae6b4;
+            color: #22543d;
+        }
+        .error {
+            background: #fed7d7;
+            border-color: #fc8181;
+            color: #742a2a;
+        }
+        input {
+            padding: 8px;
+            margin: 5px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        .login-form {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏥 Test d'Intégration WaitLess CHU</h1>
+
+        <!-- Authentication Test -->
+        <div class="test-section">
+            <h3>🔐 Test d'Authentification</h3>
+            <div class="login-form">
+                <input type="email" id="email" placeholder="Email" value="secretary@waitless.chu">
+                <input type="password" id="password" placeholder="Mot de passe" value="secretary123">
+                <button onclick="testLogin()">Se connecter</button>
+                <button onclick="testLogout()">Se déconnecter</button>
+            </div>
+            <div id="authResult" class="result"></div>
+        </div>
+
+        <!-- API Health Test -->
+        <div class="test-section">
+            <h3>🏥 Test de Santé de l'API</h3>
+            <button onclick="testAPIHealth()">Tester l'API</button>
+            <div id="healthResult" class="result"></div>
+        </div>
+
+        <!-- Services Test -->
+        <div class="test-section">
+            <h3>🏢 Test des Services</h3>
+            <button onclick="testServices()">Charger les Services</button>
+            <div id="servicesResult" class="result"></div>
+        </div>
+
+        <!-- Queue Test -->
+        <div class="test-section">
+            <h3>📋 Test des Files d'Attente</h3>
+            <button onclick="testQueue()">Charger Queue Cardiologie</button>
+            <button onclick="testQueueStats()">Statistiques Queue</button>
+            <div id="queueResult" class="result"></div>
+        </div>
+
+        <!-- Current User Test -->
+        <div class="test-section">
+            <h3>👤 Test Utilisateur Actuel</h3>
+            <button onclick="testCurrentUser()">Charger Utilisateur</button>
+            <div id="userResult" class="result"></div>
+        </div>
+
+        <!-- Patients Test -->
+        <div class="test-section">
+            <h3>👥 Test des Patients</h3>
+            <button onclick="testPatients()">Charger Patients</button>
+            <div id="patientsResult" class="result"></div>
+        </div>
+    </div>
+
+    <script src="shared/api.js"></script>
+    <script>
+        // Utility functions
+        function displayResult(elementId, data, isError = false) {
+            const element = document.getElementById(elementId);
+            element.className = `result ${isError ? 'error' : 'success'}`;
+            element.textContent = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+        }
+
+        // Authentication tests
+        async function testLogin() {
+            try {
+                const email = document.getElementById('email').value;
+                const password = document.getElementById('password').value;
+                
+                const result = await window.apiClient.login(email, password);
+                displayResult('authResult', {
+                    message: "Connexion réussie!",
+                    user: result.user,
+                    token_preview: result.access_token.substring(0, 50) + "..."
+                });
+            } catch (error) {
+                displayResult('authResult', `Erreur de connexion: ${error.message}`, true);
+            }
+        }
+
+        async function testLogout() {
+            try {
+                await window.apiClient.logout();
+                displayResult('authResult', "Déconnexion réussie!");
+            } catch (error) {
+                displayResult('authResult', `Erreur de déconnexion: ${error.message}`, true);
+            }
+        }
+
+        // API Health test
+        async function testAPIHealth() {
+            try {
+                const result = await window.apiClient.healthCheck();
+                displayResult('healthResult', {
+                    message: "API en ligne!",
+                    health: result
+                });
+            } catch (error) {
+                displayResult('healthResult', `Erreur API: ${error.message}`, true);
+            }
+        }
+
+        // Services test
+        async function testServices() {
+            try {
+                const services = await window.apiClient.getServices();
+                displayResult('servicesResult', {
+                    message: `${services.length} services trouvés`,
+                    services: services
+                });
+            } catch (error) {
+                displayResult('servicesResult', `Erreur services: ${error.message}`, true);
+            }
+        }
+
+        // Queue tests
+        async function testQueue() {
+            try {
+                // Test with service ID 1 (Cardiologie)
+                const queue = await window.apiClient.getQueueStatus(1);
+                displayResult('queueResult', {
+                    message: "File d'attente chargée!",
+                    queue: queue
+                });
+            } catch (error) {
+                displayResult('queueResult', `Erreur queue: ${error.message}`, true);
+            }
+        }
+
+        async function testQueueStats() {
+            try {
+                const stats = await window.apiClient.getQueueStatistics(1);
+                displayResult('queueResult', {
+                    message: "Statistiques chargées!",
+                    stats: stats
+                });
+            } catch (error) {
+                displayResult('queueResult', `Erreur stats: ${error.message}`, true);
+            }
+        }
+
+        // Current user test
+        async function testCurrentUser() {
+            try {
+                if (!window.apiClient.isAuthenticated()) {
+                    displayResult('userResult', "Veuillez vous connecter d'abord", true);
+                    return;
+                }
+                
+                const user = window.apiClient.getCurrentUser();
+                const userInfo = await window.apiClient.getCurrentUserInfo();
+                displayResult('userResult', {
+                    localStorage_user: user,
+                    api_user: userInfo
+                });
+            } catch (error) {
+                displayResult('userResult', `Erreur utilisateur: ${error.message}`, true);
+            }
+        }
+
+        // Patients test
+        async function testPatients() {
+            try {
+                if (!window.apiClient.isAuthenticated()) {
+                    displayResult('patientsResult', "Veuillez vous connecter d'abord", true);
+                    return;
+                }
+                
+                const patients = await window.apiClient.getPatients();
+                displayResult('patientsResult', {
+                    message: `${patients.length} patients trouvés`,
+                    patients: patients
+                });
+            } catch (error) {
+                displayResult('patientsResult', `Erreur patients: ${error.message}`, true);
+            }
+        }
+
+        // Initial status check
+        window.addEventListener('DOMContentLoaded', () => {
+            const isAuthenticated = window.apiClient.isAuthenticated();
+            const user = window.apiClient.getCurrentUser();
+            
+            displayResult('authResult', {
+                authenticated: isAuthenticated,
+                current_user: user || "Aucun utilisateur connecté"
+            });
+        });
+    </script>
+</body>
+</html>

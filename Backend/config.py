@@ -4,14 +4,14 @@ from typing import List
 
 class Settings(BaseSettings):
     # Database
-    database_url: str = "postgresql://postgres:serpent123@localhost:5432/waitless_chu"
+    database_url: str = "sqlite:///./waitless_chu.db"
     
     # JWT
     secret_key: str = "waitless-chu-secret-key-2025-hospital-queue-management"
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 30
     
-    # Redis
+    # Redis (disable for now)
     redis_url: str = "redis://localhost:6379"
     
     # CORS
