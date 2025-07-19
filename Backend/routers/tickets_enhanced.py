@@ -165,9 +165,6 @@ async def scan_to_join_queue(
     
     db.add(db_ticket)
     
-    # Update service waiting count
-    service.current_waiting = service.current_waiting + 1
-    
     # Commit first to get ticket ID
     db.commit()
     db.refresh(db_ticket)
@@ -181,14 +178,14 @@ async def scan_to_join_queue(
     db.add(queue_log)
     db.commit()
     
-    # Log the action after ticket is committed
-    queue_log = QueueLog(
-        ticket_id=db_ticket.id,
-        action="joined_via_qr_scan",
-        details=f"Patient {patient_name} joined queue via QR scan for {service.name}"
-    )
-    db.add(queue_log)
-    db.commit()
+    # Update queue positions for all waiting tickets to ensure consistency
+    try:
+        from .tickets import _update_queue_positions_after_change
+        await _update_queue_positions_after_change(qr_data["service_id"], db)
+    except ImportError:
+        # Fallback: just update service waiting count
+        service.current_waiting = service.current_waiting + 1
+        db.commit()
     
     return TicketSimpleResponse(
         ticket_number=ticket_number,

@@ -44,7 +44,7 @@ def generate_qr_code(ticket_number: str) -> str:
 
 def calculate_position_and_wait_time(service_id: int, priority: ServicePriority, db: Session):
     """Calculate position in queue and estimated wait time."""
-    # Get current waiting tickets for this service
+    # Get current waiting tickets for this service, ordered consistently with queue.py
     waiting_tickets = db.query(Ticket).filter(
         and_(
             Ticket.service_id == service_id,
@@ -52,17 +52,16 @@ def calculate_position_and_wait_time(service_id: int, priority: ServicePriority,
         )
     ).order_by(Ticket.priority.desc(), Ticket.created_at.asc()).all()
     
-    # Calculate position based on priority
+    # Simple position calculation: new ticket goes at the end of its priority group
     position = 1
-    for ticket in waiting_tickets:
-        if ticket.priority.value == priority.value:
-            position = len([t for t in waiting_tickets if t.priority.value >= priority.value]) + 1
+    for i, ticket in enumerate(waiting_tickets, 1):
+        if ticket.priority.value < priority.value:
+            # New ticket has higher priority, insert before this ticket
+            position = i
             break
-        elif ticket.priority.value < priority.value:
-            position = len([t for t in waiting_tickets if t.priority.value > priority.value]) + 1
-            break
-    else:
-        position = len(waiting_tickets) + 1
+        else:
+            # Continue to next position
+            position = i + 1
     
     # Get service avg wait time
     service = db.query(Service).filter(Service.id == service_id).first()
@@ -71,6 +70,57 @@ def calculate_position_and_wait_time(service_id: int, priority: ServicePriority,
     estimated_wait = (position - 1) * avg_time_per_patient
     
     return position, estimated_wait
+
+async def _update_queue_positions_after_change(service_id: int, db: Session):
+    """
+    Update queue positions for all waiting tickets after a change.
+    This ensures consistency across the queue.
+    """
+    try:
+        # Get all waiting tickets in proper order
+        waiting_tickets = db.query(Ticket).filter(
+            and_(
+                Ticket.service_id == service_id,
+                Ticket.status == TicketStatus.WAITING
+            )
+        ).order_by(Ticket.priority.desc(), Ticket.created_at.asc()).all()
+        
+        # Update positions
+        service = db.query(Service).filter(Service.id == service_id).first()
+        avg_time_per_patient = service.avg_wait_time if service and service.avg_wait_time > 0 else 15
+        
+        queue_data = []
+        for i, ticket in enumerate(waiting_tickets, 1):
+            ticket.position_in_queue = i
+            ticket.estimated_wait_time = (i - 1) * avg_time_per_patient
+            queue_data.append({
+                "position": i,
+                "ticket_number": ticket.ticket_number,
+                "estimated_wait_time": ticket.estimated_wait_time
+            })
+        
+        # Update service waiting count to match reality
+        if service:
+            service.current_waiting = len(waiting_tickets)
+        
+        db.commit()
+        
+        # Send real-time updates if websocket_manager is available
+        try:
+            from websocket_manager import connection_manager
+            await connection_manager.queue_position_update(str(service_id), {
+                "total_waiting": len(waiting_tickets),
+                "queue": queue_data
+            })
+        except ImportError:
+            # websocket_manager not available, skip notifications
+            pass
+        except Exception as e:
+            # Don't fail the operation if WebSocket notification fails
+            print(f"WebSocket notification failed: {e}")
+            
+    except Exception as e:
+        print(f"Error updating queue positions: {e}")
 
 
 @router.post("/create", response_model=TicketSimpleResponse, status_code=status.HTTP_201_CREATED)
@@ -98,7 +148,7 @@ async def create_ticket(
     existing_ticket = db.query(Ticket).filter(
         and_(
             Ticket.patient_id == current_user.id,
-            Ticket.status.in_([TicketStatus.WAITING, TicketStatus.CONSULTING])
+            Ticket.status == TicketStatus.WAITING
         )
     ).first()
     
@@ -132,9 +182,6 @@ async def create_ticket(
     
     db.add(db_ticket)
     
-    # Update service waiting count
-    service.current_waiting += 1
-    
     # Commit to get ticket ID
     db.commit()
     db.refresh(db_ticket)
@@ -147,6 +194,9 @@ async def create_ticket(
     )
     db.add(queue_log)
     db.commit()
+    
+    # Update queue positions for all waiting tickets to ensure consistency
+    await _update_queue_positions_after_change(ticket.service_id, db)
     
     return TicketSimpleResponse(
         ticket_number=ticket_number,
@@ -193,7 +243,7 @@ async def join_queue_online(ticket_data: TicketJoinOnline, db: Session = Depends
     existing_ticket = db.query(Ticket).filter(
         and_(
             Ticket.patient_id == user.id,
-            Ticket.status.in_([TicketStatus.WAITING, TicketStatus.CONSULTING])
+            Ticket.status == TicketStatus.WAITING
         )
     ).first()
     
@@ -227,9 +277,6 @@ async def join_queue_online(ticket_data: TicketJoinOnline, db: Session = Depends
     
     db.add(db_ticket)
     
-    # Update service waiting count
-    service.current_waiting += 1
-    
     # Commit to get ticket ID
     db.commit()
     db.refresh(db_ticket)
@@ -242,6 +289,9 @@ async def join_queue_online(ticket_data: TicketJoinOnline, db: Session = Depends
     )
     db.add(queue_log)
     db.commit()
+    
+    # Update queue positions for all waiting tickets to ensure consistency
+    await _update_queue_positions_after_change(ticket_data.service_id, db)
     
     return TicketSimpleResponse(
         ticket_number=ticket_number,
@@ -320,7 +370,7 @@ async def scan_to_join_queue(
         and_(
             Ticket.patient_id == user.id,
             Ticket.service_id == service_id,
-            Ticket.status.in_([TicketStatus.WAITING, TicketStatus.CONSULTING])
+            Ticket.status == TicketStatus.WAITING
         )
     ).first()
     
@@ -354,9 +404,6 @@ async def scan_to_join_queue(
     
     db.add(db_ticket)
     
-    # Update service waiting count
-    service.current_waiting += 1
-    
     # Commit first to get ticket ID
     db.commit()
     db.refresh(db_ticket)
@@ -369,6 +416,9 @@ async def scan_to_join_queue(
     )
     db.add(queue_log)
     db.commit()
+    
+    # Update queue positions for all waiting tickets to ensure consistency
+    await _update_queue_positions_after_change(qr_data["service_id"], db)
     
     return TicketSimpleResponse(
         ticket_number=ticket_number,
@@ -513,9 +563,8 @@ async def update_ticket_status(
         ticket.status = ticket_update.status
         
         # Update timestamps based on status
-        if ticket_update.status == TicketStatus.CONSULTING:
+        if ticket_update.status == TicketStatus.COMPLETED:
             ticket.consultation_start = datetime.utcnow()
-        elif ticket_update.status == TicketStatus.COMPLETED:
             ticket.consultation_end = datetime.utcnow()
     
     if ticket_update.priority:
@@ -523,13 +572,6 @@ async def update_ticket_status(
     
     if ticket_update.notes is not None:
         ticket.notes = ticket_update.notes
-    
-    # Update service waiting count
-    service = db.query(Service).filter(Service.id == ticket.service_id).first()
-    if old_status == TicketStatus.WAITING and ticket.status != TicketStatus.WAITING:
-        service.current_waiting = max(0, service.current_waiting - 1)
-    elif old_status != TicketStatus.WAITING and ticket.status == TicketStatus.WAITING:
-        service.current_waiting += 1
     
     # Log the action
     queue_log = QueueLog(
@@ -541,6 +583,11 @@ async def update_ticket_status(
     
     db.commit()
     db.refresh(ticket)
+    
+    # Update queue positions if status change affects the queue
+    if (old_status == TicketStatus.WAITING or ticket.status == TicketStatus.WAITING or 
+        (ticket_update.priority and old_status == TicketStatus.WAITING)):
+        await _update_queue_positions_after_change(ticket.service_id, db)
     
     return ticket
 
@@ -566,12 +613,6 @@ async def cancel_ticket(
             detail="Not enough permissions"
         )
     
-    # Update service waiting count if ticket was waiting
-    if ticket.status == TicketStatus.WAITING:
-        service = db.query(Service).filter(Service.id == ticket.service_id).first()
-        if service:
-            service.current_waiting = max(0, service.current_waiting - 1)
-    
     # Log the cancellation
     queue_log = QueueLog(
         ticket_id=ticket.id,
@@ -581,8 +622,14 @@ async def cancel_ticket(
     db.add(queue_log)
     
     # Mark as cancelled instead of deleting
+    was_waiting = ticket.status == TicketStatus.WAITING
+    service_id = ticket.service_id
     ticket.status = TicketStatus.CANCELLED
     
     db.commit()
+    
+    # Update queue positions if a waiting ticket was cancelled
+    if was_waiting:
+        await _update_queue_positions_after_change(service_id, db)
     
     return {"message": "Ticket cancelled successfully"} 
