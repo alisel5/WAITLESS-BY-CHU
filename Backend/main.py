@@ -9,7 +9,7 @@ import uvicorn
 
 # Import routers
 from routers import auth, services, tickets, queue, admin, websocket
-from routers import tickets_enhanced, ai_management
+from routers import tickets_enhanced, lightweight_ai
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
@@ -42,8 +42,8 @@ app.include_router(admin.router, prefix="/api/admin", tags=["Admin"])
 # Include enhanced QR features
 app.include_router(tickets_enhanced.router, prefix="/api/tickets-qr", tags=["QR Features"])
 
-# Include AI management endpoints
-app.include_router(ai_management.router, prefix="/api/ai", tags=["AI Management"])
+# Include Lightweight AI endpoints
+app.include_router(lightweight_ai.router, prefix="/api/ai", tags=["Lightweight AI"])
 
 # Include WebSocket endpoints
 app.include_router(websocket.router, prefix="/ws", tags=["Real-time Updates"])

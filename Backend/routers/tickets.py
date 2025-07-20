@@ -63,15 +63,15 @@ def calculate_position_and_wait_time(service_id: int, priority: ServicePriority,
             # Continue to next position
             position = i + 1
     
-    # 🤖 AI-ENHANCED WAIT TIME PREDICTION
+    # 🤖 LIGHTWEIGHT AI PREDICTION (No heavy dependencies!)
     try:
-        from ai.wait_time_predictor import ai_predictor
-        estimated_wait, prediction_metadata = ai_predictor.predict_wait_time(
+        from ai.lightweight_predictor import lightweight_ai
+        estimated_wait, prediction_metadata = lightweight_ai.predict_wait_time(
             service_id, priority, position, db
         )
         
         # Log AI prediction for debugging
-        print(f"🤖 AI Prediction: {estimated_wait}min (confidence: {prediction_metadata.get('confidence', 'N/A')})")
+        print(f"🤖 Lightweight AI: {estimated_wait}min (type: {prediction_metadata.get('prediction_type', 'N/A')})")
         
     except Exception as e:
         print(f"⚠️ AI prediction failed, using fallback: {e}")

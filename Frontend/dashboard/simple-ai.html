@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IA Simplifiée - WaitLess CHU</title>
+  <link rel="stylesheet" href="dashboard.css">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  <style>
+    .simple-ai-container {
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    
+    .ai-card {
+      background: white;
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+      border-left: 4px solid #4CAF50;
+    }
+    
+    .ai-header {
+      display: flex;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    
+    .ai-icon {
+      font-size: 3rem;
+      margin-right: 16px;
+      color: #4CAF50;
+    }
+    
+    .ai-actions {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 16px;
+      margin: 20px 0;
+    }
+    
+    .action-card {
+      background: #f8f9fa;
+      border: 2px solid #e9ecef;
+      border-radius: 8px;
+      padding: 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    
+    .action-card:hover {
+      border-color: #4CAF50;
+      transform: translateY(-2px);
+    }
+    
+    .btn-simple-ai {
+      background: #4CAF50;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 500;
+      margin: 8px;
+    }
+    
+    .btn-simple-ai:hover {
+      background: #45a049;
+    }
+    
+    .btn-simple-ai:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+    
+    .prediction-demo {
+      background: #f0f8ff;
+      border-radius: 8px;
+      padding: 20px;
+      margin: 20px 0;
+    }
+    
+    .comparison-cards {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-top: 16px;
+    }
+    
+    .comparison-card {
+      background: white;
+      padding: 16px;
+      border-radius: 6px;
+      border: 1px solid #ddd;
+    }
+    
+    .ai-result { border-left: 4px solid #4CAF50; }
+    .simple-result { border-left: 4px solid #ff9800; }
+    
+    .status-indicator {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      margin-right: 8px;
+    }
+    
+    .status-healthy { background: #4CAF50; }
+    .status-learning { background: #ff9800; }
+    .status-error { background: #f44336; }
+    
+    .patterns-display {
+      background: #f8f9fa;
+      border-radius: 6px;
+      padding: 16px;
+      margin: 16px 0;
+      font-family: 'Courier New', monospace;
+      font-size: 0.9rem;
+    }
+    
+    .message {
+      padding: 12px;
+      border-radius: 6px;
+      margin: 12px 0;
+    }
+    
+    .message.success {
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+    
+    .message.error {
+      background: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+    
+    .message.info {
+      background: #d1ecf1;
+      color: #0c5460;
+      border: 1px solid #bee5eb;
+    }
+  </style>
+</head>
+<body>
+  <!-- NAVBAR -->
+  <header class="navbar">
+    <div class="logo">
+      <img src="../Acceuil/public/logofinal.png" alt="WaitLess Logo" class="logo-img">
+    </div>
+    <nav>
+      <ul>
+        <li><a href="../Acceuil/acceuil.html">Accueil</a></li>
+        <li><a href="dashboard.html">Dashboard</a></li>
+        <li><a href="simple-ai.html" class="active">🤖 IA Simple</a></li>
+        <li><a href="../staff/staff.html">Personnel</a></li>
+        <li><a href="../services/services.html">Services</a></li>
+        <li><a href="#" onclick="handleLogout()" style="color: #ff6b6b;">Déconnexion</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <div class="simple-ai-container">
+    <!-- Header -->
+    <div class="ai-card">
+      <div class="ai-header">
+        <div class="ai-icon">🤖</div>
+        <div>
+          <h1>Intelligence Artificielle Simplifiée</h1>
+          <p id="aiStatusText">IA Statistique - Zéro dépendance externe</p>
+          <div style="margin-top: 8px;">
+            <span class="status-indicator status-healthy" id="statusIndicator"></span>
+            <span id="statusLabel">Chargement...</span>
+          </div>
+        </div>
+      </div>
+      
+      <div id="aiFeatures">
+        <strong>Fonctionnalités:</strong>
+        <ul style="margin: 8px 0; padding-left: 20px;">
+          <li>Reconnaissance de motifs statistiques</li>
+          <li>Multiplicateurs basés sur l'heure</li>
+          <li>Apprentissage spécifique aux services</li>
+          <li>Modélisation des effets de priorité</li>
+          <li>Aucune dépendance ML lourde</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="ai-actions">
+      <div class="action-card" onclick="learnFromData()">
+        <h3><i class="fas fa-brain" style="color: #4CAF50;"></i> Apprendre</h3>
+        <p>Analyser les données historiques et apprendre les motifs</p>
+        <button class="btn-simple-ai" id="learnBtn">Démarrer l'Apprentissage</button>
+      </div>
+      
+      <div class="action-card" onclick="viewPatterns()">
+        <h3><i class="fas fa-chart-line" style="color: #2196F3;"></i> Motifs</h3>
+        <p>Voir les motifs appris par l'IA</p>
+        <button class="btn-simple-ai" style="background: #2196F3;">Voir les Motifs</button>
+      </div>
+      
+      <div class="action-card" onclick="testPrediction()">
+        <h3><i class="fas fa-test-tube" style="color: #FF9800;"></i> Test</h3>
+        <p>Tester les prédictions IA vs méthode simple</p>
+        <button class="btn-simple-ai" style="background: #FF9800;">Tester Prédiction</button>
+      </div>
+      
+      <div class="action-card" onclick="getInsights()">
+        <h3><i class="fas fa-lightbulb" style="color: #9C27B0;"></i> Insights</h3>
+        <p>Obtenir des recommandations IA</p>
+        <button class="btn-simple-ai" style="background: #9C27B0;">Générer Insights</button>
+      </div>
+    </div>
+
+    <!-- Prediction Demo -->
+    <div class="prediction-demo" style="display: none;" id="predictionDemo">
+      <h3>🧪 Test de Prédiction</h3>
+      <div style="margin: 16px 0;">
+        <select id="testServiceId" style="margin: 4px; padding: 8px;">
+          <option value="1">Cardiologie</option>
+          <option value="2">Neurologie</option>
+          <option value="3">Pédiatrie</option>
+        </select>
+        
+        <select id="testPriority" style="margin: 4px; padding: 8px;">
+          <option value="low">Priorité Basse</option>
+          <option value="medium">Priorité Moyenne</option>
+          <option value="high">Priorité Haute</option>
+        </select>
+        
+        <input type="number" id="testPosition" placeholder="Position" value="3" min="1" max="20" style="margin: 4px; padding: 8px; width: 100px;">
+        
+        <button class="btn-simple-ai" onclick="runPredictionTest()">Tester</button>
+      </div>
+      
+      <div class="comparison-cards" id="comparisonResults" style="display: none;">
+        <div class="comparison-card ai-result">
+          <h4>🤖 Prédiction IA</h4>
+          <div style="font-size: 2rem; font-weight: bold; color: #4CAF50;" id="aiResultValue">-</div>
+          <div style="font-size: 0.9rem; color: #666;" id="aiResultDetails">minutes</div>
+        </div>
+        
+        <div class="comparison-card simple-result">
+          <h4>📊 Méthode Simple</h4>
+          <div style="font-size: 2rem; font-weight: bold; color: #ff9800;" id="simpleResultValue">-</div>
+          <div style="font-size: 0.9rem; color: #666;" id="simpleResultDetails">minutes</div>
+        </div>
+      </div>
+      
+      <div id="improvementInfo" style="margin-top: 16px; display: none;">
+        <strong>Amélioration:</strong> <span id="improvementText"></span>
+      </div>
+    </div>
+
+    <!-- Patterns Display -->
+    <div class="ai-card" style="display: none;" id="patternsDisplay">
+      <h3><i class="fas fa-chart-line"></i> Motifs Appris par l'IA</h3>
+      <div class="patterns-display" id="patternsContent">
+        Chargement des motifs...
+      </div>
+    </div>
+
+    <!-- Insights Display -->
+    <div class="ai-card" style="display: none;" id="insightsDisplay">
+      <h3><i class="fas fa-lightbulb"></i> Recommandations IA</h3>
+      <div id="insightsContent">
+        Génération des insights...
+      </div>
+    </div>
+
+    <!-- Messages -->
+    <div id="messages"></div>
+  </div>
+
+  <script src="../shared/api.js"></script>
+  <script>
+    let aiStatus = null;
+    
+    // Initialize
+    document.addEventListener('DOMContentLoaded', function() {
+      checkAuth();
+      loadAIStatus();
+    });
+    
+    function checkAuth() {
+      if (!apiClient.isAuthenticated()) {
+        window.location.href = '../Acceuil/acceuil.html';
+        return;
+      }
+      
+      const user = apiClient.getCurrentUser();
+      if (!user || user.role !== 'admin') {
+        showMessage('Accès non autorisé. Seuls les administrateurs peuvent accéder à cette page.', 'error');
+        setTimeout(() => window.location.href = '../Acceuil/acceuil.html', 2000);
+        return;
+      }
+    }
+    
+    async function loadAIStatus() {
+      try {
+        const response = await fetch(`${apiClient.baseURL}/api/ai/status`, {
+          headers: { 'Authorization': `Bearer ${apiClient.getToken()}` }
+        });
+        
+        if (response.ok) {
+          aiStatus = await response.json();
+          updateStatusDisplay(aiStatus);
+        } else {
+          updateStatusDisplay({ status: 'error' });
+        }
+      } catch (error) {
+        console.error('Error loading AI status:', error);
+        updateStatusDisplay({ status: 'error' });
+      }
+    }
+    
+    function updateStatusDisplay(status) {
+      const statusIndicator = document.getElementById('statusIndicator');
+      const statusLabel = document.getElementById('statusLabel');
+      
+      if (status.status === 'healthy') {
+        statusIndicator.className = 'status-indicator status-healthy';
+        statusLabel.textContent = 'IA Active et Fonctionnelle';
+      } else if (status.status === 'needs_learning') {
+        statusIndicator.className = 'status-indicator status-learning';
+        statusLabel.textContent = 'IA Prête - Apprentissage Recommandé';
+      } else {
+        statusIndicator.className = 'status-indicator status-error';
+        statusLabel.textContent = 'Erreur IA';
+      }
+      
+      if (status.details) {
+        const details = status.details;
+        const info = `Services: ${details.services_learned} | Motifs: ${details.patterns_count} | Confiance: ${(details.avg_confidence * 100).toFixed(0)}%`;
+        statusLabel.textContent += ` (${info})`;
+      }
+    }
+    
+    async function learnFromData() {
+      const learnBtn = document.getElementById('learnBtn');
+      learnBtn.disabled = true;
+      learnBtn.textContent = 'Apprentissage...';
+      
+      try {
+        const response = await fetch(`${apiClient.baseURL}/api/ai/learn`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${apiClient.getToken()}` }
+        });
+        
+        if (response.ok) {
+          const result = await response.json();
+          showMessage(`✅ ${result.message} - ${result.patterns_learned} motifs appris`, 'success');
+          loadAIStatus(); // Refresh status
+        } else {
+          const error = await response.json();
+          showMessage(`❌ Erreur: ${error.detail}`, 'error');
+        }
+      } catch (error) {
+        showMessage(`❌ Erreur réseau: ${error.message}`, 'error');
+      } finally {
+        learnBtn.disabled = false;
+        learnBtn.textContent = 'Démarrer l\'Apprentissage';
+      }
+    }
+    
+    async function viewPatterns() {
+      try {
+        const response = await fetch(`${apiClient.baseURL}/api/ai/patterns`, {
+          headers: { 'Authorization': `Bearer ${apiClient.getToken()}` }
+        });
+        
+        if (response.ok) {
+          const result = await response.json();
+          const patternsDisplay = document.getElementById('patternsDisplay');
+          const patternsContent = document.getElementById('patternsContent');
+          
+          let content = '';
+          
+          // Hourly patterns
+          if (result.patterns.hourly_patterns) {
+            content += 'MOTIFS HORAIRES:\n';
+            for (const [hour, mult] of Object.entries(result.patterns.hourly_patterns)) {
+              content += `  ${hour}: ${mult}\n`;
+            }
+            content += '\n';
+          }
+          
+          // Daily patterns
+          if (result.patterns.daily_patterns) {
+            content += 'MOTIFS QUOTIDIENS:\n';
+            for (const [day, mult] of Object.entries(result.patterns.daily_patterns)) {
+              content += `  ${day}: ${mult}\n`;
+            }
+            content += '\n';
+          }
+          
+          // Service patterns
+          if (result.patterns.service_patterns) {
+            content += 'MOTIFS PAR SERVICE:\n';
+            for (const [id, pattern] of Object.entries(result.patterns.service_patterns)) {
+              content += `  ${pattern.name}: ${pattern.avg_time} (${pattern.confidence})\n`;
+            }
+          }
+          
+          patternsContent.textContent = content || 'Aucun motif appris';
+          patternsDisplay.style.display = 'block';
+          
+          showMessage(`Motifs affichés: ${result.total_patterns} motifs trouvés`, 'info');
+        }
+      } catch (error) {
+        showMessage(`Erreur lors du chargement des motifs: ${error.message}`, 'error');
+      }
+    }
+    
+    function testPrediction() {
+      const demo = document.getElementById('predictionDemo');
+      demo.style.display = demo.style.display === 'none' ? 'block' : 'none';
+    }
+    
+    async function runPredictionTest() {
+      const serviceId = document.getElementById('testServiceId').value;
+      const priority = document.getElementById('testPriority').value;
+      const position = document.getElementById('testPosition').value;
+      
+      try {
+        const response = await fetch(
+          `${apiClient.baseURL}/api/ai/prediction-demo?service_id=${serviceId}&priority=${priority}&position=${position}`,
+          { headers: { 'Authorization': `Bearer ${apiClient.getToken()}` } }
+        );
+        
+        if (response.ok) {
+          const result = await response.json();
+          
+          // Update AI result
+          document.getElementById('aiResultValue').textContent = result.ai_prediction.wait_time_minutes;
+          document.getElementById('aiResultDetails').textContent = 
+            `${result.ai_prediction.prediction_type} (${(result.ai_prediction.confidence * 100).toFixed(0)}% confiance)`;
+          
+          // Update simple result
+          document.getElementById('simpleResultValue').textContent = result.simple_prediction.wait_time_minutes;
+          document.getElementById('simpleResultDetails').textContent = result.simple_prediction.method;
+          
+          // Show improvement
+          const improvement = result.comparison;
+          let improvementText = '';
+          if (improvement.ai_better) {
+            improvementText = `IA meilleure de ${improvement.improvement_minutes} min (${improvement.improvement_percentage.toFixed(1)}%)`;
+          } else {
+            improvementText = `Méthode simple meilleure de ${Math.abs(improvement.improvement_minutes)} min`;
+          }
+          
+          document.getElementById('improvementText').textContent = improvementText;
+          document.getElementById('improvementInfo').style.display = 'block';
+          document.getElementById('comparisonResults').style.display = 'grid';
+          
+          showMessage('Test de prédiction effectué avec succès!', 'success');
+        }
+      } catch (error) {
+        showMessage(`Erreur lors du test: ${error.message}`, 'error');
+      }
+    }
+    
+    async function getInsights() {
+      try {
+        const response = await fetch(`${apiClient.baseURL}/api/ai/insights`, {
+          headers: { 'Authorization': `Bearer ${apiClient.getToken()}` }
+        });
+        
+        if (response.ok) {
+          const result = await response.json();
+          const insightsDisplay = document.getElementById('insightsDisplay');
+          const insightsContent = document.getElementById('insightsContent');
+          
+          const insights = result.insights;
+          let content = '';
+          
+          if (insights.peak_hours && insights.peak_hours.length > 0) {
+            content += `<h4>📈 Heures de pointe:</h4><ul>`;
+            insights.peak_hours.forEach(hour => {
+              content += `<li>${hour}</li>`;
+            });
+            content += `</ul>`;
+          }
+          
+          if (insights.efficiency_recommendations && insights.efficiency_recommendations.length > 0) {
+            content += `<h4>💡 Recommandations:</h4><ul>`;
+            insights.efficiency_recommendations.forEach(rec => {
+              content += `<li>${rec}</li>`;
+            });
+            content += `</ul>`;
+          }
+          
+          if (insights.prediction_accuracy && Object.keys(insights.prediction_accuracy).length > 0) {
+            content += `<h4>🎯 Précision par service:</h4><ul>`;
+            for (const [service, accuracy] of Object.entries(insights.prediction_accuracy)) {
+              content += `<li>${service}: ${accuracy}</li>`;
+            }
+            content += `</ul>`;
+          }
+          
+          insightsContent.innerHTML = content || 'Aucun insight disponible';
+          insightsDisplay.style.display = 'block';
+          
+          showMessage(`${result.recommendations_count} recommandations générées`, 'info');
+        }
+      } catch (error) {
+        showMessage(`Erreur lors de la génération d'insights: ${error.message}`, 'error');
+      }
+    }
+    
+    function showMessage(text, type) {
+      const messages = document.getElementById('messages');
+      const message = document.createElement('div');
+      message.className = `message ${type}`;
+      message.textContent = text;
+      
+      messages.appendChild(message);
+      
+      // Auto-remove after 5 seconds
+      setTimeout(() => {
+        if (message.parentNode) {
+          message.parentNode.removeChild(message);
+        }
+      }, 5000);
+    }
+    
+    function handleLogout() {
+      apiClient.logout();
+      window.location.href = '../Acceuil/acceuil.html';
+    }
+  </script>
+</body>
+</html>
