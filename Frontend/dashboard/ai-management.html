@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gestion IA - WaitLess CHU</title>
+  <link rel="stylesheet" href="dashboard.css">
+  <link rel="stylesheet" href="../shared/api.css">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  <style>
+    .ai-management-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    
+    .ai-status-card {
+      background: white;
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 24px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+      border-left: 4px solid #667eea;
+    }
+    
+    .ai-status-header {
+      display: flex;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+    
+    .ai-status-icon {
+      font-size: 2rem;
+      margin-right: 12px;
+      animation: aiPulse 2s infinite ease-in-out;
+    }
+    
+    .status-healthy { color: #4CAF50; }
+    .status-training { color: #FF9800; }
+    .status-error { color: #F44336; }
+    
+    .ai-actions {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 16px;
+      margin: 24px 0;
+    }
+    
+    .ai-action-card {
+      background: white;
+      border-radius: 8px;
+      padding: 20px;
+      border: 2px solid #e0e0e0;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    
+    .ai-action-card:hover {
+      border-color: #667eea;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+    }
+    
+    .ai-prediction-demo {
+      background: #f8f9fa;
+      border-radius: 8px;
+      padding: 20px;
+      margin-top: 24px;
+    }
+    
+    .prediction-comparison {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-top: 16px;
+    }
+    
+    .prediction-card {
+      background: white;
+      padding: 16px;
+      border-radius: 8px;
+      border: 1px solid #ddd;
+    }
+    
+    .prediction-ai { border-left: 4px solid #667eea; }
+    .prediction-fallback { border-left: 4px solid #9e9e9e; }
+    
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin: 24px 0;
+    }
+    
+    .metric-card {
+      background: white;
+      padding: 16px;
+      border-radius: 8px;
+      text-align: center;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .metric-value {
+      font-size: 2rem;
+      font-weight: bold;
+      color: #667eea;
+    }
+    
+    .metric-label {
+      color: #666;
+      font-size: 0.9rem;
+      margin-top: 4px;
+    }
+    
+    .training-log {
+      background: #1a1a1a;
+      color: #00ff00;
+      padding: 16px;
+      border-radius: 8px;
+      font-family: 'Courier New', monospace;
+      font-size: 0.9rem;
+      max-height: 300px;
+      overflow-y: auto;
+      margin-top: 16px;
+    }
+    
+    .btn-ai {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 500;
+      transition: all 0.3s ease;
+    }
+    
+    .btn-ai:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+    
+    .btn-ai:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    
+    @keyframes aiPulse {
+      0%, 100% { opacity: 0.8; }
+      50% { opacity: 1; }
+    }
+  </style>
+</head>
+<body>
+  <!-- NAVBAR -->
+  <header class="navbar">
+    <div class="logo">
+      <img src="../Acceuil/public/logofinal.png" alt="WaitLess Logo" class="logo-img">
+    </div>
+    <nav>
+      <ul>
+        <li><a href="../Acceuil/acceuil.html">Accueil</a></li>
+        <li><a href="dashboard.html">Dashboard</a></li>
+        <li><a href="ai-management.html" class="active">🤖 Gestion IA</a></li>
+        <li><a href="../staff/staff.html">Personnel</a></li>
+        <li><a href="../services/services.html">Services</a></li>
+        <li><a href="#" onclick="handleLogout()" style="color: #ff6b6b;">Déconnexion</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <div class="ai-management-container">
+    <!-- Header -->
+    <div class="ai-status-card">
+      <div class="ai-status-header">
+        <div class="ai-status-icon status-healthy" id="aiStatusIcon">🤖</div>
+        <div>
+          <h1>Gestion de l'Intelligence Artificielle</h1>
+          <p id="aiStatusMessage">Système de prédiction des temps d'attente</p>
+        </div>
+      </div>
+      
+      <!-- AI Status Metrics -->
+      <div class="metrics-grid" id="aiMetrics">
+        <div class="metric-card">
+          <div class="metric-value" id="aiStatusValue">-</div>
+          <div class="metric-label">Statut IA</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-value" id="modelAccuracy">-</div>
+          <div class="metric-label">Précision Modèle</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-value" id="trainingSamples">-</div>
+          <div class="metric-label">Données d'Entraînement</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-value" id="lastTraining">-</div>
+          <div class="metric-label">Dernier Entraînement</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AI Actions -->
+    <div class="ai-actions">
+      <div class="ai-action-card" onclick="trainAIModels()">
+        <h3><i class="fas fa-brain"></i> Entraîner les Modèles</h3>
+        <p>Entraîner ou re-entraîner les modèles IA avec les données récentes</p>
+        <button class="btn-ai" id="trainBtn">Démarrer l'Entraînement</button>
+      </div>
+      
+      <div class="ai-action-card" onclick="checkTrainingData()">
+        <h3><i class="fas fa-database"></i> Données d'Entraînement</h3>
+        <p>Analyser les données disponibles pour l'entraînement</p>
+        <button class="btn-ai">Analyser les Données</button>
+      </div>
+      
+      <div class="ai-action-card" onclick="generateSyntheticData()">
+        <h3><i class="fas fa-magic"></i> Données Synthétiques</h3>
+        <p>Générer des données synthétiques pour améliorer l'entraînement</p>
+        <button class="btn-ai">Générer Données</button>
+      </div>
+      
+      <div class="ai-action-card" onclick="resetAIModels()">
+        <h3><i class="fas fa-refresh"></i> Réinitialiser</h3>
+        <p>Réinitialiser complètement les modèles IA</p>
+        <button class="btn-ai" style="background: #f44336;">Réinitialiser</button>
+      </div>
+    </div>
+
+    <!-- Prediction Demo -->
+    <div class="ai-prediction-demo">
+      <h3><i class="fas fa-test-tube"></i> Test de Prédiction IA</h3>
+      <p>Testez la prédiction IA avec des paramètres personnalisés</p>
+      
+      <div style="display: flex; gap: 16px; margin: 16px 0; align-items: center;">
+        <select id="demoServiceId">
+          <option value="1">Cardiologie</option>
+          <option value="2">Neurologie</option>
+          <option value="3">Pédiatrie</option>
+        </select>
+        
+        <select id="demoPriority">
+          <option value="low">Priorité Basse</option>
+          <option value="medium">Priorité Moyenne</option>
+          <option value="high">Priorité Haute</option>
+        </select>
+        
+        <input type="number" id="demoPosition" placeholder="Position" value="1" min="1" max="20">
+        
+        <button class="btn-ai" onclick="testPrediction()">Tester Prédiction</button>
+      </div>
+      
+      <div class="prediction-comparison" id="predictionResults" style="display: none;">
+        <div class="prediction-card prediction-ai">
+          <h4>🤖 Prédiction IA</h4>
+          <div class="metric-value" id="aiPredictionValue">-</div>
+          <div class="metric-label">minutes</div>
+          <p id="aiPredictionDetails"></p>
+        </div>
+        
+        <div class="prediction-card prediction-fallback">
+          <h4>📊 Méthode Classique</h4>
+          <div class="metric-value" id="fallbackPredictionValue">-</div>
+          <div class="metric-label">minutes</div>
+          <p id="fallbackPredictionDetails"></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Training Log -->
+    <div class="ai-status-card">
+      <h3><i class="fas fa-terminal"></i> Journal d'Entraînement</h3>
+      <div class="training-log" id="trainingLog">
+        Système IA initialisé. Prêt pour l'entraînement...<br>
+        📊 Chargez des données d'entraînement pour commencer<br>
+        🤖 Les modèles seront entraînés automatiquement<br>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="../shared/api.js"></script>
+  <script src="../shared/message-manager.js"></script>
+  <script>
+    let isTraining = false;
+    
+    // Initialize page
+    document.addEventListener('DOMContentLoaded', function() {
+      checkAuthAndRedirect();
+      loadAIStatus();
+    });
+    
+    function checkAuthAndRedirect() {
+      if (!apiClient.isAuthenticated()) {
+        window.location.href = '../Acceuil/acceuil.html';
+        return;
+      }
+      
+      const user = apiClient.getCurrentUser();
+      if (!user || user.role !== 'admin') {
+        MessageManager.error('Accès non autorisé. Seuls les administrateurs peuvent accéder à cette page.');
+        setTimeout(() => window.location.href = '../Acceuil/acceuil.html', 2000);
+        return;
+      }
+    }
+    
+    async function loadAIStatus() {
+      try {
+        const response = await fetch(`${apiClient.baseURL}/api/ai/status`, {
+          headers: { 'Authorization': `Bearer ${apiClient.getToken()}` }
+        });
+        
+        if (response.ok) {
+          const status = await response.json();
+          updateStatusDisplay(status);
+        } else {
+          console.error('Failed to load AI status');
+          updateStatusDisplay({ status: 'error', status_summary: { ai_enabled: false } });
+        }
+      } catch (error) {
+        console.error('Error loading AI status:', error);
+        updateStatusDisplay({ status: 'error', status_summary: { ai_enabled: false } });
+      }
+    }
+    
+    function updateStatusDisplay(status) {
+      const statusIcon = document.getElementById('aiStatusIcon');
+      const statusMessage = document.getElementById('aiStatusMessage');
+      const statusValue = document.getElementById('aiStatusValue');
+      const modelAccuracy = document.getElementById('modelAccuracy');
+      const trainingSamples = document.getElementById('trainingSamples');
+      const lastTraining = document.getElementById('lastTraining');
+      
+      const summary = status.status_summary || {};
+      
+      // Update status icon and message
+      if (summary.ai_enabled) {
+        statusIcon.className = 'ai-status-icon status-healthy';
+        statusIcon.textContent = '🤖';
+        statusMessage.textContent = 'IA Activée - Prédictions en cours';
+        statusValue.textContent = 'Actif';
+      } else {
+        statusIcon.className = 'ai-status-icon status-error';
+        statusIcon.textContent = '⚠️';
+        statusMessage.textContent = 'IA Non-entraînée - Entraînement requis';
+        statusValue.textContent = 'Inactif';
+      }
+      
+      // Update metrics
+      modelAccuracy.textContent = summary.model_accuracy ? 
+        `${Math.round(summary.model_accuracy)}%` : 'N/A';
+      trainingSamples.textContent = summary.training_samples || '0';
+      
+      if (summary.last_training) {
+        const date = new Date(summary.last_training);
+        lastTraining.textContent = date.toLocaleDateString('fr-FR');
+      } else {
+        lastTraining.textContent = 'Jamais';
+      }
+    }
+    
+    async function trainAIModels(forceRetrain = false) {
+      if (isTraining) {
+        MessageManager.warning('Entraînement déjà en cours...');
+        return;
+      }
+      
+      const trainBtn = document.getElementById('trainBtn');
+      const trainingLog = document.getElementById('trainingLog');
+      
+      trainBtn.disabled = true;
+      trainBtn.textContent = 'Entraînement...';
+      isTraining = true;
+      
+      trainingLog.innerHTML += `<br>🚀 Démarrage de l'entraînement IA...`;
+      
+      try {
+        const response = await fetch(`${apiClient.baseURL}/api/ai/train?force_retrain=${forceRetrain}`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${apiClient.getToken()}` }
+        });
+        
+        if (response.ok) {
+          const result = await response.json();
+          trainingLog.innerHTML += `<br>✅ ${result.message}`;
+          trainingLog.innerHTML += `<br>⏱️ Temps estimé: ${result.estimated_time}`;
+          
+          MessageManager.success('Entraînement IA démarré avec succès!');
+          
+          // Poll for completion (simplified - in production use WebSocket)
+          setTimeout(() => {
+            loadAIStatus();
+            trainingLog.innerHTML += `<br>🎉 Entraînement terminé!`;
+            isTraining = false;
+            trainBtn.disabled = false;
+            trainBtn.textContent = 'Démarrer l\'Entraînement';
+          }, 5000);
+          
+        } else {
+          const error = await response.json();
+          trainingLog.innerHTML += `<br>❌ Erreur: ${error.detail}`;
+          MessageManager.error('Erreur lors de l\'entraînement: ' + error.detail);
+        }
+      } catch (error) {
+        trainingLog.innerHTML += `<br>❌ Erreur réseau: ${error.message}`;
+        MessageManager.error('Erreur réseau: ' + error.message);
+      } finally {
+        if (!isTraining) {
+          trainBtn.disabled = false;
+          trainBtn.textContent = 'Démarrer l\'Entraînement';
+        }
+      }
+    }
+    
+    async function testPrediction() {
+      const serviceId = document.getElementById('demoServiceId').value;
+      const priority = document.getElementById('demoPriority').value;
+      const position = document.getElementById('demoPosition').value;
+      const resultsDiv = document.getElementById('predictionResults');
+      
+      try {
+        const response = await fetch(
+          `${apiClient.baseURL}/api/ai/prediction-demo?service_id=${serviceId}&priority=${priority}&position=${position}`,
+          { headers: { 'Authorization': `Bearer ${apiClient.getToken()}` } }
+        );
+        
+        if (response.ok) {
+          const result = await response.json();
+          
+          // Update AI prediction
+          document.getElementById('aiPredictionValue').textContent = result.ai_prediction.wait_time_minutes;
+          document.getElementById('aiPredictionDetails').textContent = 
+            `Confiance: ${(result.ai_prediction.metadata.confidence * 100).toFixed(0)}%`;
+          
+          // Update fallback prediction
+          document.getElementById('fallbackPredictionValue').textContent = result.fallback_prediction.wait_time_minutes;
+          document.getElementById('fallbackPredictionDetails').textContent = 'Méthode traditionnelle';
+          
+          resultsDiv.style.display = 'grid';
+          
+          MessageManager.success('Prédictions générées avec succès!');
+        } else {
+          const error = await response.json();
+          MessageManager.error('Erreur: ' + error.detail);
+        }
+      } catch (error) {
+        MessageManager.error('Erreur réseau: ' + error.message);
+      }
+    }
+    
+    async function checkTrainingData() {
+      try {
+        const response = await fetch(`${apiClient.baseURL}/api/ai/training-data-stats`, {
+          headers: { 'Authorization': `Bearer ${apiClient.getToken()}` }
+        });
+        
+        if (response.ok) {
+          const stats = await response.json();
+          
+          let message = `Données historiques: ${stats.historical_samples} échantillons\n`;
+          message += `Qualité: ${stats.data_quality}\n`;
+          message += `Recommandation: ${stats.recommendation}`;
+          
+          alert(message);
+        }
+      } catch (error) {
+        MessageManager.error('Erreur lors de l\'analyse des données');
+      }
+    }
+    
+    async function generateSyntheticData() {
+      try {
+        const response = await fetch(`${apiClient.baseURL}/api/ai/generate-synthetic-data`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${apiClient.getToken()}` }
+        });
+        
+        if (response.ok) {
+          const result = await response.json();
+          MessageManager.success(`${result.statistics.samples_generated} échantillons synthétiques générés!`);
+          
+          const trainingLog = document.getElementById('trainingLog');
+          trainingLog.innerHTML += `<br>📊 Données synthétiques générées: ${result.statistics.samples_generated} échantillons`;
+        }
+      } catch (error) {
+        MessageManager.error('Erreur lors de la génération de données');
+      }
+    }
+    
+    async function resetAIModels() {
+      if (!confirm('Êtes-vous sûr de vouloir réinitialiser tous les modèles IA? Cette action est irréversible.')) {
+        return;
+      }
+      
+      try {
+        const response = await fetch(`${apiClient.baseURL}/api/ai/reset-models?confirm=true`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${apiClient.getToken()}` }
+        });
+        
+        if (response.ok) {
+          MessageManager.success('Modèles IA réinitialisés avec succès!');
+          loadAIStatus();
+          
+          const trainingLog = document.getElementById('trainingLog');
+          trainingLog.innerHTML = 'Modèles réinitialisés. Prêt pour un nouvel entraînement...<br>';
+        }
+      } catch (error) {
+        MessageManager.error('Erreur lors de la réinitialisation');
+      }
+    }
+    
+    function handleLogout() {
+      apiClient.logout();
+      window.location.href = '../Acceuil/acceuil.html';
+    }
+  </script>
+</body>
+</html>

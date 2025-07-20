@@ -268,7 +268,12 @@ function displayCurrentTicket() {
   if (ticketType) ticketType.textContent = 'Standard';
   if (positionNumber) positionNumber.textContent = currentTicket.position_in_queue || 0;
   if (peopleAhead) peopleAhead.textContent = Math.max(0, (currentTicket.position_in_queue || 1) - 1);
-  if (estimatedTime) estimatedTime.textContent = APIUtils.formatWaitTime(currentTicket.estimated_wait_time || 0);
+  if (estimatedTime) {
+    estimatedTime.innerHTML = `
+      ${APIUtils.formatWaitTime(currentTicket.estimated_wait_time || 0)}
+      <span class="ai-enhanced-badge" title="Prédiction améliorée par IA">🤖</span>
+    `;
+  }
   
   // Set issue date
   if (issueDate && currentTicket.created_at) {

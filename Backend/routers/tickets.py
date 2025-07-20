@@ -43,7 +43,7 @@ def generate_qr_code(ticket_number: str) -> str:
 
 
 def calculate_position_and_wait_time(service_id: int, priority: ServicePriority, db: Session):
-    """Calculate position in queue and estimated wait time."""
+    """Calculate position in queue and estimated wait time using AI prediction."""
     # Get current waiting tickets for this service, ordered consistently with queue.py
     waiting_tickets = db.query(Ticket).filter(
         and_(
@@ -63,11 +63,22 @@ def calculate_position_and_wait_time(service_id: int, priority: ServicePriority,
             # Continue to next position
             position = i + 1
     
-    # Get service avg wait time
-    service = db.query(Service).filter(Service.id == service_id).first()
-    avg_time_per_patient = service.avg_wait_time if service and service.avg_wait_time > 0 else 15
-    
-    estimated_wait = (position - 1) * avg_time_per_patient
+    # 🤖 AI-ENHANCED WAIT TIME PREDICTION
+    try:
+        from ai.wait_time_predictor import ai_predictor
+        estimated_wait, prediction_metadata = ai_predictor.predict_wait_time(
+            service_id, priority, position, db
+        )
+        
+        # Log AI prediction for debugging
+        print(f"🤖 AI Prediction: {estimated_wait}min (confidence: {prediction_metadata.get('confidence', 'N/A')})")
+        
+    except Exception as e:
+        print(f"⚠️ AI prediction failed, using fallback: {e}")
+        # Fallback to original logic
+        service = db.query(Service).filter(Service.id == service_id).first()
+        avg_time_per_patient = service.avg_wait_time if service and service.avg_wait_time > 0 else 15
+        estimated_wait = (position - 1) * avg_time_per_patient
     
     return position, estimated_wait
 
