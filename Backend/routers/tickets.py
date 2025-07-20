@@ -43,7 +43,7 @@ def generate_qr_code(ticket_number: str) -> str:
 
 
 def calculate_position_and_wait_time(service_id: int, priority: ServicePriority, db: Session):
-    """Calculate position in queue and estimated wait time."""
+    """Calculate position in queue and estimated wait time using AI prediction."""
     # Get current waiting tickets for this service, ordered consistently with queue.py
     waiting_tickets = db.query(Ticket).filter(
         and_(
@@ -63,11 +63,30 @@ def calculate_position_and_wait_time(service_id: int, priority: ServicePriority,
             # Continue to next position
             position = i + 1
     
-    # Get service avg wait time
-    service = db.query(Service).filter(Service.id == service_id).first()
-    avg_time_per_patient = service.avg_wait_time if service and service.avg_wait_time > 0 else 15
-    
-    estimated_wait = (position - 1) * avg_time_per_patient
+    # Use AI prediction for more accurate wait time estimation
+    try:
+        from ai.wait_time_predictor import SmartWaitTimePredictor
+        predictor = SmartWaitTimePredictor()
+        
+        ai_prediction = predictor.predict_wait_time(
+            service_id=service_id,
+            position=position,
+            priority=priority.value,
+            current_time=datetime.now(),
+            db=db
+        )
+        
+        estimated_wait = ai_prediction.get('estimated_wait_minutes', 15)
+        
+        # Log AI prediction success (optional)
+        print(f"AI Prediction for Service {service_id}, Position {position}: {estimated_wait} min (confidence: {ai_prediction.get('confidence_score', 0.5):.2f})")
+        
+    except Exception as e:
+        # Fallback to simple calculation if AI fails
+        print(f"AI prediction failed, using fallback: {e}")
+        service = db.query(Service).filter(Service.id == service_id).first()
+        avg_time_per_patient = service.avg_wait_time if service and service.avg_wait_time > 0 else 15
+        estimated_wait = (position - 1) * avg_time_per_patient
     
     return position, estimated_wait
 

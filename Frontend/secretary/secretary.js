@@ -68,6 +68,11 @@ async function initializeSecretaryPage() {
   // Charger les données initiales
   loadQueue();
   loadPatients();
+  
+  // Initialize AI insights
+  if (typeof aiInsights !== 'undefined' && currentServiceId) {
+    aiInsights.initializeForPage('secretary', currentServiceId);
+  }
 }
 
 // Configuration des écouteurs d'événements
