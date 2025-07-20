@@ -72,7 +72,25 @@ async def _call_next_patient_atomic(service_id: int, db: Session, admin_user: Us
         # Note: Auto-completion removed to allow proper consultation flow
         # Tickets should be manually completed by admin when consultation is done
         auto_completed = False
-        
+
+        # ----------------------------------------------------------------------------------
+        # Ensure that the queue ordering is always recalculated with the same helper used
+        # elsewhere in the codebase.  Even though we already updated `remaining_tickets`
+        # above, we have seen edge-cases where the in-memory update was not reflected
+        # correctly on a different DB session (e.g. when the admin dashboard and the
+        # patient devices hit the API immediately after the commit).  By invoking our
+        # central `_update_queue_positions_after_change` function we guarantee that the
+        # persisted values in the database are fully consistent and that all websocket
+        # notifications are broadcast in a single, canonical way.
+        # ----------------------------------------------------------------------------------
+
+        try:
+            from routers.tickets import _update_queue_positions_after_change  # pylint: disable=import-error, cyclic-import
+            await _update_queue_positions_after_change(service_id, db)
+        except Exception as e:  # pragma: no cover – we do not want to break "call-next" if this fails
+            # Log but swallow any error coming from the helper to keep the main action safe
+            print(f"⚠️  Failed to run queue resync after call-next: {e}")
+
         # Commit all changes atomically
         db.commit()
         db.refresh(next_ticket)
