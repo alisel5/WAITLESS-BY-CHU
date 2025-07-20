@@ -175,6 +175,9 @@ class ConnectionManager:
             "event": "status_change"
         }
         await self.send_to_ticket(ticket_number, message)
+        
+        # Also log the update for debugging
+        logger.info(f"Sent ticket update to {ticket_number}: position {status_data.get('position', 'N/A')}")
     
     async def new_patient_joined(self, service_id: str, patient_data: dict):
         """Notify about new patient joining the queue"""
@@ -198,11 +201,16 @@ class ConnectionManager:
         await self.broadcast_to_service(service_id, message)
         await self.broadcast_to_admins(message)
         
-        # Also send specific update to the called patient
-        await self.ticket_status_update(ticket_data.get("ticket_number", ""), {
-            "status": "completed",
-            "message": "C'est votre tour! Présentez-vous au service."
-        })
+        # Send specific update to the called patient with clear message
+        called_ticket_number = ticket_data.get("ticket_number", "")
+        if called_ticket_number:
+            await self.ticket_status_update(called_ticket_number, {
+                "status": "completed",
+                "position": 0,  # Called patients have no position
+                "message": "🎉 C'est terminé! Merci d'avoir utilisé WaitLess.",
+                "is_your_turn": False,  # They're done
+                "completed": True
+            })
     
     async def consultation_completed(self, service_id: str, ticket_data: dict):
         """Notify about completed consultation"""

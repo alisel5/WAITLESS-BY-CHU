@@ -40,6 +40,29 @@
     background: rgba(255,255,255,0.1);
 }
 
+/* Connection Indicator Styles */
+.connection-indicator {
+    margin-top: 1rem;
+    padding: 0.5rem 1rem;
+    border-radius: 5px;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.connection-indicator.connected {
+    background: #e8f5e8;
+    color: #27ae60;
+    border: 1px solid #27ae60;
+}
+
+.connection-indicator.disconnected {
+    background: #fef9e7;
+    color: #f39c12;
+    border: 1px solid #f39c12;
+}
+
 /* Button Styles */
 .btn {
     padding: 0.75rem 1.5rem;
