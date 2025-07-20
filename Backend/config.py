@@ -1,10 +1,21 @@
 from pydantic_settings import BaseSettings
 from typing import List
+import os
 
 
 class Settings(BaseSettings):
     # Database
+    # Use SQLite for local demonstration, PostgreSQL for production
+    use_sqlite: bool = True
     database_url: str = "postgresql://postgres:serpent123@localhost:5432/waitless_chu"
+    sqlite_url: str = "sqlite:///./waitless_chu_demo.db"
+    
+    @property
+    def get_database_url(self) -> str:
+        """Get the appropriate database URL based on environment"""
+        if self.use_sqlite or not os.getenv("DATABASE_URL"):
+            return self.sqlite_url
+        return self.database_url
     
     # JWT
     secret_key: str = "waitless-chu-secret-key-2025-hospital-queue-management"
@@ -28,8 +39,7 @@ class Settings(BaseSettings):
     
     # App
     app_name: str = "WaitLess CHU API"
-    debug: bool = True
-    
+
     class Config:
         env_file = ".env"
 

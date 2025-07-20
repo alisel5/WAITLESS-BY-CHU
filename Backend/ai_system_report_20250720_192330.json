@@ -1,0 +1,100 @@
+{
+  "generated_at": "2025-07-20T19:23:30.071814",
+  "system_overview": {
+    "total_services": 5,
+    "ai_ready_services": 5,
+    "total_tickets_analyzed": 2998,
+    "system_confidence": 0.95
+  },
+  "services": [
+    {
+      "name": "Consultation Générale",
+      "location": "Aile A - Rez-de-chaussée",
+      "ai_status": "ready",
+      "data_available": 819,
+      "confidence": 0.95,
+      "avg_consultation": 14.6,
+      "consistency": 0.51,
+      "best_efficiency_hour": 14,
+      "worst_efficiency_hour": 13,
+      "priority_variations": {
+        "high": 20.9,
+        "medium": 14.6,
+        "low": 11.7
+      }
+    },
+    {
+      "name": "Cardiologie",
+      "location": "Aile B - 2ème étage",
+      "ai_status": "ready",
+      "data_available": 457,
+      "confidence": 0.95,
+      "avg_consultation": 26.7,
+      "consistency": 0.33,
+      "best_efficiency_hour": 14,
+      "worst_efficiency_hour": 13,
+      "priority_variations": {
+        "high": 34.0,
+        "medium": 23.9,
+        "low": 20.1
+      }
+    },
+    {
+      "name": "Dermatologie",
+      "location": "Aile C - 1er étage",
+      "ai_status": "ready",
+      "data_available": 501,
+      "confidence": 0.95,
+      "avg_consultation": 10.6,
+      "consistency": 0.64,
+      "best_efficiency_hour": 15,
+      "worst_efficiency_hour": 13,
+      "priority_variations": {
+        "high": 16.9,
+        "medium": 11.4,
+        "low": 8.9
+      }
+    },
+    {
+      "name": "Urgences",
+      "location": "Aile D - Rez-de-chaussée",
+      "ai_status": "ready",
+      "data_available": 716,
+      "confidence": 0.95,
+      "avg_consultation": 35.9,
+      "consistency": 0.34,
+      "best_efficiency_hour": 15,
+      "worst_efficiency_hour": 13,
+      "priority_variations": {
+        "high": 41.5,
+        "medium": 29.4,
+        "low": 22.8
+      }
+    },
+    {
+      "name": "Pédiatrie",
+      "location": "Aile E - 1er étage",
+      "ai_status": "ready",
+      "data_available": 505,
+      "confidence": 0.95,
+      "avg_consultation": 17.8,
+      "consistency": 0.39,
+      "best_efficiency_hour": 14,
+      "worst_efficiency_hour": 12,
+      "priority_variations": {
+        "high": 24.1,
+        "medium": 17.2,
+        "low": 13.7
+      }
+    }
+  ],
+  "ai_features": [
+    "Historical pattern analysis",
+    "Time-of-day optimization",
+    "Priority-based queue intelligence",
+    "Service-specific modeling",
+    "Real-time adaptation",
+    "Confidence scoring",
+    "Predictive analytics"
+  ]
+}

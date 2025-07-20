@@ -6,6 +6,7 @@ import qrcode
 import io
 import base64
 import json
+import logging
 from datetime import datetime, timedelta
 from database import get_db
 from models import Ticket, Service, User, TicketStatus, ServicePriority, QueueLog
@@ -16,6 +17,7 @@ from schemas import (
 from auth import get_current_active_user, get_admin_user, get_password_hash
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 def generate_ticket_number() -> str:
@@ -43,7 +45,7 @@ def generate_qr_code(ticket_number: str) -> str:
 
 
 def calculate_position_and_wait_time(service_id: int, priority: ServicePriority, db: Session):
-    """Calculate position in queue and estimated wait time."""
+    """Calculate position in queue and estimated wait time using AI when available."""
     # Get current waiting tickets for this service, ordered consistently with queue.py
     waiting_tickets = db.query(Ticket).filter(
         and_(
@@ -63,11 +65,21 @@ def calculate_position_and_wait_time(service_id: int, priority: ServicePriority,
             # Continue to next position
             position = i + 1
     
-    # Get service avg wait time
-    service = db.query(Service).filter(Service.id == service_id).first()
-    avg_time_per_patient = service.avg_wait_time if service and service.avg_wait_time > 0 else 15
-    
-    estimated_wait = (position - 1) * avg_time_per_patient
+    # Use AI estimation for wait time if available
+    try:
+        from ai_wait_time_estimator import get_ai_wait_time_estimate
+        ai_result = get_ai_wait_time_estimate(service_id, priority, position, db)
+        estimated_wait = ai_result.estimated_minutes
+        
+        # Log AI usage for debugging
+        logger.info(f"AI estimate for service {service_id}, position {position}: {estimated_wait}min "
+                   f"(confidence: {ai_result.confidence_level:.2f})")
+    except Exception as e:
+        # Fallback to original calculation
+        logger.warning(f"AI estimation failed, using fallback: {e}")
+        service = db.query(Service).filter(Service.id == service_id).first()
+        avg_time_per_patient = service.avg_wait_time if service and service.avg_wait_time > 0 else 15
+        estimated_wait = (position - 1) * avg_time_per_patient
     
     return position, estimated_wait
 
@@ -85,14 +97,24 @@ async def _update_queue_positions_after_change(service_id: int, db: Session):
             )
         ).order_by(Ticket.priority.desc(), Ticket.created_at.asc()).all()
         
-        # Update positions
+        # Update positions and AI-powered wait times
         service = db.query(Service).filter(Service.id == service_id).first()
         avg_time_per_patient = service.avg_wait_time if service and service.avg_wait_time > 0 else 15
         
         queue_data = []
         for i, ticket in enumerate(waiting_tickets, 1):
             ticket.position_in_queue = i
-            ticket.estimated_wait_time = (i - 1) * avg_time_per_patient
+            
+            # Use AI estimation for each ticket
+            try:
+                from ai_wait_time_estimator import get_ai_wait_time_estimate
+                ai_result = get_ai_wait_time_estimate(service_id, ticket.priority, i, db)
+                ticket.estimated_wait_time = ai_result.estimated_minutes
+            except Exception as e:
+                # Fallback to simple calculation
+                ticket.estimated_wait_time = (i - 1) * avg_time_per_patient
+                logger.warning(f"AI estimation failed for ticket {ticket.id}: {e}")
+            
             queue_data.append({
                 "position": i,
                 "ticket_number": ticket.ticket_number,
