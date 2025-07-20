@@ -105,19 +105,26 @@ async def _call_next_patient_atomic(service_id: int, db: Session, admin_user: Us
                 "service_id": service_id
             })
             
-            # Notify about queue position updates
-            if remaining_tickets:
-                queue_data = []
-                for ticket in remaining_tickets:
-                    queue_data.append({
-                        "position": ticket.position_in_queue,
-                        "ticket_number": ticket.ticket_number,
-                        "estimated_wait_time": ticket.estimated_wait_time
-                    })
-                
-                await connection_manager.queue_position_update(str(service_id), {
-                    "total_waiting": len(remaining_tickets),
-                    "queue": queue_data
+            # Notify about queue position updates (including empty queues)
+            queue_data = []
+            for ticket in remaining_tickets:
+                queue_data.append({
+                    "position": ticket.position_in_queue,
+                    "ticket_number": ticket.ticket_number,
+                    "estimated_wait_time": ticket.estimated_wait_time
+                })
+            
+            await connection_manager.queue_position_update(str(service_id), {
+                "total_waiting": len(remaining_tickets),
+                "queue": queue_data
+            })
+
+            # Additionally, send individual ticket updates so each patient immediately knows their new position
+            for ticket in remaining_tickets:
+                await connection_manager.ticket_status_update(ticket.ticket_number, {
+                    "status": "waiting",
+                    "position_in_queue": ticket.position_in_queue,
+                    "estimated_wait_time": ticket.estimated_wait_time
                 })
         except Exception as e:
             # Don't fail the operation if WebSocket notification fails
