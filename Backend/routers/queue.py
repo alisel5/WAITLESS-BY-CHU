@@ -70,6 +70,10 @@ async def _call_next_patient_atomic(service_id: int, db: Session, admin_user: Us
             # Recalculate estimated wait time
             ticket.estimated_wait_time = (i - 1) * (service.avg_wait_time if service else 15)
         
+        # Ensure the service waiting count reflects the new queue size immediately
+        if service:
+            service.current_waiting = len(remaining_tickets)
+
         # Note: Auto-completion removed to allow proper consultation flow
         # Tickets should be manually completed by admin when consultation is done
         auto_completed = False
