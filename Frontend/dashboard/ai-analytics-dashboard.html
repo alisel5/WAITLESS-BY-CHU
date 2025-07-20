@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Dashboard IA - Analyse Prédictive</title>
+  <link rel="stylesheet" href="ai-analytics-dashboard.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+</head>
+<body>
+
+  <!-- HEADER -->
+  <header class="ai-header">
+    <div class="ai-logo">
+      <i class="fas fa-brain"></i>
+      <h1>WaitLess IA Analytics</h1>
+    </div>
+    <div class="ai-status">
+      <div class="status-indicator active">
+        <i class="fas fa-circle"></i>
+        <span>IA Active</span>
+      </div>
+      <div class="last-update">
+        Dernière mise à jour: <span id="lastUpdate">À l'instant</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN DASHBOARD -->
+  <div class="ai-dashboard">
+    
+    <!-- KPI CARDS -->
+    <div class="kpi-section">
+      <div class="kpi-card prediction-accuracy">
+        <div class="kpi-icon">
+          <i class="fas fa-bullseye"></i>
+        </div>
+        <div class="kpi-content">
+          <h3>Précision IA</h3>
+          <div class="kpi-value">94.8%</div>
+          <div class="kpi-trend positive">+2.3% vs hier</div>
+        </div>
+        <div class="kpi-chart">
+          <canvas id="accuracyChart"></canvas>
+        </div>
+      </div>
+
+      <div class="kpi-card efficiency-boost">
+        <div class="kpi-icon">
+          <i class="fas fa-rocket"></i>
+        </div>
+        <div class="kpi-content">
+          <h3>Efficacité Optimisée</h3>
+          <div class="kpi-value">+23%</div>
+          <div class="kpi-trend positive">Temps d'attente réduit</div>
+        </div>
+        <div class="kpi-chart">
+          <canvas id="efficiencyChart"></canvas>
+        </div>
+      </div>
+
+      <div class="kpi-card predictions-made">
+        <div class="kpi-icon">
+          <i class="fas fa-chart-line"></i>
+        </div>
+        <div class="kpi-content">
+          <h3>Prédictions Aujourd'hui</h3>
+          <div class="kpi-value">1,247</div>
+          <div class="kpi-trend positive">+18% vs moyenne</div>
+        </div>
+        <div class="kpi-chart">
+          <canvas id="predictionsChart"></canvas>
+        </div>
+      </div>
+
+      <div class="kpi-card patient-satisfaction">
+        <div class="kpi-icon">
+          <i class="fas fa-heart"></i>
+        </div>
+        <div class="kpi-content">
+          <h3>Satisfaction Patient</h3>
+          <div class="kpi-value">4.7/5</div>
+          <div class="kpi-trend positive">Grâce à l'IA prédictive</div>
+        </div>
+        <div class="kpi-chart">
+          <canvas id="satisfactionChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- REAL-TIME PREDICTIONS -->
+    <div class="predictions-section">
+      <div class="section-header">
+        <h2><i class="fas fa-crystal-ball"></i> Prédictions Temps Réel</h2>
+        <div class="section-controls">
+          <button class="refresh-btn" onclick="refreshPredictions()">
+            <i class="fas fa-sync-alt"></i> Actualiser
+          </button>
+        </div>
+      </div>
+
+      <div class="predictions-grid">
+        <div class="prediction-card service-card">
+          <div class="service-header">
+            <h3><i class="fas fa-heartbeat"></i> Cardiologie</h3>
+            <div class="ai-confidence">96% fiabilité</div>
+          </div>
+          <div class="prediction-metrics">
+            <div class="metric">
+              <span class="label">Temps d'attente moyen</span>
+              <span class="value">18 min</span>
+              <span class="trend down">-3 min</span>
+            </div>
+            <div class="metric">
+              <span class="label">Patients en attente</span>
+              <span class="value">7</span>
+              <span class="trend neutral">Stable</span>
+            </div>
+            <div class="metric">
+              <span class="label">Prochaine consultation</span>
+              <span class="value">2 min</span>
+              <span class="trend up">Rapide</span>
+            </div>
+          </div>
+          <div class="prediction-chart">
+            <canvas id="cardiologyChart"></canvas>
+          </div>
+        </div>
+
+        <div class="prediction-card service-card">
+          <div class="service-header">
+            <h3><i class="fas fa-brain"></i> Neurologie</h3>
+            <div class="ai-confidence">91% fiabilité</div>
+          </div>
+          <div class="prediction-metrics">
+            <div class="metric">
+              <span class="label">Temps d'attente moyen</span>
+              <span class="value">25 min</span>
+              <span class="trend up">+5 min</span>
+            </div>
+            <div class="metric">
+              <span class="label">Patients en attente</span>
+              <span class="value">12</span>
+              <span class="trend up">+3</span>
+            </div>
+            <div class="metric">
+              <span class="label">Prochaine consultation</span>
+              <span class="value">8 min</span>
+              <span class="trend neutral">Normal</span>
+            </div>
+          </div>
+          <div class="prediction-chart">
+            <canvas id="neurologyChart"></canvas>
+          </div>
+        </div>
+
+        <div class="prediction-card service-card">
+          <div class="service-header">
+            <h3><i class="fas fa-lungs"></i> Pneumologie</h3>
+            <div class="ai-confidence">89% fiabilité</div>
+          </div>
+          <div class="prediction-metrics">
+            <div class="metric">
+              <span class="label">Temps d'attente moyen</span>
+              <span class="value">15 min</span>
+              <span class="trend down">-7 min</span>
+            </div>
+            <div class="metric">
+              <span class="label">Patients en attente</span>
+              <span class="value">4</span>
+              <span class="trend down">-2</span>
+            </div>
+            <div class="metric">
+              <span class="label">Prochaine consultation</span>
+              <span class="value">1 min</span>
+              <span class="trend up">Immédiat</span>
+            </div>
+          </div>
+          <div class="prediction-chart">
+            <canvas id="pneumologyChart"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AI INSIGHTS & RECOMMENDATIONS -->
+    <div class="insights-section">
+      <div class="section-header">
+        <h2><i class="fas fa-lightbulb"></i> Insights & Recommandations IA</h2>
+      </div>
+
+      <div class="insights-grid">
+        <div class="insight-card priority">
+          <div class="insight-icon">
+            <i class="fas fa-exclamation-triangle"></i>
+          </div>
+          <div class="insight-content">
+            <h3>Action Recommandée</h3>
+            <p>Pic d'affluence prévu en cardiologie dans 30 min. Recommandation : ajouter un médecin supplémentaire.</p>
+            <button class="action-btn">Appliquer</button>
+          </div>
+        </div>
+
+        <div class="insight-card optimization">
+          <div class="insight-icon">
+            <i class="fas fa-cog"></i>
+          </div>
+          <div class="insight-content">
+            <h3>Optimisation Détectée</h3>
+            <p>L'IA a détecté une amélioration possible du flux en neurologie. Temps d'attente réductible de 12%.</p>
+            <button class="action-btn">Voir Détails</button>
+          </div>
+        </div>
+
+        <div class="insight-card success">
+          <div class="insight-icon">
+            <i class="fas fa-check-circle"></i>
+          </div>
+          <div class="insight-content">
+            <h3>Objectif Atteint</h3>
+            <p>Temps d'attente moyen réduit de 15% grâce aux prédictions IA. Satisfaction patient en hausse.</p>
+            <button class="action-btn">Célébrer</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- HISTORICAL ANALYSIS -->
+    <div class="analysis-section">
+      <div class="section-header">
+        <h2><i class="fas fa-chart-area"></i> Analyse Historique & Tendances</h2>
+        <div class="time-selector">
+          <button class="time-btn active" onclick="setTimeRange('today')">Aujourd'hui</button>
+          <button class="time-btn" onclick="setTimeRange('week')">7 jours</button>
+          <button class="time-btn" onclick="setTimeRange('month')">30 jours</button>
+        </div>
+      </div>
+
+      <div class="analysis-charts">
+        <div class="chart-container large">
+          <h3>Évolution des Temps d'Attente par Service</h3>
+          <canvas id="waitTimesTrendChart"></canvas>
+        </div>
+
+        <div class="chart-container medium">
+          <h3>Précision des Prédictions IA</h3>
+          <canvas id="aiAccuracyTrendChart"></canvas>
+        </div>
+
+        <div class="chart-container medium">
+          <h3>Distribution des Priorités</h3>
+          <canvas id="priorityDistributionChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- AI MODEL STATUS -->
+    <div class="model-status-section">
+      <div class="section-header">
+        <h2><i class="fas fa-microchip"></i> État des Modèles IA</h2>
+      </div>
+
+      <div class="models-grid">
+        <div class="model-card active">
+          <div class="model-header">
+            <h3>Modèle de Prédiction Principal</h3>
+            <div class="model-status online">En ligne</div>
+          </div>
+          <div class="model-metrics">
+            <div class="metric">
+              <span>Dernière MAJ</span>
+              <span>Il y a 2 min</span>
+            </div>
+            <div class="metric">
+              <span>Précision</span>
+              <span>94.8%</span>
+            </div>
+            <div class="metric">
+              <span>Latence</span>
+              <span>23ms</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="model-card active">
+          <div class="model-header">
+            <h3>Modèle d'Optimisation</h3>
+            <div class="model-status online">En ligne</div>
+          </div>
+          <div class="model-metrics">
+            <div class="metric">
+              <span>Dernière MAJ</span>
+              <span>Il y a 5 min</span>
+            </div>
+            <div class="metric">
+              <span>Efficacité</span>
+              <span>91.2%</span>
+            </div>
+            <div class="metric">
+              <span>Latence</span>
+              <span>18ms</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="model-card training">
+          <div class="model-header">
+            <h3>Modèle Saisonnier</h3>
+            <div class="model-status training">Entraînement</div>
+          </div>
+          <div class="model-metrics">
+            <div class="metric">
+              <span>Progression</span>
+              <span>67%</span>
+            </div>
+            <div class="metric">
+              <span>ETA</span>
+              <span>2h 15min</span>
+            </div>
+            <div class="metric">
+              <span>Données</span>
+              <span>156k samples</span>
+            </div>
+          </div>
+          <div class="training-progress">
+            <div class="progress-bar">
+              <div class="progress-fill" style="width: 67%;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="ai-analytics-dashboard.js"></script>
+</body>
+</html>

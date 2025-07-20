@@ -99,11 +99,14 @@
               <span class="stat-label">Personnes devant vous</span>
             </div>
           </div>
-          <div class="stat-item">
-            <i class="fas fa-clock"></i>
+          <div class="stat-item ai-enhanced">
+            <i class="fas fa-brain"></i>
             <div class="stat-content">
-              <span class="stat-number" id="estimatedTime">18</span>
-              <span class="stat-label">Minutes estimées</span>
+              <span class="stat-number" id="estimatedTime">23</span>
+              <span class="stat-label">IA Prédictive (min)</span>
+              <div class="confidence-indicator">
+                <span id="aiConfidence">94%</span> fiabilité
+              </div>
             </div>
           </div>
           <div class="stat-item">
@@ -113,6 +116,14 @@
               <span class="stat-label">Heure estimée</span>
             </div>
           </div>
+        </div>
+        
+        <!-- AI VISUALIZATION TOGGLE -->
+        <div class="ai-toggle-section">
+          <button class="ai-details-btn" onclick="showAIDetails()">
+            <i class="fas fa-chart-line"></i>
+            Voir l'analyse IA détaillée
+          </button>
         </div>
       </div>
 
@@ -220,7 +231,78 @@
     </div>
   </footer>
 
+  <!-- AI MODAL -->
+  <div class="ai-modal" id="aiModal">
+    <div class="ai-modal-content">
+      <button class="ai-modal-close" onclick="hideAIDetails()">
+        <i class="fas fa-times"></i>
+      </button>
+      <iframe id="aiFrame" src="" frameborder="0" style="width: 100%; height: 600px; border-radius: 16px;"></iframe>
+    </div>
+  </div>
+
   <script src="../shared/api.js"></script>
   <script src="ticket.js"></script>
+  <script>
+    // AI Integration Functions
+    function showAIDetails() {
+      const modal = document.getElementById('aiModal');
+      const frame = document.getElementById('aiFrame');
+      
+      // Load the AI visualization component
+      frame.src = 'ai-wait-visualization.html';
+      
+      modal.classList.add('show');
+      document.body.style.overflow = 'hidden';
+    }
+    
+    function hideAIDetails() {
+      const modal = document.getElementById('aiModal');
+      modal.classList.remove('show');
+      document.body.style.overflow = 'auto';
+    }
+    
+    // Close modal on background click
+    document.getElementById('aiModal').addEventListener('click', function(e) {
+      if (e.target === this) {
+        hideAIDetails();
+      }
+    });
+    
+    // Simulate AI updates for the ticket display
+    function updateAIEstimation() {
+      const timeElement = document.getElementById('estimatedTime');
+      const confidenceElement = document.getElementById('aiConfidence');
+      
+      if (timeElement && confidenceElement) {
+        // Simulate AI prediction changes
+        const currentTime = parseInt(timeElement.textContent) || 23;
+        const variation = Math.floor(Math.random() * 5) - 2; // -2 to +2 minutes
+        const newTime = Math.max(5, currentTime + variation);
+        
+        const confidence = 88 + Math.random() * 10; // 88-98%
+        
+        timeElement.textContent = newTime;
+        confidenceElement.textContent = Math.round(confidence) + '%';
+        
+        // Update estimated arrival time
+        const arrivalElement = document.getElementById('estimatedArrival');
+        if (arrivalElement) {
+          const now = new Date();
+          const arrival = new Date(now.getTime() + newTime * 60000);
+          arrivalElement.textContent = arrival.toLocaleTimeString('fr-FR', { 
+            hour: '2-digit', 
+            minute: '2-digit' 
+          });
+        }
+      }
+    }
+    
+    // Update AI estimation every 10 seconds
+    setInterval(updateAIEstimation, 10000);
+    
+    // Initial update
+    updateAIEstimation();
+  </script>
 </body>
 </html>

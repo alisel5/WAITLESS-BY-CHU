@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AI Wait Time Prediction - WaitLess</title>
+  <link rel="stylesheet" href="ai-wait-visualization.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+  <!-- AI POWERED WAIT TIME PREDICTION COMPONENT -->
+  <div class="ai-prediction-container">
+    
+    <!-- AI HEADER -->
+    <div class="ai-header">
+      <div class="ai-badge">
+        <i class="fas fa-brain"></i>
+        <span>IA Prédictive</span>
+      </div>
+      <h2>Estimation Intelligente du Temps d'Attente</h2>
+      <p>Analyse en temps réel basée sur l'IA</p>
+    </div>
+
+    <!-- MAIN AI PREDICTION CARD -->
+    <div class="ai-main-card">
+      <div class="prediction-visual">
+        <div class="ai-clock-container">
+          <div class="ai-clock">
+            <div class="clock-face">
+              <div class="clock-hand" id="aiClockHand"></div>
+              <div class="clock-center"></div>
+            </div>
+            <div class="prediction-time">
+              <span class="time-value" id="aiPredictionTime">23</span>
+              <span class="time-unit">min</span>
+            </div>
+          </div>
+          <div class="confidence-ring">
+            <svg class="confidence-svg" viewBox="0 0 100 100">
+              <circle class="confidence-bg" cx="50" cy="50" r="45"></circle>
+              <circle class="confidence-fill" cx="50" cy="50" r="45" id="confidenceCircle"></circle>
+            </svg>
+            <div class="confidence-text">
+              <span id="confidenceScore">94</span>%
+              <small>Fiabilité</small>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- AI INSIGHTS -->
+      <div class="ai-insights">
+        <h3><i class="fas fa-lightbulb"></i> Analyse IA</h3>
+        <div class="insight-item">
+          <i class="fas fa-chart-line"></i>
+          <span id="aiInsight1">Flux normal pour cette heure</span>
+        </div>
+        <div class="insight-item">
+          <i class="fas fa-users"></i>
+          <span id="aiInsight2">Priorité élevée - temps réduit</span>
+        </div>
+        <div class="insight-item">
+          <i class="fas fa-clock"></i>
+          <span id="aiInsight3">Consultation rapide prévue</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- PREDICTION RANGE -->
+    <div class="prediction-range">
+      <h3><i class="fas fa-chart-bar"></i> Fourchette de Prédiction</h3>
+      <div class="range-visualization">
+        <div class="range-bar">
+          <div class="range-fill" id="rangeFill"></div>
+          <div class="range-markers">
+            <div class="marker min-marker">
+              <span id="minTime">18</span>
+              <small>min</small>
+            </div>
+            <div class="marker current-marker">
+              <span id="currentTime">23</span>
+              <small>Prédiction</small>
+            </div>
+            <div class="marker max-marker">
+              <span id="maxTime">28</span>
+              <small>max</small>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- HISTORICAL TREND CHART -->
+    <div class="trend-section">
+      <h3><i class="fas fa-chart-area"></i> Tendance Temps Réel</h3>
+      <div class="chart-container">
+        <canvas id="trendChart"></canvas>
+      </div>
+    </div>
+
+    <!-- AI FACTORS -->
+    <div class="ai-factors">
+      <h3><i class="fas fa-cogs"></i> Facteurs IA Analysés</h3>
+      <div class="factors-grid">
+        <div class="factor-item">
+          <div class="factor-icon time-factor">
+            <i class="fas fa-sun"></i>
+          </div>
+          <div class="factor-content">
+            <span class="factor-label">Heure de pointe</span>
+            <div class="factor-impact positive">+15%</div>
+          </div>
+        </div>
+        
+        <div class="factor-item">
+          <div class="factor-icon service-factor">
+            <i class="fas fa-heartbeat"></i>
+          </div>
+          <div class="factor-content">
+            <span class="factor-label">Cardiologie</span>
+            <div class="factor-impact neutral">Nominal</div>
+          </div>
+        </div>
+        
+        <div class="factor-item">
+          <div class="factor-icon priority-factor">
+            <i class="fas fa-exclamation-triangle"></i>
+          </div>
+          <div class="factor-content">
+            <span class="factor-label">Priorité élevée</span>
+            <div class="factor-impact negative">-20%</div>
+          </div>
+        </div>
+        
+        <div class="factor-item">
+          <div class="factor-icon queue-factor">
+            <i class="fas fa-users"></i>
+          </div>
+          <div class="factor-content">
+            <span class="factor-label">File actuelle</span>
+            <div class="factor-impact positive">+5%</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- UPDATE INDICATORS -->
+    <div class="update-indicators">
+      <div class="indicator active">
+        <i class="fas fa-wifi"></i>
+        <span>Connexion IA</span>
+      </div>
+      <div class="indicator active">
+        <i class="fas fa-sync-alt spinning"></i>
+        <span>Mise à jour continue</span>
+      </div>
+      <div class="indicator active">
+        <i class="fas fa-shield-alt"></i>
+        <span>Données sécurisées</span>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="ai-wait-visualization.js"></script>
+</body>
+</html>
