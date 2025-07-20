@@ -304,6 +304,12 @@ class APIClient {
         });
     }
 
+    async callNextPatientForSecretary() {
+        return await this.makeRequest('/api/admin/secretary/call-next', {
+            method: 'POST'
+        });
+    }
+
     async completeConsultation(ticketId) {
         return await this.makeRequest(`/api/queue/complete-consultation/${ticketId}`, {
             method: 'POST'

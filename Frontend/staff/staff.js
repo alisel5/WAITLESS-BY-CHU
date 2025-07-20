@@ -13,9 +13,16 @@ document.addEventListener('DOMContentLoaded', function() {
 
 async function initializeStaffPage() {
     try {
-        // Check authentication
-        if (!checkAuth()) {
+        // Check authentication using shared API client
+        if (!apiClient.isAuthenticated()) {
             window.location.href = '../signup/signup.html';
+            return;
+        }
+
+        // Check if user is admin
+        if (!apiClient.isAdmin()) {
+            showMessage('Accès non autorisé. Seuls les administrateurs peuvent accéder à cette page.', 'error');
+            window.location.href = '../Acceuil/acceuil.html';
             return;
         }
 
@@ -73,18 +80,18 @@ function setupEventListeners() {
     }
 }
 
-// Load staff list from API
+// Load staff list from API - Updated to use shared API client
 async function loadStaffList() {
     try {
         showLoading('staffList');
         
-        const response = await apiCall('GET', '/admin/staff');
+        const response = await apiClient.makeRequest('/api/admin/staff');
         
-        if (response.success) {
-            staffList = response.data;
+        if (response) {
+            staffList = response;
             renderStaffList(staffList);
         } else {
-            throw new Error(response.message || 'Erreur lors du chargement du personnel');
+            throw new Error('No staff data received');
         }
     } catch (error) {
         console.error('Error loading staff list:', error);
@@ -95,13 +102,13 @@ async function loadStaffList() {
     }
 }
 
-// Load services for assignment
+// Load services for assignment - Updated to use shared API client
 async function loadServices() {
     try {
-        const response = await apiCall('GET', '/services');
+        const response = await apiClient.getServices();
         
-        if (response.success) {
-            servicesList = response.data;
+        if (response) {
+            servicesList = response;
             populateServiceSelects();
         }
     } catch (error) {
@@ -109,13 +116,13 @@ async function loadServices() {
     }
 }
 
-// Load staff statistics
+// Load staff statistics - Updated to use shared API client
 async function loadStaffStats() {
     try {
-        const response = await apiCall('GET', '/admin/staff/stats');
+        const response = await apiClient.makeRequest('/api/admin/staff/stats');
         
-        if (response.success) {
-            updateStaffStats(response.data);
+        if (response) {
+            updateStaffStats(response);
         }
     } catch (error) {
         console.error('Error loading staff stats:', error);
@@ -260,13 +267,13 @@ function renderAssignedServices(staff) {
     }
 }
 
-// Load staff activity
+// Load staff activity - Updated to use shared API client
 async function loadStaffActivity(staffId) {
     try {
-        const response = await apiCall('GET', `/admin/staff/${staffId}/activity`);
+        const response = await apiClient.makeRequest(`/api/admin/staff/${staffId}/activity`);
         
-        if (response.success) {
-            renderActivityLog(response.data);
+        if (response) {
+            renderActivityLog(response);
         }
     } catch (error) {
         console.error('Error loading staff activity:', error);
@@ -359,11 +366,12 @@ function showAssignServiceModal() {
     modal.style.display = 'flex';
 }
 
-// Handle add staff
+// Handle add staff - Updated to use shared API client
 async function handleAddStaff(event) {
     event.preventDefault();
     
-    const formData = new FormData(event.target);
+    const form = event.target;
+    const formData = new FormData(form);
     const password = formData.get('staffPassword');
     const confirmPassword = formData.get('staffConfirmPassword');
     
@@ -377,22 +385,23 @@ async function handleAddStaff(event) {
             first_name: formData.get('staffFirstName'),
             last_name: formData.get('staffLastName'),
             email: formData.get('staffEmail'),
-            phone: formData.get('staffPhone'),
+            phone: formData.get('staffPhone') || null,
             role: formData.get('staffRole'),
-            service_id: formData.get('staffService') || null,
+            service_id: parseInt(formData.get('staffService')) || null,
             password: password
         };
         
-        const response = await apiCall('POST', '/admin/staff', staffData);
+        const response = await apiClient.makeRequest('/api/admin/staff', {
+            method: 'POST',
+            body: JSON.stringify(staffData)
+        });
         
-        if (response.success) {
+        if (response) {
             showMessage('Personnel ajouté avec succès', 'success');
             closeModal('addStaffModal');
-            event.target.reset();
+            form.reset();
             await loadStaffList();
             await loadStaffStats();
-        } else {
-            throw new Error(response.message);
         }
     } catch (error) {
         console.error('Error adding staff:', error);
@@ -400,11 +409,12 @@ async function handleAddStaff(event) {
     }
 }
 
-// Handle edit staff
+// Handle edit staff - Updated to use shared API client  
 async function handleEditStaff(event) {
     event.preventDefault();
     
-    const formData = new FormData(event.target);
+    const form = event.target;
+    const formData = new FormData(form);
     const password = formData.get('editStaffPassword');
     const confirmPassword = formData.get('editStaffConfirmPassword');
     
@@ -418,9 +428,9 @@ async function handleEditStaff(event) {
             first_name: formData.get('editStaffFirstName'),
             last_name: formData.get('editStaffLastName'),
             email: formData.get('editStaffEmail'),
-            phone: formData.get('editStaffPhone'),
+            phone: formData.get('editStaffPhone') || null,
             role: formData.get('editStaffRole'),
-            service_id: formData.get('editStaffService') || null
+            service_id: parseInt(formData.get('editStaffService')) || null
         };
         
         if (password) {
@@ -428,17 +438,18 @@ async function handleEditStaff(event) {
         }
         
         const staffId = formData.get('editStaffId');
-        const response = await apiCall('PUT', `/admin/staff/${staffId}`, staffData);
+        const response = await apiClient.makeRequest(`/api/admin/staff/${staffId}`, {
+            method: 'PUT',
+            body: JSON.stringify(staffData)
+        });
         
-        if (response.success) {
+        if (response) {
             showMessage('Personnel modifié avec succès', 'success');
             closeModal('editStaffModal');
             await loadStaffList();
             if (currentStaff && currentStaff.id === parseInt(staffId)) {
                 selectStaff(parseInt(staffId));
             }
-        } else {
-            throw new Error(response.message);
         }
     } catch (error) {
         console.error('Error editing staff:', error);
@@ -446,36 +457,32 @@ async function handleEditStaff(event) {
     }
 }
 
-// Handle assign service
+// Handle assign service - Updated to use shared API client
 async function handleAssignService(event) {
     event.preventDefault();
     
-    const formData = new FormData(event.target);
+    const form = event.target;
+    const formData = new FormData(form);
     const staffId = formData.get('assignStaffId');
     const serviceId = formData.get('assignServiceSelect');
     
     try {
         const assignmentData = {
-            service_id: parseInt(serviceId),
-            permissions: {
-                add_patients: document.getElementById('permAddPatients').checked,
-                manage_queue: document.getElementById('permManageQueue').checked,
-                view_reports: document.getElementById('permViewReports').checked,
-                manage_tickets: document.getElementById('permManageTickets').checked
-            }
+            service_id: parseInt(serviceId)
         };
         
-        const response = await apiCall('POST', `/admin/staff/${staffId}/assign-service`, assignmentData);
+        const response = await apiClient.makeRequest(`/api/admin/staff/${staffId}/assign-service`, {
+            method: 'POST',
+            body: JSON.stringify(assignmentData)
+        });
         
-        if (response.success) {
+        if (response) {
             showMessage('Service assigné avec succès', 'success');
             closeModal('assignServiceModal');
             await loadStaffList();
             if (currentStaff && currentStaff.id === parseInt(staffId)) {
                 selectStaff(parseInt(staffId));
             }
-        } else {
-            throw new Error(response.message);
         }
     } catch (error) {
         console.error('Error assigning service:', error);
@@ -483,7 +490,7 @@ async function handleAssignService(event) {
     }
 }
 
-// Deactivate staff
+// Deactivate staff - Updated to use shared API client
 async function deactivateStaff() {
     if (!currentStaff) return;
     
@@ -492,15 +499,15 @@ async function deactivateStaff() {
     }
     
     try {
-        const response = await apiCall('PUT', `/admin/staff/${currentStaff.id}/deactivate`);
+        const response = await apiClient.makeRequest(`/api/admin/staff/${currentStaff.id}/deactivate`, {
+            method: 'PUT'
+        });
         
-        if (response.success) {
+        if (response) {
             showMessage('Personnel désactivé avec succès', 'success');
             await loadStaffList();
             await loadStaffStats();
             selectStaff(currentStaff.id);
-        } else {
-            throw new Error(response.message);
         }
     } catch (error) {
         console.error('Error deactivating staff:', error);
@@ -508,23 +515,23 @@ async function deactivateStaff() {
     }
 }
 
-// Remove service assignment
+// Remove service assignment - Updated to use shared API client
 async function removeServiceAssignment(staffId) {
     if (!confirm('Êtes-vous sûr de vouloir retirer l\'assignation de service ?')) {
         return;
     }
     
     try {
-        const response = await apiCall('DELETE', `/admin/staff/${staffId}/service-assignment`);
+        const response = await apiClient.makeRequest(`/api/admin/staff/${staffId}/service-assignment`, {
+            method: 'DELETE'
+        });
         
-        if (response.success) {
+        if (response) {
             showMessage('Assignation de service supprimée', 'success');
             await loadStaffList();
             if (currentStaff && currentStaff.id === staffId) {
                 selectStaff(staffId);
             }
-        } else {
-            throw new Error(response.message);
         }
     } catch (error) {
         console.error('Error removing service assignment:', error);
@@ -536,6 +543,51 @@ async function removeServiceAssignment(staffId) {
 async function refreshStaffList() {
     await loadStaffList();
     await loadStaffStats();
+}
+
+// Show add staff modal
+function showAddStaffModal() {
+    const modal = document.getElementById('addStaffModal');
+    modal.style.display = 'flex';
+    populateServiceSelects();
+}
+
+// Show edit staff modal
+function showEditStaffModal() {
+    if (!currentStaff) return;
+    
+    const modal = document.getElementById('editStaffModal');
+    
+    // Populate form
+    document.getElementById('editStaffId').value = currentStaff.id;
+    document.getElementById('editStaffFirstName').value = getFirstName(currentStaff.full_name);
+    document.getElementById('editStaffLastName').value = getLastName(currentStaff.full_name);
+    document.getElementById('editStaffEmail').value = currentStaff.email;
+    document.getElementById('editStaffPhone').value = currentStaff.phone || '';
+    document.getElementById('editStaffRole').value = currentStaff.role;
+    document.getElementById('editStaffService').value = currentStaff.assigned_service_id || '';
+    
+    // Clear passwords
+    document.getElementById('editStaffPassword').value = '';
+    document.getElementById('editStaffConfirmPassword').value = '';
+    
+    populateServiceSelects('editStaffService');
+    modal.style.display = 'flex';
+}
+
+// Show assign service modal
+function showAssignServiceModal() {
+    if (!currentStaff) return;
+    
+    const modal = document.getElementById('assignServiceModal');
+    document.getElementById('assignStaffId').value = currentStaff.id;
+    populateServiceSelects('assignServiceSelect');
+    modal.style.display = 'flex';
+}
+
+// Edit staff function
+function editStaff() {
+    showEditStaffModal();
 }
 
 // Update staff statistics
@@ -664,20 +716,32 @@ function showBackupModal() {
     showMessage('Fonctionnalité d\'export à implémenter', 'info');
 }
 
-// Update admin info
-function updateAdminInfo() {
-    const user = getCurrentUser();
-    if (user) {
-        const adminNameElement = document.getElementById('adminName');
-        if (adminNameElement) {
-            adminNameElement.textContent = user.full_name || 'Administrateur';
+// Update admin info - Updated to use shared API client
+async function updateAdminInfo() {
+    try {
+        const user = await apiClient.getCurrentUserInfo();
+        if (user) {
+            const adminNameElement = document.getElementById('adminName');
+            if (adminNameElement) {
+                adminNameElement.textContent = user.full_name || 'Administrateur';
+            }
+        }
+    } catch (error) {
+        console.error('Error getting user info:', error);
+        // Fallback to stored user info
+        const user = apiClient.getCurrentUser();
+        if (user) {
+            const adminNameElement = document.getElementById('adminName');
+            if (adminNameElement) {
+                adminNameElement.textContent = user.full_name || 'Administrateur';
+            }
         }
     }
 }
 
-// Handle logout
+// Handle logout - Updated to use shared API client
 function handleLogout() {
-    logout();
+    apiClient.logout();
     window.location.href = '../Acceuil/acceuil.html';
 }
 
@@ -696,11 +760,11 @@ function hideLoading(elementId) {
     }
 }
 
-// Message display
+// Message display - Updated to use shared message manager
 function showMessage(message, type = 'info') {
     // Use the shared message manager if available
-    if (typeof showNotification === 'function') {
-        showNotification(message, type);
+    if (window.MessageManager) {
+        window.MessageManager.show(type, message, { duration: 3000 });
     } else {
         // Fallback to alert
         alert(message);

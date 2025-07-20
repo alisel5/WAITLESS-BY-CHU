@@ -1,5 +1,6 @@
 // Variables globales
-let currentDepartment = 'Cardiologie';
+let currentService = null; // Changed from department to service
+let currentServiceId = 1; // Default service ID
 let currentSecretary = 'Secrétaire';
 let patients = [];
 let queue = [];
@@ -14,25 +15,51 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // Initialisation de la page
-function initializeSecretaryPage() {
-  // Récupérer les informations de l'utilisateur connecté
-  const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
-  if (userInfo.name) {
-    currentSecretary = userInfo.name;
-    document.getElementById('secretaryName').textContent = currentSecretary;
+async function initializeSecretaryPage() {
+  // Check authentication using the shared API client
+  if (!apiClient.isAuthenticated()) {
+    window.location.href = '../signup/signup.html';
+    return;
   }
-  
-  if (userInfo.department) {
-    currentDepartment = userInfo.department;
-    document.getElementById('departmentName').textContent = currentDepartment;
-  }
-  
-  // Show staff management link for admins
-  if (userInfo.role === 'admin') {
-    const staffLink = document.getElementById('staffLink');
-    if (staffLink) {
-      staffLink.style.display = 'inline';
+
+  try {
+    // Get current user info
+    const userInfo = await apiClient.getCurrentUserInfo();
+    if (userInfo) {
+      currentSecretary = userInfo.full_name;
+      document.getElementById('secretaryName').textContent = currentSecretary;
+      
+      // Get user's assigned service
+      if (userInfo.assigned_service_id) {
+        currentServiceId = userInfo.assigned_service_id;
+        // Get service details
+        const service = await apiClient.getService(currentServiceId);
+        if (service) {
+          currentService = service;
+          document.getElementById('departmentName').textContent = service.name;
+        }
+      } else if (userInfo.role === 'admin') {
+        // Admin can see all services, default to first one
+        const services = await apiClient.getServices();
+        if (services && services.length > 0) {
+          currentServiceId = services[0].id;
+          currentService = services[0];
+          document.getElementById('departmentName').textContent = services[0].name;
+        }
+      }
+      
+      // Show staff management link for admins
+      if (userInfo.role === 'admin') {
+        const staffLink = document.getElementById('staffLink');
+        if (staffLink) {
+          staffLink.style.display = 'inline';
+        }
+      }
     }
+  } catch (error) {
+    console.error('Error getting user info:', error);
+    // Use fallback values
+    currentServiceId = 1;
   }
   
   // Initialiser les statistiques
@@ -126,19 +153,18 @@ async function loadInitialData() {
   }
 }
 
-// Charger la file d'attente
+// Charger la file d'attente - Updated to use correct API
 async function loadQueue() {
   try {
-    const response = await fetch(`${API_BASE_URL}/queue/department/${encodeURIComponent(currentDepartment)}`);
-    if (response.ok) {
-      queue = await response.json();
-      displayQueue();
-      updateQueueSummary();
-    } else {
-      console.error('Erreur lors du chargement de la file d\'attente');
-    }
+    const response = await apiClient.makeRequest(`/api/admin/secretary/queue/${currentServiceId}`);
+    queue = response || [];
+    displayQueue();
+    updateQueueSummary();
   } catch (error) {
-    console.error('Erreur réseau lors du chargement de la file:', error);
+    console.error('Erreur lors du chargement de la file:', error);
+    showMessage('Erreur lors du chargement de la file d\'attente', 'error');
+    queue = [];
+    displayQueue();
   }
 }
 
@@ -196,18 +222,17 @@ function displayQueue() {
   }).join('');
 }
 
-// Charger les patients
+// Charger les patients - Updated to use correct API
 async function loadPatients() {
   try {
-    const response = await fetch(`${API_BASE_URL}/patients/department/${encodeURIComponent(currentDepartment)}`);
-    if (response.ok) {
-      patients = await response.json();
-      displayPatients();
-    } else {
-      console.error('Erreur lors du chargement des patients');
-    }
+    const response = await apiClient.makeRequest(`/api/admin/secretary/patients/${currentServiceId}`);
+    patients = response || [];
+    displayPatients();
   } catch (error) {
-    console.error('Erreur réseau lors du chargement des patients:', error);
+    console.error('Erreur lors du chargement des patients:', error);
+    showMessage('Erreur lors du chargement des patients', 'error');
+    patients = [];
+    displayPatients();
   }
 }
 
@@ -276,16 +301,14 @@ function filterPatients() {
   displayPatients(filtered);
 }
 
-// Mettre à jour les statistiques
+// Mettre à jour les statistiques - Updated to use correct API
 async function updateStats() {
   try {
-    const response = await fetch(`${API_BASE_URL}/stats/department/${encodeURIComponent(currentDepartment)}`);
-    if (response.ok) {
-      const stats = await response.json();
-      
-      document.getElementById('totalPatients').textContent = stats.total_patients || 0;
-      document.getElementById('avgWaitTime').textContent = stats.avg_wait_time || 0;
-      document.getElementById('completedToday').textContent = stats.completed_today || 0;
+    const response = await apiClient.makeRequest(`/api/admin/secretary/stats/${currentServiceId}`);
+    if (response) {
+      document.getElementById('totalPatients').textContent = response.total_patients || 0;
+      document.getElementById('avgWaitTime').textContent = response.avg_wait_time || 0;
+      document.getElementById('completedToday').textContent = response.completed_today || 0;
     }
   } catch (error) {
     console.error('Erreur lors de la mise à jour des statistiques:', error);
@@ -309,76 +332,68 @@ function refreshQueue() {
   showMessage('File d\'attente actualisée', 'success');
 }
 
-// Appeler le patient suivant
+// Appeler le patient suivant - Updated to use secretary-specific endpoint
 async function callNextPatient() {
-  const waitingPatients = queue.filter(p => p.status === 'waiting');
-  if (waitingPatients.length === 0) {
-    showMessage('Aucun patient en attente', 'info');
-    return;
-  }
-  
-  // Priorité aux urgences
-  const nextPatient = waitingPatients.sort((a, b) => {
-    const priorityOrder = { emergency: 0, high: 1, medium: 2, low: 3 };
-    return priorityOrder[a.priority] - priorityOrder[b.priority];
-  })[0];
-  
-  await callPatient(nextPatient.id);
-}
-
-// Appeler un patient
-async function callPatient(patientId) {
   try {
-    const response = await fetch(`${API_BASE_URL}/patients/${patientId}/call`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    });
-    
-    if (response.ok) {
-      showMessage('Patient appelé avec succès', 'success');
+    const response = await apiClient.callNextPatientForSecretary();
+    if (response) {
+      showMessage(`Patient ${response.patient_name} appelé avec succès`, 'success');
       loadQueue();
-      
-      // Notification sonore (optionnel)
+      updateStats();
       playNotificationSound();
+    }
+  } catch (error) {
+    console.error('Erreur lors de l\'appel du patient suivant:', error);
+    if (error.message && error.message.includes('No patients')) {
+      showMessage('Aucun patient en attente', 'info');
     } else {
       showMessage('Erreur lors de l\'appel du patient', 'error');
     }
-  } catch (error) {
-    console.error('Erreur lors de l\'appel du patient:', error);
-    showMessage('Erreur réseau', 'error');
   }
 }
 
-// Terminer une consultation
-async function completeConsultation(patientId) {
+// Appeler un patient - Updated to use correct API
+async function callPatient(patientId) {
   try {
-    const response = await fetch(`${API_BASE_URL}/patients/${patientId}/complete`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      }
+    const response = await apiClient.makeRequest(`/api/admin/secretary/patients/${patientId}/call`, {
+      method: 'POST'
     });
     
-    if (response.ok) {
+    if (response) {
+      showMessage('Patient appelé avec succès', 'success');
+      loadQueue();
+      loadPatients();
+      updateStats();
+      playNotificationSound();
+    }
+  } catch (error) {
+    console.error('Erreur lors de l\'appel du patient:', error);
+    showMessage('Erreur lors de l\'appel du patient', 'error');
+  }
+}
+
+// Terminer une consultation - Updated to use correct API
+async function completeConsultation(patientId) {
+  try {
+    const response = await apiClient.makeRequest(`/api/admin/secretary/patients/${patientId}/complete`, {
+      method: 'POST'
+    });
+    
+    if (response) {
       showMessage('Consultation terminée', 'success');
       loadQueue();
       loadPatients();
       updateStats();
-    } else {
-      showMessage('Erreur lors de la finalisation', 'error');
     }
   } catch (error) {
     console.error('Erreur lors de la finalisation:', error);
-    showMessage('Erreur réseau', 'error');
+    showMessage('Erreur lors de la finalisation', 'error');
   }
 }
 
-// Ajouter un nouveau patient
+// Ajouter un nouveau patient - Updated to use correct API
 async function addPatient() {
   const form = document.getElementById('addPatientForm');
-  const formData = new FormData(form);
   
   const patientData = {
     name: document.getElementById('patientName').value,
@@ -388,75 +403,61 @@ async function addPatient() {
     reason: document.getElementById('patientReason').value,
     priority: document.getElementById('patientPriority').value,
     notes: document.getElementById('patientNotes').value || null,
-    department: currentDepartment
+    service_id: currentServiceId
   };
   
   try {
-    const response = await fetch(`${API_BASE_URL}/patients`, {
+    const response = await apiClient.makeRequest('/api/admin/secretary/patients', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
       body: JSON.stringify(patientData)
     });
     
-    if (response.ok) {
-      const newPatient = await response.json();
+    if (response) {
       showMessage('Patient ajouté avec succès', 'success');
       closeModal('addPatientModal');
       form.reset();
       loadPatients();
       loadQueue();
       updateStats();
-    } else {
-      const error = await response.json();
-      showMessage(error.detail || 'Erreur lors de l\'ajout du patient', 'error');
     }
   } catch (error) {
     console.error('Erreur lors de l\'ajout du patient:', error);
-    showMessage('Erreur réseau', 'error');
+    showMessage(error.message || 'Erreur lors de l\'ajout du patient', 'error');
   }
 }
 
-// Ajouter un patient urgent
+// Ajouter un patient urgent - Updated to use correct API
 async function addEmergencyPatient() {
   const patientData = {
     name: document.getElementById('emergencyName').value,
     phone: document.getElementById('emergencyPhone').value,
     reason: document.getElementById('emergencyReason').value,
     notes: document.getElementById('emergencyNotes').value || null,
-    priority: 'emergency',
-    department: currentDepartment
+    priority: 'high', // Map emergency to high priority
+    service_id: currentServiceId
   };
   
   try {
-    const response = await fetch(`${API_BASE_URL}/patients`, {
+    const response = await apiClient.makeRequest('/api/admin/secretary/patients', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
       body: JSON.stringify(patientData)
     });
     
-    if (response.ok) {
-      const newPatient = await response.json();
+    if (response) {
       showMessage('Patient urgent ajouté avec succès', 'success');
       closeModal('emergencyModal');
       document.getElementById('emergencyForm').reset();
       loadPatients();
       loadQueue();
       updateStats();
-    } else {
-      const error = await response.json();
-      showMessage(error.detail || 'Erreur lors de l\'ajout du patient urgent', 'error');
     }
   } catch (error) {
     console.error('Erreur lors de l\'ajout du patient urgent:', error);
-    showMessage('Erreur réseau', 'error');
+    showMessage(error.message || 'Erreur lors de l\'ajout du patient urgent', 'error');
   }
 }
 
-// Ajouter un patient manuel (sans application)
+// Ajouter un patient manuel (sans application) - Updated to use correct API
 async function addManualPatient() {
   const arrivalTime = document.getElementById('manualArrival').value;
   const currentTime = new Date();
@@ -478,36 +479,29 @@ async function addManualPatient() {
     gender: document.getElementById('manualGender').value || null,
     reason: document.getElementById('manualReason').value,
     priority: document.getElementById('manualPriority').value,
-    notes: document.getElementById('manualNotes').value || null,
-    department: currentDepartment,
+    notes: document.getElementById('manualNotes').value || `Manuel - Arrivée: ${estimatedArrival.toLocaleTimeString()}`,
+    service_id: currentServiceId,
     estimated_arrival: estimatedArrival.toISOString(),
-    source: 'manual' // Indique que le patient a été ajouté manuellement
+    source: 'manual' // Indicate manual addition
   };
   
   try {
-    const response = await fetch(`${API_BASE_URL}/patients`, {
+    const response = await apiClient.makeRequest('/api/admin/secretary/patients', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
       body: JSON.stringify(patientData)
     });
     
-    if (response.ok) {
-      const newPatient = await response.json();
+    if (response) {
       showMessage('Patient ajouté manuellement avec succès', 'success');
       closeModal('manualPatientModal');
       document.getElementById('manualPatientForm').reset();
       loadPatients();
       loadQueue();
       updateStats();
-    } else {
-      const error = await response.json();
-      showMessage(error.detail || 'Erreur lors de l\'ajout du patient', 'error');
     }
   } catch (error) {
     console.error('Erreur lors de l\'ajout du patient manuel:', error);
-    showMessage('Erreur réseau', 'error');
+    showMessage(error.message || 'Erreur lors de l\'ajout du patient', 'error');
   }
 }
 
@@ -609,19 +603,18 @@ function playNotificationSound() {
   oscillator.stop(audioContext.currentTime + 0.2);
 }
 
-// Gestion de la déconnexion
+// Gestion de la déconnexion - Updated to use shared API
 function handleLogout() {
-  localStorage.removeItem('userInfo');
-  localStorage.removeItem('token');
+  apiClient.logout();
   window.location.href = '../Acceuil/acceuil.html';
 }
 
-// Gestion des messages
+// Gestion des messages - Updated to use shared message manager
 function showMessage(message, type = 'info') {
-  if (typeof showNotification === 'function') {
-    showNotification(message, type);
+  if (window.MessageManager) {
+    window.MessageManager.show(type, message, { duration: 3000 });
   } else {
-    // Fallback simple
+    // Fallback
     alert(message);
   }
 }

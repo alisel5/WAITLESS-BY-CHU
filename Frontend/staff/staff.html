@@ -194,27 +194,27 @@
           <div class="form-row">
             <div class="form-group">
               <label for="staffFirstName">Prénom *</label>
-              <input type="text" id="staffFirstName" required>
+              <input type="text" id="staffFirstName" name="staffFirstName" required>
             </div>
             <div class="form-group">
               <label for="staffLastName">Nom *</label>
-              <input type="text" id="staffLastName" required>
+              <input type="text" id="staffLastName" name="staffLastName" required>
             </div>
           </div>
           <div class="form-row">
             <div class="form-group">
               <label for="staffEmail">Email *</label>
-              <input type="email" id="staffEmail" required>
+              <input type="email" id="staffEmail" name="staffEmail" required>
             </div>
             <div class="form-group">
               <label for="staffPhone">Téléphone</label>
-              <input type="tel" id="staffPhone">
+              <input type="tel" id="staffPhone" name="staffPhone">
             </div>
           </div>
           <div class="form-row">
             <div class="form-group">
               <label for="staffRole">Rôle *</label>
-              <select id="staffRole" required>
+              <select id="staffRole" name="staffRole" required>
                 <option value="">Sélectionner un rôle</option>
                 <option value="staff">Secrétaire</option>
                 <option value="doctor">Médecin</option>
@@ -223,7 +223,7 @@
             </div>
             <div class="form-group">
               <label for="staffService">Service Assigné</label>
-              <select id="staffService">
+              <select id="staffService" name="staffService">
                 <option value="">Aucun service</option>
                 <!-- Services seront chargés dynamiquement -->
               </select>
@@ -232,11 +232,11 @@
           <div class="form-row">
             <div class="form-group">
               <label for="staffPassword">Mot de passe *</label>
-              <input type="password" id="staffPassword" required>
+              <input type="password" id="staffPassword" name="staffPassword" required>
             </div>
             <div class="form-group">
               <label for="staffConfirmPassword">Confirmer le mot de passe *</label>
-              <input type="password" id="staffConfirmPassword" required>
+              <input type="password" id="staffConfirmPassword" name="staffConfirmPassword" required>
             </div>
           </div>
           <div class="form-actions">
@@ -259,31 +259,31 @@
       </div>
       <div class="modal-content">
         <form id="editStaffForm">
-          <input type="hidden" id="editStaffId">
+          <input type="hidden" id="editStaffId" name="editStaffId">
           <div class="form-row">
             <div class="form-group">
               <label for="editStaffFirstName">Prénom *</label>
-              <input type="text" id="editStaffFirstName" required>
+              <input type="text" id="editStaffFirstName" name="editStaffFirstName" required>
             </div>
             <div class="form-group">
               <label for="editStaffLastName">Nom *</label>
-              <input type="text" id="editStaffLastName" required>
+              <input type="text" id="editStaffLastName" name="editStaffLastName" required>
             </div>
           </div>
           <div class="form-row">
             <div class="form-group">
               <label for="editStaffEmail">Email *</label>
-              <input type="email" id="editStaffEmail" required>
+              <input type="email" id="editStaffEmail" name="editStaffEmail" required>
             </div>
             <div class="form-group">
               <label for="editStaffPhone">Téléphone</label>
-              <input type="tel" id="editStaffPhone">
+              <input type="tel" id="editStaffPhone" name="editStaffPhone">
             </div>
           </div>
           <div class="form-row">
             <div class="form-group">
               <label for="editStaffRole">Rôle *</label>
-              <select id="editStaffRole" required>
+              <select id="editStaffRole" name="editStaffRole" required>
                 <option value="">Sélectionner un rôle</option>
                 <option value="staff">Secrétaire</option>
                 <option value="doctor">Médecin</option>
@@ -292,7 +292,7 @@
             </div>
             <div class="form-group">
               <label for="editStaffService">Service Assigné</label>
-              <select id="editStaffService">
+              <select id="editStaffService" name="editStaffService">
                 <option value="">Aucun service</option>
                 <!-- Services seront chargés dynamiquement -->
               </select>
@@ -301,11 +301,11 @@
           <div class="form-row">
             <div class="form-group">
               <label for="editStaffPassword">Nouveau mot de passe (optionnel)</label>
-              <input type="password" id="editStaffPassword">
+              <input type="password" id="editStaffPassword" name="editStaffPassword">
             </div>
             <div class="form-group">
               <label for="editStaffConfirmPassword">Confirmer le mot de passe</label>
-              <input type="password" id="editStaffConfirmPassword">
+              <input type="password" id="editStaffConfirmPassword" name="editStaffConfirmPassword">
             </div>
           </div>
           <div class="form-actions">
@@ -328,10 +328,10 @@
       </div>
       <div class="modal-content">
         <form id="assignServiceForm">
-          <input type="hidden" id="assignStaffId">
+          <input type="hidden" id="assignStaffId" name="assignStaffId">
           <div class="form-group">
             <label for="assignServiceSelect">Service à assigner *</label>
-            <select id="assignServiceSelect" required>
+            <select id="assignServiceSelect" name="assignServiceSelect" required>
               <option value="">Sélectionner un service</option>
               <!-- Services seront chargés dynamiquement -->
             </select>
