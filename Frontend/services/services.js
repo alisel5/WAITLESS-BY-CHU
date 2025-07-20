@@ -24,13 +24,22 @@ async function loadServices() {
   try {
     APIUtils.showLoading(document.getElementById('servicesGrid'));
     
+    console.log('Loading services...');
     const servicesData = await apiClient.getServices();
+    console.log('Services data received:', servicesData);
+    
     if (servicesData) {
       services = servicesData;
       displayServices();
       
       // Initialize WebSocket connections after loading services
-      initializeWebSockets();
+      // Wrap in try-catch to prevent WebSocket errors from breaking the page
+      try {
+        initializeWebSockets();
+      } catch (wsError) {
+        console.error('WebSocket initialization error:', wsError);
+        // Don't let WebSocket errors break the page
+      }
     }
   } catch (error) {
     console.error('Error loading services:', error);
@@ -500,6 +509,12 @@ function downloadQRCode(qrCodeUrl, serviceName) {
 
 // Initialize WebSocket connections for all services
 function initializeWebSockets() {
+  // Check if wsClient is available
+  if (typeof wsClient === 'undefined' || !wsClient) {
+    console.warn('WebSocket client not available, skipping WebSocket initialization');
+    return;
+  }
+  
   // Disconnect existing connections
   wsConnections.forEach((connection, serviceId) => {
     wsClient.disconnect(`service_${serviceId}`);
@@ -588,6 +603,8 @@ window.editService = editService;
 window.deleteService = deleteService;
 window.filterServices = filterServices;
 window.exportServicesData = exportServicesData;
+window.callNextPatient = callNextPatient;
+window.viewQueue = viewQueue;
 window.showServiceQR = showServiceQR;
 window.printQRCode = printQRCode;
 window.downloadQRCode = downloadQRCode;
@@ -595,7 +612,9 @@ window.handleLogout = handleLogout;
 
 // Clean up WebSocket connections on page unload
 window.addEventListener('beforeunload', () => {
-  wsConnections.forEach((connection, serviceId) => {
-    wsClient.disconnect(`service_${serviceId}`);
-  });
+  if (typeof wsClient !== 'undefined' && wsClient) {
+    wsConnections.forEach((connection, serviceId) => {
+      wsClient.disconnect(`service_${serviceId}`);
+    });
+  }
 }); 
