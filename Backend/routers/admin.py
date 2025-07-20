@@ -8,6 +8,8 @@ from models import User, Service, Ticket, TicketStatus, ServiceStatus
 from schemas import UserResponse, ServiceResponse
 from auth import get_admin_user, get_admin_or_staff_user
 from models import UserRole
+from models import ServicePriority
+from models import QueueLog
 
 router = APIRouter()
 
@@ -360,6 +362,353 @@ async def get_daily_reports(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error getting daily reports: {str(e)}"
+        )
+
+
+# SECRETARY-SPECIFIC ENDPOINTS FOR DEPARTMENT-BASED OPERATIONS
+
+@router.get("/secretary/queue/{service_id}")
+async def get_department_queue(
+    service_id: int,
+    current_user: User = Depends(get_admin_or_staff_user),
+    db: Session = Depends(get_db)
+):
+    """Get queue for a specific service/department (for secretaries)."""
+    try:
+        service = db.query(Service).filter(Service.id == service_id).first()
+        if not service:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Service not found"
+            )
+        
+        # Get waiting tickets for this service
+        waiting_tickets = db.query(Ticket).filter(
+            and_(
+                Ticket.service_id == service_id,
+                Ticket.status == TicketStatus.WAITING
+            )
+        ).order_by(Ticket.priority.desc(), Ticket.created_at.asc()).all()
+        
+        queue_data = []
+        for ticket in waiting_tickets:
+            queue_data.append({
+                "id": ticket.id,
+                "ticket_number": ticket.ticket_number,
+                "name": ticket.patient.full_name if ticket.patient else "Patient inconnu",
+                "phone": ticket.patient.phone if ticket.patient else "",
+                "reason": ticket.notes or "Consultation",
+                "priority": ticket.priority.value,
+                "status": ticket.status.value,
+                "created_at": ticket.created_at.isoformat(),
+                "position": ticket.position_in_queue,
+                "estimated_wait_time": ticket.estimated_wait_time,
+                "source": "app"  # Default source
+            })
+        
+        return queue_data
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error getting queue: {str(e)}"
+        )
+
+
+@router.get("/secretary/patients/{service_id}")
+async def get_department_patients(
+    service_id: int,
+    current_user: User = Depends(get_admin_or_staff_user),
+    db: Session = Depends(get_db)
+):
+    """Get all patients for a specific service/department (for secretaries)."""
+    try:
+        service = db.query(Service).filter(Service.id == service_id).first()
+        if not service:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Service not found"
+            )
+        
+        # Get all tickets for this service from today
+        today = datetime.now().date()
+        tickets = db.query(Ticket).filter(
+            and_(
+                Ticket.service_id == service_id,
+                func.date(Ticket.created_at) == today
+            )
+        ).order_by(Ticket.created_at.desc()).all()
+        
+        patients_data = []
+        for ticket in tickets:
+            patients_data.append({
+                "id": ticket.id,
+                "name": ticket.patient.full_name if ticket.patient else "Patient inconnu",
+                "phone": ticket.patient.phone if ticket.patient else "",
+                "ticket_number": ticket.ticket_number,
+                "reason": ticket.notes or "Consultation",
+                "priority": ticket.priority.value,
+                "status": ticket.status.value,
+                "created_at": ticket.created_at.isoformat(),
+                "age": None,  # Not stored in current model
+                "gender": None,  # Not stored in current model
+                "source": "app"  # Default source
+            })
+        
+        return patients_data
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error getting patients: {str(e)}"
+        )
+
+
+@router.get("/secretary/stats/{service_id}")
+async def get_department_stats(
+    service_id: int,
+    current_user: User = Depends(get_admin_or_staff_user),
+    db: Session = Depends(get_db)
+):
+    """Get statistics for a specific service/department (for secretaries)."""
+    try:
+        service = db.query(Service).filter(Service.id == service_id).first()
+        if not service:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Service not found"
+            )
+        
+        # Get today's tickets
+        today = datetime.now().date()
+        
+        total_patients = db.query(Ticket).filter(
+            and_(
+                Ticket.service_id == service_id,
+                func.date(Ticket.created_at) == today
+            )
+        ).count()
+        
+        completed_today = db.query(Ticket).filter(
+            and_(
+                Ticket.service_id == service_id,
+                Ticket.status == TicketStatus.COMPLETED,
+                func.date(Ticket.created_at) == today
+            )
+        ).count()
+        
+        # Calculate average wait time
+        avg_wait_time = db.query(func.avg(Ticket.estimated_wait_time)).filter(
+            and_(
+                Ticket.service_id == service_id,
+                Ticket.status == TicketStatus.WAITING
+            )
+        ).scalar() or 0
+        
+        return {
+            "total_patients": total_patients,
+            "completed_today": completed_today,
+            "avg_wait_time": int(avg_wait_time) if avg_wait_time else 0
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error getting stats: {str(e)}"
+        )
+
+
+@router.post("/secretary/patients/{ticket_id}/call")
+async def call_patient_by_secretary(
+    ticket_id: int,
+    current_user: User = Depends(get_admin_or_staff_user),
+    db: Session = Depends(get_db)
+):
+    """Call a specific patient (secretary action)."""
+    try:
+        ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
+        if not ticket:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Patient not found"
+            )
+        
+        if ticket.status != TicketStatus.WAITING:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Patient is not waiting"
+            )
+        
+        # Mark as completed (simplified flow)
+        ticket.status = TicketStatus.COMPLETED
+        ticket.consultation_start = datetime.utcnow()
+        ticket.consultation_end = datetime.utcnow()
+        
+        # Log the action
+        queue_log = QueueLog(
+            ticket_id=ticket.id,
+            action="called_by_secretary",
+            details=f"Patient called by secretary {current_user.full_name}"
+        )
+        db.add(queue_log)
+        
+        db.commit()
+        
+        # Update queue positions for remaining tickets
+        from routers.queue import _call_next_patient_atomic
+        # Just update positions without calling the atomic function
+        remaining_tickets = db.query(Ticket).filter(
+            and_(
+                Ticket.service_id == ticket.service_id,
+                Ticket.status == TicketStatus.WAITING
+            )
+        ).order_by(Ticket.priority.desc(), Ticket.created_at.asc()).all()
+        
+        for i, remaining_ticket in enumerate(remaining_tickets, 1):
+            remaining_ticket.position_in_queue = i
+        
+        db.commit()
+        
+        return {"message": "Patient called successfully"}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error calling patient: {str(e)}"
+        )
+
+
+@router.post("/secretary/patients/{ticket_id}/complete")
+async def complete_patient_consultation(
+    ticket_id: int,
+    current_user: User = Depends(get_admin_or_staff_user),
+    db: Session = Depends(get_db)
+):
+    """Complete a patient consultation (secretary action)."""
+    try:
+        ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
+        if not ticket:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Patient not found"
+            )
+        
+        # Mark as completed
+        ticket.status = TicketStatus.COMPLETED
+        ticket.consultation_end = datetime.utcnow()
+        
+        # Log the action
+        queue_log = QueueLog(
+            ticket_id=ticket.id,
+            action="completed_by_secretary",
+            details=f"Consultation completed by secretary {current_user.full_name}"
+        )
+        db.add(queue_log)
+        
+        db.commit()
+        
+        return {"message": "Consultation completed successfully"}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error completing consultation: {str(e)}"
+        )
+
+
+@router.post("/secretary/patients")
+async def create_patient_for_secretary(
+    patient_data: dict,
+    current_user: User = Depends(get_admin_or_staff_user),
+    db: Session = Depends(get_db)
+):
+    """Create a new patient ticket (secretary action)."""
+    try:
+        # Get user's assigned service or use provided service
+        service_id = patient_data.get("service_id")
+        if not service_id and current_user.assigned_service_id:
+            service_id = current_user.assigned_service_id
+        
+        if not service_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Service ID required"
+            )
+        
+        # Find or create user for the patient
+        patient_name = patient_data.get("name")
+        patient_phone = patient_data.get("phone")
+        patient_email = patient_data.get("email", f"{patient_phone}@temp.waitless.app")
+        
+        user = db.query(User).filter(User.email == patient_email).first()
+        if not user:
+            from auth import get_password_hash
+            user = User(
+                email=patient_email,
+                hashed_password=get_password_hash("temp123"),
+                full_name=patient_name,
+                phone=patient_phone,
+                role=UserRole.PATIENT
+            )
+            db.add(user)
+            db.flush()
+        
+        # Generate ticket
+        import uuid
+        timestamp = datetime.now().strftime("%Y%m%d")
+        unique_id = str(uuid.uuid4())[:8].upper()
+        ticket_number = f"T-{timestamp}-{unique_id}"
+        
+        # Calculate position
+        waiting_count = db.query(Ticket).filter(
+            and_(
+                Ticket.service_id == service_id,
+                Ticket.status == TicketStatus.WAITING
+            )
+        ).count()
+        position = waiting_count + 1
+        
+        # Map priority
+        priority_map = {
+            "emergency": ServicePriority.HIGH,
+            "high": ServicePriority.HIGH,
+            "medium": ServicePriority.MEDIUM,
+            "low": ServicePriority.LOW
+        }
+        priority = priority_map.get(patient_data.get("priority", "medium"), ServicePriority.MEDIUM)
+        
+        # Create ticket
+        ticket = Ticket(
+            ticket_number=ticket_number,
+            patient_id=user.id,
+            service_id=service_id,
+            priority=priority,
+            position_in_queue=position,
+            estimated_wait_time=(position - 1) * 15,  # 15 min per patient
+            status=TicketStatus.WAITING,
+            notes=patient_data.get("reason") or patient_data.get("notes")
+        )
+        
+        db.add(ticket)
+        db.commit()
+        db.refresh(ticket)
+        
+        # Log the action
+        queue_log = QueueLog(
+            ticket_id=ticket.id,
+            action="created_by_secretary",
+            details=f"Patient {patient_name} added by secretary {current_user.full_name}"
+        )
+        db.add(queue_log)
+        db.commit()
+        
+        return {
+            "id": ticket.id,
+            "ticket_number": ticket_number,
+            "message": "Patient added successfully"
+        }
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error creating patient: {str(e)}"
         )
 
 
