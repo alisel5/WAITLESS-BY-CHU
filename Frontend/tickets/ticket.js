@@ -81,6 +81,8 @@ async function loadUserTickets() {
       if (activeTicket) {
         currentTicket = activeTicket;
         displayCurrentTicket();
+        // start real-time socket
+        connectToTicketUpdates(currentTicket.ticket_number);
       } else {
         // No active tickets, show empty state
         currentTicket = null;
@@ -142,6 +144,8 @@ async function loadTicketByNumber(ticketNumber) {
       } else {
         // Ticket is active, display it
         displayCurrentTicket();
+        // <-- add hook to realtime updates
+        connectToTicketUpdates(currentTicket.ticket_number);
       }
     }
   } catch (error) {
@@ -165,6 +169,8 @@ async function loadTicketByNumber(ticketNumber) {
         // Check if ticket is active before displaying
         if (currentTicket.status === 'waiting') {
           displayCurrentTicket();
+          // start real-time socket
+          connectToTicketUpdates(currentTicket.ticket_number);
         } else {
           // Ticket is completed/cancelled, show empty state
           currentTicket = null;
@@ -991,3 +997,31 @@ window.shareTicket = shareTicket;
 window.printTicket = printTicket;
 window.filterHistory = filterHistory;
 window.confirmPresence = confirmPresence;
+
+// After we set currentTicket (and it is active) we should open a WebSocket
+// connection so the page reacts instantly to server push events rather than
+// waiting for the next 10 s poll.
+// Helper: connect to ticket updates once and reuse the same socket
+let ticketWsConnectionKey = null;
+function connectToTicketUpdates(ticketNumber) {
+  if (!window.wsClient) return; // WebSocket support not loaded
+  // Avoid opening multiple sockets for the same ticket
+  if (ticketWsConnectionKey === ticketNumber) return;
+  ticketWsConnectionKey = ticketNumber;
+  window.wsClient.connectToTicket(ticketNumber, (msg) => {
+    if (msg && msg.type === 'ticket_update' && msg.event === 'status_change') {
+      // Merge the payload into currentTicket and refresh the UI
+      if (!currentTicket || currentTicket.ticket_number !== ticketNumber) return;
+      const payload = msg.data || {};
+      if (payload.status) currentTicket.status = payload.status;
+      if (typeof payload.position_in_queue !== 'undefined') {
+        currentTicket.position_in_queue = payload.position_in_queue;
+      }
+      if (typeof payload.estimated_wait_time !== 'undefined') {
+        currentTicket.estimated_wait_time = payload.estimated_wait_time;
+      }
+      // Render the updated state
+      displayCurrentTicket();
+    }
+  });
+}

@@ -44,8 +44,9 @@ async def _call_next_patient_atomic(service_id: int, db: Session, admin_user: Us
         
         # Update service waiting count
         service = db.query(Service).filter(Service.id == service_id).first()
-        if service:
-            service.current_waiting = max(0, service.current_waiting - 1)
+        # `current_waiting` will now always be recalculated centrally in
+        # `_update_queue_positions_after_change`, so we no longer mutate it
+        # here to avoid the off-by-one lag that was observed in the admin UI.
         
         # Log the action (include admin info if available)
         admin_name = admin_user.full_name if admin_user else "System"
