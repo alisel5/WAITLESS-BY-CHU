@@ -1,6 +1,7 @@
 // Services data from backend
 let services = [];
 let currentFilter = 'all';
+let wsConnections = new Map();
 
 // Check authentication and role
 function checkAdminAuth() {
@@ -27,6 +28,9 @@ async function loadServices() {
     if (servicesData) {
       services = servicesData;
       displayServices();
+      
+      // Initialize WebSocket connections after loading services
+      initializeWebSockets();
     }
   } catch (error) {
     console.error('Error loading services:', error);
@@ -494,6 +498,89 @@ function downloadQRCode(qrCodeUrl, serviceName) {
   link.click();
 }
 
+// Initialize WebSocket connections for all services
+function initializeWebSockets() {
+  // Disconnect existing connections
+  wsConnections.forEach((connection, serviceId) => {
+    wsClient.disconnect(`service_${serviceId}`);
+  });
+  wsConnections.clear();
+  
+  // Connect to each service for real-time updates
+  services.forEach(service => {
+    const connection = wsClient.connectToService(service.id, (data) => {
+      handleServiceUpdate(service.id, data);
+    });
+    wsConnections.set(service.id, connection);
+  });
+  
+  // Listen for queue updates
+  wsClient.addEventListener('queue_updated', handleQueueUpdated);
+  wsClient.addEventListener('patient_called', handlePatientCalled);
+}
+
+// Handle real-time service updates
+function handleServiceUpdate(serviceId, data) {
+  console.log(`Service ${serviceId} update:`, data);
+  
+  if (data.type === 'queue_update' && data.event === 'position_change') {
+    // Update the service's waiting count
+    const service = services.find(s => s.id === serviceId);
+    if (service && data.data) {
+      service.current_waiting = data.data.total_waiting || 0;
+      
+      // Update the UI for this specific service
+      updateServiceCard(service);
+    }
+  }
+}
+
+// Handle queue updated event
+function handleQueueUpdated(event) {
+  if (event.serviceId && event.data && event.data.total_waiting !== undefined) {
+    const service = services.find(s => s.id === parseInt(event.serviceId));
+    if (service) {
+      service.current_waiting = event.data.total_waiting;
+      updateServiceCard(service);
+    }
+  }
+}
+
+// Handle patient called event
+function handlePatientCalled(event) {
+  if (event.serviceId) {
+    // Refresh the service to get updated counts
+    loadServices();
+  }
+}
+
+// Update a single service card in the UI
+function updateServiceCard(service) {
+  const card = document.querySelector(`.service-card[data-id="${service.id}"]`);
+  if (!card) return;
+  
+  // Update waiting count
+  const waitingElement = card.querySelector('.service-info p:nth-child(3)');
+  if (waitingElement) {
+    waitingElement.innerHTML = `<strong><i class="fas fa-users"></i> En attente:</strong> ${service.current_waiting} patients`;
+  }
+  
+  // Update call button state
+  const callBtn = card.querySelector('.call-btn');
+  if (callBtn) {
+    if (service.current_waiting > 0) {
+      callBtn.innerHTML = '<i class="fas fa-phone"></i> Appeler Suivant';
+      callBtn.disabled = false;
+      callBtn.classList.remove('disabled');
+      callBtn.onclick = () => callNextPatient(service.id, service.name);
+    } else {
+      callBtn.innerHTML = '<i class="fas fa-phone-slash"></i> Aucun Patient';
+      callBtn.disabled = true;
+      callBtn.classList.add('disabled');
+    }
+  }
+}
+
 // Exposer les fonctions globalement
 window.openAddServiceModal = openAddServiceModal;
 window.closeModal = closeModal;
@@ -505,3 +592,10 @@ window.showServiceQR = showServiceQR;
 window.printQRCode = printQRCode;
 window.downloadQRCode = downloadQRCode;
 window.handleLogout = handleLogout; 
+
+// Clean up WebSocket connections on page unload
+window.addEventListener('beforeunload', () => {
+  wsConnections.forEach((connection, serviceId) => {
+    wsClient.disconnect(`service_${serviceId}`);
+  });
+}); 

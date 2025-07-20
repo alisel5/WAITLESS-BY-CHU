@@ -4,6 +4,12 @@ let updateInterval = null;
 let ticketsHistory = [];
 let currentFilter = 'all';
 
+// Track current ticket and queue status
+let currentTicket = null;
+let ticketCache = new Map();
+let wsConnection = null;
+let isWebSocketConnected = false;
+
 // Configuration
 const UPDATE_INTERVAL = 10000; // 10 secondes
 const ALERT_THRESHOLD = 3; // Alert quand il reste 3 personnes
@@ -136,12 +142,12 @@ async function loadTicketByNumber(ticketNumber) {
       
       // Check if ticket should be shown as done
       if (ticketData.should_show_as_done) {
-        // Ticket should be considered done, show empty state
-        currentTicket = null;
-        showEmptyState();
+        // Ticket should be considered done, show completed state
+        showCompletedState();
       } else {
-        // Ticket is active, display it
+        // Ticket is active, display it and connect WebSocket
         displayCurrentTicket();
+        initializeWebSocket();
       }
     }
   } catch (error) {
@@ -496,6 +502,31 @@ function displayYourTurnStatus() {
   `;
 }
 
+// Show completed state when ticket is done
+function showCompletedState() {
+  const mainCard = document.getElementById('mainTicketCard');
+  if (mainCard) {
+    mainCard.innerHTML = `
+      <div class="empty-state completed">
+        <i class="fas fa-check-circle"></i>
+        <h3>Votre consultation est terminée</h3>
+        <p>Merci de votre patience ! Votre ticket a été traité avec succès.</p>
+        <div class="empty-state-actions">
+          <a href="../qr code/qr.html" class="btn primary-btn">Nouveau ticket</a>
+          <a href="../Acceuil/acceuil.html" class="btn secondary-btn">Retour à l'accueil</a>
+        </div>
+      </div>
+    `;
+  }
+  
+  // Disconnect WebSocket
+  if (wsConnection) {
+    wsClient.disconnectAll();
+    wsConnection = null;
+    isWebSocketConnected = false;
+  }
+}
+
 // Configurer les écouteurs d'événements
 function setupEventListeners() {
   // Écouteurs pour les filtres d'historique
@@ -519,6 +550,13 @@ function setupEventListeners() {
       }
     });
   }
+
+  // Disconnect WebSocket on page unload
+  window.addEventListener('beforeunload', () => {
+    if (wsConnection) {
+      wsClient.disconnectAll();
+    }
+  });
 }
 
 // Animation de chargement de la page
@@ -991,3 +1029,130 @@ window.shareTicket = shareTicket;
 window.printTicket = printTicket;
 window.filterHistory = filterHistory;
 window.confirmPresence = confirmPresence;
+
+// Initialize WebSocket connection for real-time updates
+function initializeWebSocket() {
+  if (!currentTicket || !currentTicket.service_id) {
+    console.log('No ticket or service ID available for WebSocket connection');
+    return;
+  }
+  
+  // Disconnect existing connection if any
+  if (wsConnection) {
+    wsClient.disconnect(`service_${currentTicket.service_id}`);
+    wsConnection = null;
+  }
+  
+  console.log(`Initializing WebSocket for service ${currentTicket.service_id} and ticket ${currentTicket.ticket_number}`);
+  
+  // Connect to service updates
+  wsConnection = wsClient.connectToService(currentTicket.service_id, handleRealtimeUpdate);
+  
+  // Also connect to specific ticket updates
+  wsClient.connectToTicket(currentTicket.ticket_number, handleTicketUpdate);
+  
+  // Add event listeners for queue updates
+  wsClient.addEventListener('queue_updated', handleQueueUpdate);
+  wsClient.addEventListener('patient_called', handlePatientCalled);
+  wsClient.addEventListener('ticket_updated', handleTicketStatusUpdate);
+  
+  isWebSocketConnected = true;
+}
+
+// Handle real-time updates from WebSocket
+function handleRealtimeUpdate(data) {
+  console.log('Received real-time update:', data);
+  
+  if (data.type === 'queue_update' && data.event === 'position_change') {
+    // Update queue positions for all waiting tickets
+    if (data.data && data.data.queue) {
+      const myTicketUpdate = data.data.queue.find(t => t.ticket_number === currentTicket.ticket_number);
+      if (myTicketUpdate) {
+        currentTicket.position_in_queue = myTicketUpdate.position;
+        currentTicket.estimated_wait_time = myTicketUpdate.estimated_wait_time;
+        
+        // Check if it's our turn
+        if (myTicketUpdate.position === 1) {
+          displayYourTurnStatus();
+        } else {
+          displayCurrentTicket();
+        }
+      }
+    }
+  }
+}
+
+// Handle specific ticket updates
+function handleTicketUpdate(data) {
+  console.log('Received ticket update:', data);
+  
+  if (data.type === 'ticket_update' && data.event === 'status_change') {
+    if (data.data && data.data.status) {
+      currentTicket.status = data.data.status;
+      
+      // If ticket is completed, show thank you page
+      if (data.data.status === 'completed') {
+        showCompletedState();
+      } else {
+        displayCurrentTicket();
+      }
+    }
+  }
+}
+
+// Handle queue updates
+function handleQueueUpdate(event) {
+  console.log('Queue updated event:', event);
+  
+  if (event.serviceId === currentTicket.service_id && event.data) {
+    handleRealtimeUpdate(event.data);
+  }
+}
+
+// Handle patient called event
+function handlePatientCalled(event) {
+  console.log('Patient called event:', event);
+  
+  if (event.data && event.data.ticket_number === currentTicket.ticket_number) {
+    // This ticket was called and completed
+    currentTicket.status = 'completed';
+    showCompletedState();
+  } else if (event.serviceId === currentTicket.service_id) {
+    // Another patient was called, refresh our position
+    refreshTicket();
+  }
+}
+
+// Handle ticket status update
+function handleTicketStatusUpdate(event) {
+  console.log('Ticket status updated:', event);
+  
+  if (event.ticketNumber === currentTicket.ticket_number && event.data) {
+    handleTicketUpdate(event.data);
+  }
+}
+
+// Show completed state when ticket is done
+function showCompletedState() {
+  const mainCard = document.getElementById('mainTicketCard');
+  if (mainCard) {
+    mainCard.innerHTML = `
+      <div class="empty-state completed">
+        <i class="fas fa-check-circle"></i>
+        <h3>Votre consultation est terminée</h3>
+        <p>Merci de votre patience ! Votre ticket a été traité avec succès.</p>
+        <div class="empty-state-actions">
+          <a href="../qr code/qr.html" class="btn primary-btn">Nouveau ticket</a>
+          <a href="../Acceuil/acceuil.html" class="btn secondary-btn">Retour à l'accueil</a>
+        </div>
+      </div>
+    `;
+  }
+  
+  // Disconnect WebSocket
+  if (wsConnection) {
+    wsClient.disconnectAll();
+    wsConnection = null;
+    isWebSocketConnected = false;
+  }
+}

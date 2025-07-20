@@ -36,6 +36,9 @@ async def _call_next_patient_atomic(service_id: int, db: Session, admin_user: Us
                 "code": 404
             }
         
+        # Store initial position before updating
+        initial_position = next_ticket.position_in_queue
+        
         # Update ticket status to completed (simplified flow: WAITING -> COMPLETED)
         next_ticket.status = TicketStatus.COMPLETED
         next_ticket.consultation_start = datetime.utcnow()
@@ -95,6 +98,14 @@ async def _call_next_patient_atomic(service_id: int, db: Session, admin_user: Us
         db.commit()
         db.refresh(next_ticket)
         
+        # Get updated count after commit
+        final_waiting_count = db.query(Ticket).filter(
+            and_(
+                Ticket.service_id == service_id,
+                Ticket.status == TicketStatus.WAITING
+            )
+        ).count()
+        
         # Send real-time WebSocket notifications
         try:
             # Notify about patient being called and completed
@@ -102,23 +113,40 @@ async def _call_next_patient_atomic(service_id: int, db: Session, admin_user: Us
                 "ticket_number": next_ticket.ticket_number,
                 "patient_name": next_ticket.patient.full_name,
                 "status": "completed",
-                "service_id": service_id
+                "service_id": service_id,
+                "was_position": initial_position
             })
             
-            # Notify about queue position updates
+            # Send specific update to the called patient's ticket connection
+            await connection_manager.ticket_status_update(next_ticket.ticket_number, {
+                "status": "completed",
+                "message": "Votre consultation est terminée. Merci !"
+            })
+            
+            # Always send queue update, even if empty
+            queue_data = []
             if remaining_tickets:
-                queue_data = []
                 for ticket in remaining_tickets:
                     queue_data.append({
                         "position": ticket.position_in_queue,
                         "ticket_number": ticket.ticket_number,
                         "estimated_wait_time": ticket.estimated_wait_time
                     })
-                
-                await connection_manager.queue_position_update(str(service_id), {
-                    "total_waiting": len(remaining_tickets),
-                    "queue": queue_data
-                })
+                    
+                    # Send individual updates to each ticket holder about their new position
+                    position_message = "C'est votre tour !" if ticket.position_in_queue == 1 else f"Votre position: {ticket.position_in_queue}"
+                    await connection_manager.ticket_status_update(ticket.ticket_number, {
+                        "status": "waiting",
+                        "position": ticket.position_in_queue,
+                        "message": position_message,
+                        "estimated_wait_time": ticket.estimated_wait_time
+                    })
+            
+            # Always broadcast queue update to refresh counts
+            await connection_manager.queue_position_update(str(service_id), {
+                "total_waiting": final_waiting_count,
+                "queue": queue_data
+            })
         except Exception as e:
             # Don't fail the operation if WebSocket notification fails
             print(f"WebSocket notification failed: {e}")
@@ -128,7 +156,7 @@ async def _call_next_patient_atomic(service_id: int, db: Session, admin_user: Us
             "ticket": next_ticket,
             "patient_name": next_ticket.patient.full_name,
             "auto_completed": auto_completed,
-            "remaining_count": len(remaining_tickets)
+            "remaining_count": final_waiting_count
         }
 
 

@@ -2,6 +2,56 @@
 let currentTicketNumber = null;
 let stopTrackingFunction = null;
 let isAutoUpdateEnabled = false;
+let wsConnection = null;
+
+// Initialize WebSocket for real-time updates
+function initializeWebSocket(ticketNumber) {
+    // Disconnect existing connection if any
+    if (wsConnection) {
+        wsClient.disconnect(`ticket_${currentTicketNumber}`);
+        wsConnection = null;
+    }
+    
+    // Connect to ticket updates
+    wsConnection = wsClient.connectToTicket(ticketNumber, handleRealtimeUpdate);
+    
+    // Add event listeners
+    wsClient.addEventListener('ticket_updated', handleTicketUpdate);
+}
+
+// Handle real-time updates
+function handleRealtimeUpdate(data) {
+    console.log('Real-time update received:', data);
+    
+    if (data.type === 'ticket_update' && data.event === 'status_change') {
+        // Update the display with new data
+        if (data.data) {
+            const ticketInfo = {
+                ticket_number: currentTicketNumber,
+                status: data.data.status,
+                position_in_queue: data.data.position || 'N/A',
+                estimated_wait_time: data.data.estimated_wait_time || 0,
+                service: { name: document.getElementById('serviceName').textContent }
+            };
+            
+            displayTicketInfo(ticketInfo);
+            
+            // Show notification if it's their turn
+            if (data.data.position === 1 && data.data.status === 'waiting') {
+                APIUtils.showNotification('🔔 C\'est votre tour ! Présentez-vous au service.', 'success');
+            } else if (data.data.status === 'completed') {
+                APIUtils.showNotification('✅ Votre consultation est terminée. Merci !', 'success');
+            }
+        }
+    }
+}
+
+// Handle ticket update event
+function handleTicketUpdate(event) {
+    if (event.ticketNumber === currentTicketNumber && event.data) {
+        handleRealtimeUpdate(event.data);
+    }
+}
 
 // Track ticket function
 async function trackTicket() {
@@ -20,6 +70,10 @@ async function trackTicket() {
     try {
         const ticket = await apiClient.getTicketStatus(ticketNumber);
         displayTicketInfo(ticket);
+        
+        // Initialize WebSocket for real-time updates
+        initializeWebSocket(ticketNumber);
+        
     } catch (error) {
         console.error('Error tracking ticket:', error);
         showErrorState();
@@ -61,9 +115,20 @@ function displayTicketInfo(ticket) {
     // Update last update time
     document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString('fr-FR');
     
-    // Show notification for important status changes
-    if (ticket.status === 'waiting' && ticket.position_in_queue === 1) {
-        APIUtils.showNotification('🔔 Votre tour est arrivé ! Présentez-vous au service.', 'success');
+    // Show appropriate message based on status
+    if (ticket.status === 'completed') {
+        // Show completed state
+        document.getElementById('ticketInfo').innerHTML = `
+            <div class="completed-state">
+                <i class="fas fa-check-circle"></i>
+                <h3>Consultation terminée</h3>
+                <p>Votre ticket ${ticket.ticket_number} a été traité avec succès.</p>
+                <p>Merci de votre patience !</p>
+            </div>
+        `;
+    } else if (ticket.status === 'waiting' && ticket.position_in_queue === 1) {
+        // Show "your turn" state
+        APIUtils.showNotification('🔔 C\'est votre tour ! Présentez-vous au service.', 'success');
     }
 }
 
@@ -158,5 +223,8 @@ document.addEventListener('DOMContentLoaded', function() {
 window.addEventListener('beforeunload', function() {
     if (stopTrackingFunction) {
         stopTrackingFunction();
+    }
+    if (wsConnection) {
+        wsClient.disconnectAll();
     }
 }); 
