@@ -100,20 +100,28 @@ async def get_patients(
 ):
     """Get all patients with their ticket information."""
     try:
-        # Get all tickets with patient information
-        tickets = db.query(Ticket).all()
+        # Get all tickets with patient and service information using eager loading
+        from sqlalchemy.orm import joinedload
+        tickets = db.query(Ticket).options(
+            joinedload(Ticket.patient),
+            joinedload(Ticket.service)
+        ).all()
         
         patients = []
         for ticket in tickets:
             # Calculate wait time in minutes
             if ticket.created_at is not None:
-                wait_time = int((datetime.now() - ticket.created_at).total_seconds() / 60)
+                # Convert to timezone-naive datetime for calculation
+                created_at_naive = ticket.created_at.replace(tzinfo=None) if ticket.created_at.tzinfo else ticket.created_at
+                now_naive = datetime.now()
+                wait_time = int((now_naive - created_at_naive).total_seconds() / 60)
             else:
                 wait_time = 0
             
             patient_data = {
                 "id": ticket.id,
                 "name": ticket.patient.full_name if ticket.patient else "Patient inconnu",
+                "email": ticket.patient.email if ticket.patient else None,
                 "service": ticket.service.name if ticket.service else "Service inconnu",
                 "status": ticket.status.value,
                 "arrival_time": ticket.created_at.isoformat() if ticket.created_at is not None else None,
@@ -179,7 +187,7 @@ async def create_patient(
         ticket = Ticket(
             patient_id=user.id,
             service_id=service.id,
-            priority=patient_data.get("priority", "medium"),
+            priority=ServicePriority(patient_data.get("priority", "medium")),
             status=TicketStatus.WAITING
         )
         
@@ -227,11 +235,10 @@ async def update_patient(
                 ticket.patient.phone = patient_data["phone"]
         
         # Update ticket fields
-        if "status" in patient_data:
-            ticket.status = TicketStatus(patient_data["status"])
-        
         if "priority" in patient_data:
-            ticket.priority = patient_data["priority"]
+            ticket.priority = ServicePriority(patient_data["priority"])
+        
+        # Note: Status is managed by the system, not editable by admin
         
         db.commit()
         db.refresh(ticket)

@@ -336,6 +336,19 @@ class APIClient {
         });
     }
 
+    async updatePatient(patientId, patientData) {
+        return await this.makeRequest(`/api/admin/patients/${patientId}`, {
+            method: 'PUT',
+            body: JSON.stringify(patientData)
+        });
+    }
+
+    async deletePatient(patientId) {
+        return await this.makeRequest(`/api/admin/patients/${patientId}`, {
+            method: 'DELETE'
+        });
+    }
+
     async getAlerts() {
         return await this.makeRequest('/api/admin/alerts');
     }

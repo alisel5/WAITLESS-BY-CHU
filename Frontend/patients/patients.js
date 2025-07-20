@@ -2,6 +2,7 @@
 let patientsData = [];
 let filteredPatients = [];
 let currentFilter = 'all';
+let servicesData = [];
 
 // Check authentication and role
 function checkAdminAuth() {
@@ -19,6 +20,39 @@ function checkAdminAuth() {
   return true;
 }
 
+// Load services data
+async function loadServices() {
+  try {
+    const response = await apiClient.getServices();
+    if (response && Array.isArray(response)) {
+      servicesData = response;
+      populateServiceSelects();
+    }
+  } catch (error) {
+    console.error('Error loading services:', error);
+  }
+}
+
+// Populate service select dropdowns
+function populateServiceSelects() {
+  const addServiceSelect = document.getElementById('patientService');
+  const editServiceSelect = document.getElementById('editPatientService');
+  
+  if (addServiceSelect) {
+    addServiceSelect.innerHTML = '<option value="">Sélectionner un service</option>';
+    servicesData.forEach(service => {
+      addServiceSelect.innerHTML += `<option value="${service.name}">${service.name}</option>`;
+    });
+  }
+  
+  if (editServiceSelect) {
+    editServiceSelect.innerHTML = '<option value="">Sélectionner un service</option>';
+    servicesData.forEach(service => {
+      editServiceSelect.innerHTML += `<option value="${service.name}">${service.name}</option>`;
+    });
+  }
+}
+
 // Load patients data from backend
 async function loadPatientsData() {
   try {
@@ -33,79 +67,21 @@ async function loadPatientsData() {
       filteredPatients = [...patientsData];
       displayPatients();
     } else {
-      // Fallback to mock data if backend doesn't return expected format
-      loadMockPatientsData();
+      throw new Error('Invalid response format');
     }
     
   } catch (error) {
     console.error('Error loading patients data:', error);
     APIUtils.showNotification('Erreur lors du chargement des patients', 'error');
-    loadMockPatientsData(); // Fallback to mock data
+    patientsData = [];
+    filteredPatients = [];
+    displayPatients();
   } finally {
     showLoading(false);
   }
 }
 
-// Load mock patients data as fallback
-function loadMockPatientsData() {
-  console.log('Loading mock patients data');
-  
-  patientsData = [
-    {
-      id: 1,
-      name: 'Ahmed Benali',
-      service: 'Cardiologie',
-      status: 'waiting',
-      arrival_time: '2025-07-18T09:30:00',
-      wait_time: 45,
-      priority: 'high',
-      phone: '06 12 34 56 78'
-    },
-    {
-      id: 2,
-      name: 'Fatima Zahra',
-      service: 'Dermatologie',
-      status: 'waiting',
-      arrival_time: '2025-07-18T08:15:00',
-      wait_time: 120,
-      priority: 'medium',
-      phone: '06 98 76 54 32'
-    },
-    {
-      id: 3,
-      name: 'Mohammed Alami',
-      service: 'Pédiatrie',
-      status: 'completed',
-      arrival_time: '2025-07-18T07:45:00',
-      wait_time: 90,
-      priority: 'low',
-      phone: '06 55 44 33 22'
-    },
-    {
-      id: 4,
-      name: 'Amina Tazi',
-      service: 'Radiologie',
-      status: 'waiting',
-      arrival_time: '2025-07-18T10:00:00',
-      wait_time: 30,
-      priority: 'medium',
-      phone: '06 11 22 33 44'
-    },
-    {
-      id: 5,
-      name: 'Hassan El Fassi',
-      service: 'Urgences',
-      status: 'waiting',
-      arrival_time: '2025-07-18T06:30:00',
-      wait_time: 180,
-      priority: 'high',
-      phone: '06 99 88 77 66'
-    }
-  ];
-  
-  filteredPatients = [...patientsData];
-  displayPatients();
-}
+// Mock data function removed - using real backend data only
 
 // Display patients in table
 function displayPatients() {
@@ -211,11 +187,11 @@ async function addPatient(event) {
   const formData = {
     first_name: document.getElementById('patientFirstName').value,
     last_name: document.getElementById('patientLastName').value,
-    age: parseInt(document.getElementById('patientAge').value),
+    email: document.getElementById('patientEmail').value,
     phone: document.getElementById('patientPhone').value,
     service: document.getElementById('patientService').value,
     priority: document.getElementById('patientPriority').value,
-    notes: document.getElementById('patientNotes').value
+    notes: document.getElementById('patientNotes').value || null
   };
   
   try {
@@ -230,7 +206,8 @@ async function addPatient(event) {
     
   } catch (error) {
     console.error('Error creating patient:', error);
-    APIUtils.showNotification('Erreur lors de l\'ajout du patient', 'error');
+    const errorMessage = error.message || 'Erreur lors de l\'ajout du patient';
+    APIUtils.showNotification(errorMessage, 'error');
   } finally {
     showLoading(false);
   }
@@ -243,12 +220,17 @@ function editPatient(patientId) {
   
   // Populate edit form
   document.getElementById('editPatientId').value = patient.id;
-  document.getElementById('editPatientFirstName').value = patient.name.split(' ')[0] || '';
-  document.getElementById('editPatientLastName').value = patient.name.split(' ').slice(1).join(' ') || '';
-  document.getElementById('editPatientAge').value = patient.age || '';
+  
+  // Split full name into first and last name
+  const nameParts = patient.name.split(' ');
+  const firstName = nameParts[0] || '';
+  const lastName = nameParts.slice(1).join(' ') || '';
+  
+  document.getElementById('editPatientFirstName').value = firstName;
+  document.getElementById('editPatientLastName').value = lastName;
+  document.getElementById('editPatientEmail').value = patient.email || '';
   document.getElementById('editPatientPhone').value = patient.phone || '';
   document.getElementById('editPatientService').value = patient.service || '';
-  document.getElementById('editPatientStatus').value = patient.status || '';
   document.getElementById('editPatientPriority').value = patient.priority || '';
   document.getElementById('editPatientNotes').value = patient.notes || '';
   
@@ -264,12 +246,11 @@ async function updatePatient(event) {
   const formData = {
     first_name: document.getElementById('editPatientFirstName').value,
     last_name: document.getElementById('editPatientLastName').value,
-    age: parseInt(document.getElementById('editPatientAge').value),
+    email: document.getElementById('editPatientEmail').value,
     phone: document.getElementById('editPatientPhone').value,
     service: document.getElementById('editPatientService').value,
-    status: document.getElementById('editPatientStatus').value,
     priority: document.getElementById('editPatientPriority').value,
-    notes: document.getElementById('editPatientNotes').value
+    notes: document.getElementById('editPatientNotes').value || null
   };
   
   try {
@@ -285,7 +266,8 @@ async function updatePatient(event) {
     
   } catch (error) {
     console.error('Error updating patient:', error);
-    APIUtils.showNotification('Erreur lors de la modification du patient', 'error');
+    const errorMessage = error.message || 'Erreur lors de la modification du patient';
+    APIUtils.showNotification(errorMessage, 'error');
   } finally {
     showLoading(false);
   }
@@ -363,7 +345,8 @@ async function deletePatient(patientId) {
     
   } catch (error) {
     console.error('Error deleting patient:', error);
-    APIUtils.showNotification('Erreur lors de la suppression du patient', 'error');
+    const errorMessage = error.message || 'Erreur lors de la suppression du patient';
+    APIUtils.showNotification(errorMessage, 'error');
   } finally {
     showLoading(false);
   }
@@ -394,12 +377,13 @@ function exportPatientsData() {
 }
 
 // Helper functions
-  function getStatusText(status) {
-    const statusMap = {
-      'waiting': 'En attente',
-      'completed': 'Terminé',
-      'cancelled': 'Annulé'
-    };
+function getStatusText(status) {
+  const statusMap = {
+    'waiting': 'En attente',
+    'completed': 'Terminé',
+    'cancelled': 'Annulé',
+    'expired': 'Expiré'
+  };
   return statusMap[status] || status;
 }
 
@@ -471,7 +455,10 @@ async function handleLogout() {
 // Initialize page
 document.addEventListener('DOMContentLoaded', function() {
   if (checkAdminAuth()) {
-    loadPatientsData();
+    // Load services first, then patients
+    loadServices().then(() => {
+      loadPatientsData();
+    });
     
     // Setup form event listeners
     document.getElementById('addPatientForm').addEventListener('submit', addPatient);
@@ -525,8 +512,13 @@ style.textContent = `
     color: white;
   }
   
-  .status-badge.consulting {
-    background: #e74c3c;
+  .status-badge.cancelled {
+    background: #95a5a6;
+    color: white;
+  }
+  
+  .status-badge.expired {
+    background: #7f8c8d;
     color: white;
   }
   
