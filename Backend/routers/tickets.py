@@ -108,10 +108,25 @@ async def _update_queue_positions_after_change(service_id: int, db: Session):
         # Send real-time updates if websocket_manager is available
         try:
             from websocket_manager import connection_manager
+            
+            # Send general queue update
             await connection_manager.queue_position_update(str(service_id), {
                 "total_waiting": len(waiting_tickets),
                 "queue": queue_data
             })
+            
+            # Send individual ticket updates to each patient
+            for ticket in waiting_tickets:
+                await connection_manager.ticket_status_update(ticket.ticket_number, {
+                    "status": "waiting",
+                    "position": ticket.position_in_queue,
+                    "estimated_wait_time": ticket.estimated_wait_time,
+                    "service_name": service.name if service else "Service",
+                    "message": f"Position mise à jour: {ticket.position_in_queue}" + 
+                             (f" - C'est votre tour!" if ticket.position_in_queue == 1 else 
+                              f" - {ticket.estimated_wait_time} min d'attente estimée")
+                })
+                
         except ImportError:
             # websocket_manager not available, skip notifications
             pass
@@ -197,6 +212,18 @@ async def create_ticket(
     
     # Update queue positions for all waiting tickets to ensure consistency
     await _update_queue_positions_after_change(ticket.service_id, db)
+    
+    # Send real-time notification about new patient joining
+    try:
+        from websocket_manager import connection_manager
+        await connection_manager.new_patient_joined(str(ticket.service_id), {
+            "ticket_number": ticket_number,
+            "patient_name": current_user.full_name,
+            "position": position,
+            "total_waiting": position  # New patient is at this position
+        })
+    except Exception as e:
+        print(f"WebSocket notification failed for new patient: {e}")
     
     return TicketSimpleResponse(
         ticket_number=ticket_number,

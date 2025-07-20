@@ -2,6 +2,7 @@
 let currentTicketNumber = null;
 let stopTrackingFunction = null;
 let isAutoUpdateEnabled = false;
+let wsConnected = false;
 
 // Track ticket function
 async function trackTicket() {
@@ -20,6 +21,10 @@ async function trackTicket() {
     try {
         const ticket = await apiClient.getTicketStatus(ticketNumber);
         displayTicketInfo(ticket);
+        
+        // Connect to real-time updates for this ticket
+        connectToRealTimeUpdates(ticketNumber);
+        
     } catch (error) {
         console.error('Error tracking ticket:', error);
         showErrorState();
@@ -159,4 +164,114 @@ window.addEventListener('beforeunload', function() {
     if (stopTrackingFunction) {
         stopTrackingFunction();
     }
+    disconnectFromRealTimeUpdates();
 }); 
+
+// Connect to real-time updates via WebSocket
+function connectToRealTimeUpdates(ticketNumber) {
+    if (window.wsClient && !wsConnected) {
+        try {
+            // Connect to ticket-specific updates
+            window.wsClient.connectToTicket(ticketNumber, handleRealTimeUpdate);
+            
+            // Listen for specific events
+            window.wsClient.addEventListener('ticket_updated', ({ ticketNumber: updatedTicket, data }) => {
+                if (updatedTicket === currentTicketNumber) {
+                    console.log('📱 Received real-time ticket update:', data);
+                    handleTicketUpdate(data);
+                }
+            });
+            
+            wsConnected = true;
+            console.log('🔗 Connected to real-time updates for ticket:', ticketNumber);
+            
+            // Show connection indicator
+            showConnectionStatus(true);
+            
+        } catch (error) {
+            console.error('Failed to connect to real-time updates:', error);
+            showConnectionStatus(false);
+        }
+    }
+}
+
+// Handle real-time updates
+function handleRealTimeUpdate(data) {
+    console.log('📡 Real-time update received:', data);
+    
+    if (data.type === 'ticket_update' && data.event === 'status_change') {
+        handleTicketUpdate(data.data);
+    }
+}
+
+// Handle ticket updates from WebSocket
+function handleTicketUpdate(updateData) {
+    console.log('🔄 Processing ticket update:', updateData);
+    
+    // Update position
+    if (updateData.position !== undefined) {
+        document.getElementById('queuePosition').textContent = updateData.position;
+    }
+    
+    // Update wait time
+    if (updateData.estimated_wait_time !== undefined) {
+        document.getElementById('waitTime').textContent = APIUtils.formatWaitTime(updateData.estimated_wait_time);
+    }
+    
+    // Update status
+    if (updateData.status) {
+        const statusBadge = document.getElementById('statusBadge');
+        statusBadge.textContent = getStatusText(updateData.status);
+        statusBadge.className = `status-badge ${updateData.status}`;
+    }
+    
+    // Update last update time
+    document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString('fr-FR');
+    
+    // Show notification for important updates
+    if (updateData.message) {
+        APIUtils.showNotification(updateData.message, updateData.completed ? 'success' : 'info');
+    }
+    
+    // Special handling for "your turn" scenario
+    if (updateData.position === 1 && updateData.status === 'waiting') {
+        APIUtils.showNotification('🔔 C\'est votre tour ! Présentez-vous au service.', 'success');
+        // Could add sound or more prominent visual indicator here
+    }
+    
+    // Handle completion
+    if (updateData.completed || updateData.status === 'completed') {
+        APIUtils.showNotification('✅ Consultation terminée. Merci !', 'success');
+        // Disconnect from updates since ticket is done
+        disconnectFromRealTimeUpdates();
+    }
+}
+
+// Show connection status
+function showConnectionStatus(connected) {
+    let indicator = document.getElementById('connectionIndicator');
+    if (!indicator) {
+        indicator = document.createElement('div');
+        indicator.id = 'connectionIndicator';
+        indicator.className = 'connection-indicator';
+        document.querySelector('.realtime-section').appendChild(indicator);
+    }
+    
+    if (connected) {
+        indicator.innerHTML = '<i class="fas fa-wifi"></i> Mises à jour en temps réel actives';
+        indicator.className = 'connection-indicator connected';
+    } else {
+        indicator.innerHTML = '<i class="fas fa-wifi"></i> Mises à jour manuelles seulement';
+        indicator.className = 'connection-indicator disconnected';
+    }
+}
+
+// Disconnect from real-time updates
+function disconnectFromRealTimeUpdates() {
+    if (window.wsClient && currentTicketNumber) {
+        window.wsClient.disconnect(`ticket_${currentTicketNumber}`);
+        wsConnected = false;
+        showConnectionStatus(false);
+        console.log('🔌 Disconnected from real-time updates');
+    }
+} 

@@ -42,10 +42,14 @@ async def _call_next_patient_atomic(service_id: int, db: Session, admin_user: Us
         next_ticket.consultation_end = datetime.utcnow()
         next_ticket.actual_arrival = datetime.utcnow()
         
-        # Update service waiting count
+        # Get service info before updating
         service = db.query(Service).filter(Service.id == service_id).first()
-        if service:
-            service.current_waiting = max(0, service.current_waiting - 1)
+        if not service:
+            return {
+                "success": False,
+                "error": "Service not found",
+                "code": 404
+            }
         
         # Log the action (include admin info if available)
         admin_name = admin_user.full_name if admin_user else "System"
@@ -56,7 +60,10 @@ async def _call_next_patient_atomic(service_id: int, db: Session, admin_user: Us
         )
         db.add(queue_log)
         
-        # Update positions for remaining tickets
+        # Commit the ticket status change first
+        db.commit()
+        
+        # Now update all remaining queue positions in proper order
         remaining_tickets = db.query(Ticket).filter(
             and_(
                 Ticket.service_id == service_id,
@@ -64,34 +71,16 @@ async def _call_next_patient_atomic(service_id: int, db: Session, admin_user: Us
             )
         ).order_by(Ticket.priority.desc(), Ticket.created_at.asc()).all()
         
+        # Update positions and wait times for remaining tickets
+        avg_time_per_patient = service.avg_wait_time if service.avg_wait_time > 0 else 15
         for i, ticket in enumerate(remaining_tickets, 1):
             ticket.position_in_queue = i
-            # Recalculate estimated wait time
-            ticket.estimated_wait_time = (i - 1) * (service.avg_wait_time if service else 15)
+            ticket.estimated_wait_time = (i - 1) * avg_time_per_patient
         
-        # Note: Auto-completion removed to allow proper consultation flow
-        # Tickets should be manually completed by admin when consultation is done
-        auto_completed = False
-
-        # ----------------------------------------------------------------------------------
-        # Ensure that the queue ordering is always recalculated with the same helper used
-        # elsewhere in the codebase.  Even though we already updated `remaining_tickets`
-        # above, we have seen edge-cases where the in-memory update was not reflected
-        # correctly on a different DB session (e.g. when the admin dashboard and the
-        # patient devices hit the API immediately after the commit).  By invoking our
-        # central `_update_queue_positions_after_change` function we guarantee that the
-        # persisted values in the database are fully consistent and that all websocket
-        # notifications are broadcast in a single, canonical way.
-        # ----------------------------------------------------------------------------------
-
-        try:
-            from routers.tickets import _update_queue_positions_after_change  # pylint: disable=import-error, cyclic-import
-            await _update_queue_positions_after_change(service_id, db)
-        except Exception as e:  # pragma: no cover – we do not want to break "call-next" if this fails
-            # Log but swallow any error coming from the helper to keep the main action safe
-            print(f"⚠️  Failed to run queue resync after call-next: {e}")
-
-        # Commit all changes atomically
+        # Update service waiting count
+        service.current_waiting = len(remaining_tickets)
+        
+        # Commit all position updates
         db.commit()
         db.refresh(next_ticket)
         
@@ -105,7 +94,7 @@ async def _call_next_patient_atomic(service_id: int, db: Session, admin_user: Us
                 "service_id": service_id
             })
             
-            # Notify about queue position updates
+            # Notify about queue position updates for ALL remaining tickets
             if remaining_tickets:
                 queue_data = []
                 for ticket in remaining_tickets:
@@ -115,10 +104,23 @@ async def _call_next_patient_atomic(service_id: int, db: Session, admin_user: Us
                         "estimated_wait_time": ticket.estimated_wait_time
                     })
                 
+                # Send general queue update
                 await connection_manager.queue_position_update(str(service_id), {
                     "total_waiting": len(remaining_tickets),
                     "queue": queue_data
                 })
+                
+                # Send individual ticket updates to each patient
+                for ticket in remaining_tickets:
+                    await connection_manager.ticket_status_update(ticket.ticket_number, {
+                        "status": "waiting",
+                        "position": ticket.position_in_queue,
+                        "estimated_wait_time": ticket.estimated_wait_time,
+                        "service_name": service.name,
+                        "message": f"Votre position: {ticket.position_in_queue}" + 
+                                 (f" - C'est votre tour!" if ticket.position_in_queue == 1 else 
+                                  f" - {ticket.estimated_wait_time} min d'attente estimée")
+                    })
         except Exception as e:
             # Don't fail the operation if WebSocket notification fails
             print(f"WebSocket notification failed: {e}")
@@ -127,7 +129,7 @@ async def _call_next_patient_atomic(service_id: int, db: Session, admin_user: Us
             "success": True,
             "ticket": next_ticket,
             "patient_name": next_ticket.patient.full_name,
-            "auto_completed": auto_completed,
+            "auto_completed": False,  # Simplified flow - no auto completion
             "remaining_count": len(remaining_tickets)
         }
 
