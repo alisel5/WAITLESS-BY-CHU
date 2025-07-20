@@ -157,7 +157,7 @@ async def delete_service(
     from models import Ticket, TicketStatus
     active_tickets = db.query(Ticket).filter(
         Ticket.service_id == service_id,
-        Ticket.status.in_([TicketStatus.WAITING, TicketStatus.CONSULTING])
+        Ticket.status == TicketStatus.WAITING
     ).count()
     
     if active_tickets > 0:
@@ -256,10 +256,6 @@ async def get_service_stats(
         Ticket.service_id == service_id,
         Ticket.status == TicketStatus.WAITING
     ).count()
-    consulting_tickets = db.query(Ticket).filter(
-        Ticket.service_id == service_id,
-        Ticket.status == TicketStatus.CONSULTING
-    ).count()
     completed_tickets = db.query(Ticket).filter(
         Ticket.service_id == service_id,
         Ticket.status == TicketStatus.COMPLETED
@@ -270,7 +266,6 @@ async def get_service_stats(
         "service_name": service.name,
         "total_tickets": total_tickets,
         "waiting_tickets": waiting_tickets,
-        "consulting_tickets": consulting_tickets,
         "completed_tickets": completed_tickets,
         "current_waiting": service.current_waiting,
         "avg_wait_time": service.avg_wait_time

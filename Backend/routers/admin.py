@@ -19,9 +19,8 @@ async def get_dashboard_stats(
 ):
     """Get dashboard statistics for admin/staff."""
     try:
-        # Get total waiting tickets (no more consulting status in simplified flow)
+        # Get total waiting tickets
         total_waiting = db.query(Ticket).filter(Ticket.status == TicketStatus.WAITING).count()
-        total_consulting = 0  # No more consulting status
         
         # Get average wait time (in minutes) - using estimated_wait_time instead of wait_time
         avg_wait_time = db.query(func.avg(Ticket.estimated_wait_time)).scalar() or 0
@@ -78,12 +77,11 @@ async def get_dashboard_stats(
         
         return {
             "total_waiting": total_waiting,
-            "total_consulting": total_consulting,
             "avg_wait_time": avg_wait_time,
             "active_services": active_services,
             "today_tickets": today_tickets,
             "long_waiting_alerts": long_waiting,
-            "total_patients": total_waiting + total_consulting,
+            "total_patients": total_waiting,
             "services": services  # Add the services array for the frontend
         }
     except Exception as e:

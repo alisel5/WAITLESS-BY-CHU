@@ -211,16 +211,10 @@ async def send_initial_dashboard_state(websocket: WebSocket, db: Session):
                 Ticket.status == TicketStatus.WAITING
             ).count()
             
-            consulting_count = db.query(Ticket).filter(
-                Ticket.service_id == service.id,
-                Ticket.status == TicketStatus.CONSULTING
-            ).count()
-            
             dashboard_data.append({
                 "service_id": service.id,
                 "service_name": service.name,
                 "waiting_count": waiting_count,
-                "consulting_count": consulting_count,
                 "avg_wait_time": service.avg_wait_time or 15
             })
         

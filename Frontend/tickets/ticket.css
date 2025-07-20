@@ -196,7 +196,7 @@ a {
   color: #6c757d;
 }
 
-.ticket-status.consulting {
+.ticket-status.waiting {
   background: rgba(255, 193, 7, 0.1);
   color: #ffc107;
   animation: pulse 2s infinite;
@@ -636,8 +636,8 @@ a {
   50% { transform: rotateY(180deg); }
 }
 
-/* Consulting Status Styles */
-.consulting-status {
+/* Your Turn Status Styles */
+.your-turn-status {
   text-align: center;
   padding: 2rem;
   background: linear-gradient(135deg, rgba(255, 193, 7, 0.1), rgba(255, 193, 7, 0.05));
@@ -646,30 +646,30 @@ a {
   border: 2px dashed rgba(255, 193, 7, 0.3);
 }
 
-.consulting-message {
+.your-turn-message {
   margin-bottom: 2rem;
 }
 
-.consulting-message i {
+.your-turn-message i {
   font-size: 3rem;
   color: #ffc107;
   margin-bottom: 1rem;
   display: block;
 }
 
-.consulting-message h3 {
+.your-turn-message h3 {
   color: #ffc107;
   font-size: 1.5rem;
   margin-bottom: 1rem;
 }
 
-.consulting-message p {
+.your-turn-message p {
   color: #666;
   font-size: 1.1rem;
   line-height: 1.6;
 }
 
-.consulting-actions {
+.your-turn-actions {
   display: flex;
   gap: 1rem;
   justify-content: center;
@@ -836,7 +836,7 @@ a {
   color: #6c757d;
 }
 
-.history-status.consulting {
+.history-status.waiting {
   background: rgba(255, 193, 7, 0.1);
   color: #ffc107;
 }

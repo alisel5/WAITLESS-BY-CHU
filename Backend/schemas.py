@@ -149,7 +149,6 @@ class QueueStatus(BaseModel):
 # Dashboard schemas
 class DashboardStats(BaseModel):
     total_waiting: int
-    total_consulting: int
     active_services: int
     avg_wait_time: int
     services: List[ServiceResponse]
@@ -213,3 +212,17 @@ class PatientUpdate(BaseModel):
     status: Optional[TicketStatus] = None
     priority: Optional[ServicePriority] = None
     notes: Optional[str] = None 
+
+
+class QueueStatistics(BaseModel):
+    service_id: int
+    service_name: str
+    total_tickets: int
+    waiting_count: int
+    completed_count: int
+    cancelled_count: int
+    avg_wait_time: int
+    priority_breakdown: dict
+    
+    class Config:
+        orm_mode = True 

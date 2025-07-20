@@ -200,7 +200,7 @@ class ConnectionManager:
         
         # Also send specific update to the called patient
         await self.ticket_status_update(ticket_data.get("ticket_number", ""), {
-            "status": "consulting",
+            "status": "completed",
             "message": "C'est votre tour! Présentez-vous au service."
         })
     

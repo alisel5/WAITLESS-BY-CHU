@@ -73,9 +73,9 @@ async function loadUserTickets() {
     if (tickets && tickets.length > 0) {
       ticketsHistory = tickets;
       
-      // Find the most recent active ticket (waiting or consulting)
+      // Find the most recent active ticket (waiting only)
       const activeTicket = tickets.find(ticket => 
-        ticket.status === 'waiting' || ticket.status === 'consulting'
+        ticket.status === 'waiting'
       );
       
       if (activeTicket) {
@@ -163,7 +163,7 @@ async function loadTicketByNumber(ticketNumber) {
         };
         
         // Check if ticket is active before displaying
-        if (currentTicket.status === 'waiting' || currentTicket.status === 'consulting') {
+        if (currentTicket.status === 'waiting') {
           displayCurrentTicket();
         } else {
           // Ticket is completed/cancelled, show empty state
@@ -227,10 +227,10 @@ function displayCurrentTicket() {
     return;
   }
   
-  // Special handling for consulting status
-  if (currentTicket.status === 'consulting') {
-    // Show consulting status with appropriate messaging
-    displayConsultingStatus();
+  // Special handling for position 1 (your turn)
+  if (currentTicket.status === 'waiting' && currentTicket.position_in_queue === 1) {
+    // Show "your turn" status with appropriate messaging
+    displayYourTurnStatus();
     return;
   }
   
@@ -442,8 +442,8 @@ function startCountdownTimer() {
   }, 1000);
 }
 
-// Display consulting status with appropriate messaging
-function displayConsultingStatus() {
+// Display "your turn" status with appropriate messaging
+function displayYourTurnStatus() {
   const mainCard = document.getElementById('mainTicketCard');
   if (!mainCard) return;
   
@@ -451,7 +451,7 @@ function displayConsultingStatus() {
     <div class="ticket-card-header">
       <div class="ticket-number">
         <h2 id="ticketNumber">${currentTicket.ticket_number}</h2>
-        <span class="ticket-status consulting" id="ticketStatus">En consultation</span>
+        <span class="ticket-status waiting" id="ticketStatus">C'est votre tour !</span>
       </div>
       <div class="ticket-qr">
         <div class="qr-code" id="qrCode">
@@ -479,21 +479,17 @@ function displayConsultingStatus() {
       </div>
     </div>
 
-    <div class="consulting-status">
-      <div class="consulting-message">
-        <i class="fas fa-user-md"></i>
-        <h3>Votre consultation est en cours</h3>
-        <p>Veuillez vous présenter au service. Votre ticket a été appelé.</p>
+    <div class="your-turn-status">
+      <div class="your-turn-message">
+        <i class="fas fa-bell"></i>
+        <h3>C'est votre tour !</h3>
+        <p>Présentez-vous au service. Votre ticket a été appelé.</p>
       </div>
       
-      <div class="consulting-actions">
+      <div class="your-turn-actions">
         <button class="action-btn refresh-btn" onclick="refreshTicket()">
           <i class="fas fa-sync-alt"></i>
           Actualiser
-        </button>
-        <button class="action-btn complete-btn" onclick="markAsCompleted()">
-          <i class="fas fa-check"></i>
-          Marquer comme terminé
         </button>
       </div>
     </div>
@@ -564,15 +560,15 @@ async function loadTicketData() {
         if (shouldShowAsDone) {
           console.log('Ticket should be shown as done, clearing display');
           
-          // Check if this was an auto-completion (status changed from consulting to completed)
-          const wasAutoCompleted = ticketStatus.status === 'completed' && 
-                                 currentTicket && 
-                                 currentTicket.status === 'consulting';
+          // Check if this was a completion (status changed from waiting to completed)
+          const wasCompleted = ticketStatus.status === 'completed' && 
+                             currentTicket && 
+                             currentTicket.status === 'waiting';
           
           currentTicket = null;
           
-          if (wasAutoCompleted) {
-            showAutoCompletedState();
+          if (wasCompleted) {
+            showEmptyState();
           } else {
             showEmptyState();
           }
@@ -640,8 +636,6 @@ function getStatusText(status) {
   switch (status) {
     case 'waiting':
       return 'En attente';
-    case 'consulting':
-      return 'En consultation';
     case 'completed':
       return 'Terminé';
     case 'cancelled':
@@ -663,9 +657,9 @@ function renderHistoryList() {
   // Appliquer le filtre
   if (currentFilter !== 'all') {
     if (currentFilter === 'active') {
-      // Filter for active tickets (waiting or consulting)
+      // Filter for active tickets (waiting only)
       filteredTickets = ticketsHistory.filter(ticket => 
-        ticket.status === 'waiting' || ticket.status === 'consulting'
+        ticket.status === 'waiting'
       );
     } else {
       // Filter by specific status
