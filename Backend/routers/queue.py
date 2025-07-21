@@ -125,20 +125,20 @@ async def _call_next_patient_atomic(service_id: int, db: Session, admin_user: Us
                     # Send WhatsApp notification when it's patient's turn (position 1)
                     if ticket.position_in_queue == 1:
                         try:
-                            from whatsapp_service import notify_patient_turn
+                            from headless_whatsapp_service import notify_patient_turn_headless
                             
                             # Get patient info
                             patient = ticket.patient
                             if patient and patient.phone:
-                                # Fire-and-forget notification (non-blocking)
-                                notify_patient_turn(
+                                # Fire-and-forget headless notification (completely isolated)
+                                notify_patient_turn_headless(
                                     phone_number=patient.phone,
                                     patient_name=patient.full_name,
                                     service_name=service.name
                                 )
                         except Exception as e:
                             # Don't fail the operation if WhatsApp notification fails
-                            print(f"WhatsApp notification failed for ticket {ticket.ticket_number}: {e}")
+                            print(f"Headless WhatsApp notification failed for ticket {ticket.ticket_number}: {e}")
         except Exception as e:
             # Don't fail the operation if WebSocket notification fails
             print(f"WebSocket notification failed: {e}")
