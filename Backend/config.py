@@ -32,9 +32,10 @@ class Settings(BaseSettings):
     
     # WhatsApp Notifications
     whatsapp_enabled: bool = True
-    whatsapp_test_mode: bool = False  # Set to True for testing without sending
+    whatsapp_test_mode: bool = True  # Default to True to prevent tab interference
     whatsapp_wait_time: int = 15  # seconds to wait before sending
     whatsapp_country_code: str = "+212"  # Morocco country code
+    whatsapp_prevent_tab_interference: bool = True  # Prevent browser tab interference
     
     class Config:
         env_file = ".env"

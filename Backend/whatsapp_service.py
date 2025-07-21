@@ -52,8 +52,10 @@ WHATSAPP_CONFIG = {
     "wait_time": 15,
     "tab_close": True,
     "country_code": "+212",
-    "test_mode": False,
-    "async_mode": True  # New: Run in background
+    "test_mode": True,  # Default to test mode to prevent tab interference
+    "async_mode": True,  # Run in background
+    "use_browser": False,  # Control browser interaction
+    "prevent_tab_interference": True  # Prevent interference with client tabs
 }
 
 def initialize_from_settings():
@@ -64,9 +66,10 @@ def initialize_from_settings():
             "enabled": settings.whatsapp_enabled,
             "test_mode": settings.whatsapp_test_mode,
             "wait_time": settings.whatsapp_wait_time,
-            "country_code": settings.whatsapp_country_code
+            "country_code": settings.whatsapp_country_code,
+            "prevent_tab_interference": getattr(settings, 'whatsapp_prevent_tab_interference', True)
         })
-        logger.info(f"WhatsApp configuration loaded from settings: enabled={settings.whatsapp_enabled}, test_mode={settings.whatsapp_test_mode}")
+        logger.info(f"WhatsApp configuration loaded from settings: enabled={settings.whatsapp_enabled}, test_mode={settings.whatsapp_test_mode}, prevent_interference={WHATSAPP_CONFIG['prevent_tab_interference']}")
     except ImportError:
         logger.warning("Could not import settings, using default WhatsApp configuration")
 
@@ -139,21 +142,38 @@ def log_notification_attempt(phone_number: str, patient_name: str, service_name:
         logger.info(f"⚠️ WhatsApp DISABLED - Would send to {phone_number} ({patient_name}) - {service_name}")
     elif status == "invalid_phone":
         logger.warning(f"📱 Invalid phone number: {phone_number} for {patient_name} - {service_name}")
+    elif status == "tab_interference_prevention":
+        logger.info(f"🚫 WhatsApp SKIPPED to prevent tab interference - {phone_number} ({patient_name}) - {service_name} - Position {position}")
+        if error:
+            logger.info(f"   Reason: {error}")
 
 def send_whatsapp_in_background(phone_number: str, message: str, patient_name: str, service_name: str, position: int):
     """Send WhatsApp message in a separate thread (non-blocking)"""
     def _send_whatsapp():
         """Internal function to send WhatsApp in background thread"""
         try:
+            # Check if we should prevent browser interference
+            if WHATSAPP_CONFIG.get("prevent_tab_interference", True):
+                # Log that we would send but skip to prevent tab interference
+                log_notification_attempt(
+                    phone_number, patient_name, service_name, position, "tab_interference_prevention",
+                    "Skipped to prevent browser tab interference. Set prevent_tab_interference=False to enable."
+                )
+                return
+            
             # Import pywhatkit only when needed in background thread
             import pywhatkit
             
-            # Send the message
+            # Add delay to minimize interference with client browsing
+            import time
+            time.sleep(2)  # Wait 2 seconds before opening WhatsApp Web
+            
+            # Send the message with modified settings to minimize interference
             pywhatkit.sendwhatmsg_instantly(
                 phone_no=phone_number,
                 message=message,
                 wait_time=WHATSAPP_CONFIG["wait_time"],
-                tab_close=WHATSAPP_CONFIG["tab_close"]
+                tab_close=True  # Always close tab to minimize interference
             )
             
             # Log success
@@ -272,11 +292,39 @@ def set_test_mode(test_mode: bool = True):
     WHATSAPP_CONFIG["test_mode"] = test_mode
     logger.info(f"WhatsApp test mode {'enabled' if test_mode else 'disabled'}")
 
+def enable_real_whatsapp_with_browser_control():
+    """Safely enable real WhatsApp with browser interference protection"""
+    WHATSAPP_CONFIG["test_mode"] = False
+    WHATSAPP_CONFIG["prevent_tab_interference"] = False
+    WHATSAPP_CONFIG["wait_time"] = 20  # Longer wait to reduce interference
+    logger.warning("⚠️ Real WhatsApp enabled - may cause browser tab interference")
+    logger.info("💡 To prevent tab issues: close client browsers or use dedicated server")
+
+def enable_safe_mode():
+    """Enable safe mode that prevents browser tab interference"""
+    WHATSAPP_CONFIG["test_mode"] = True
+    WHATSAPP_CONFIG["prevent_tab_interference"] = True
+    logger.info("🛡️ Safe mode enabled - no browser interference")
+
+def enable_production_mode_with_warning():
+    """Enable production mode with clear warnings about browser interference"""
+    logger.warning("⚠️ ENABLING PRODUCTION WHATSAPP MODE")
+    logger.warning("⚠️ This WILL open and close browser tabs")
+    logger.warning("⚠️ May interfere with client-side browsing")
+    logger.warning("⚠️ Recommended: Use dedicated server browser")
+    
+    WHATSAPP_CONFIG["test_mode"] = False
+    WHATSAPP_CONFIG["prevent_tab_interference"] = False
+    
+    logger.info("✅ Production WhatsApp mode enabled")
+    logger.info("💡 To prevent interference: run backend on separate machine")
+
 def configure_whatsapp(
     enabled: Optional[bool] = None,
     wait_time: Optional[int] = None,
     test_mode: Optional[bool] = None,
-    country_code: Optional[str] = None
+    country_code: Optional[str] = None,
+    prevent_tab_interference: Optional[bool] = None
 ):
     """Configure WhatsApp service parameters"""
     if enabled is not None:
@@ -287,6 +335,8 @@ def configure_whatsapp(
         WHATSAPP_CONFIG["test_mode"] = test_mode
     if country_code is not None:
         WHATSAPP_CONFIG["country_code"] = country_code
+    if prevent_tab_interference is not None:
+        WHATSAPP_CONFIG["prevent_tab_interference"] = prevent_tab_interference
     
     logger.info(f"WhatsApp configuration updated")
 
