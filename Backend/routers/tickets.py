@@ -130,16 +130,16 @@ async def _update_queue_positions_after_change(service_id: int, db: Session):
                 # Send WhatsApp notification when it's patient's turn (position 1)
                 if ticket.position_in_queue == 1:
                     try:
-                        from whatsapp_service import send_whatsapp_notification
+                        from whatsapp_service import notify_patient_turn
                         
                         # Get patient info
                         patient = ticket.patient
                         if patient and patient.phone:
-                            await send_whatsapp_notification(
+                            # Fire-and-forget notification (non-blocking)
+                            notify_patient_turn(
                                 phone_number=patient.phone,
                                 patient_name=patient.full_name,
-                                service_name=service.name if service else "Service",
-                                position=1
+                                service_name=service.name if service else "Service"
                             )
                     except Exception as e:
                         # Don't fail the operation if WhatsApp notification fails

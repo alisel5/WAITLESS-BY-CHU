@@ -1,32 +1,59 @@
 """
 WhatsApp Notification Service for Queue Management
-Sends notifications when it's a patient's turn in the queue
+Non-blocking background notifications with file logging
 """
 
 import re
 import logging
+import json
 from typing import Optional
 import asyncio
 from functools import wraps
+from datetime import datetime
+import threading
+import os
 
-# Lazy import to avoid issues if pywhatkit is not installed
-def _import_pywhatkit():
-    try:
-        import pywhatkit
-        return pywhatkit
-    except ImportError:
-        logging.warning("pywhatkit not installed. WhatsApp notifications disabled.")
-        return None
+# Setup dedicated WhatsApp logger
+def setup_whatsapp_logger():
+    """Setup dedicated logger for WhatsApp notifications"""
+    logger = logging.getLogger('whatsapp_notifications')
+    logger.setLevel(logging.INFO)
+    
+    # Create logs directory if it doesn't exist
+    os.makedirs('logs', exist_ok=True)
+    
+    # File handler for WhatsApp logs
+    file_handler = logging.FileHandler('logs/whatsapp_notifications.log')
+    file_handler.setLevel(logging.INFO)
+    
+    # Console handler for immediate feedback
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.INFO)
+    
+    # Formatter
+    formatter = logging.Formatter(
+        '%(asctime)s - %(levelname)s - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+    file_handler.setFormatter(formatter)
+    console_handler.setFormatter(formatter)
+    
+    # Add handlers
+    logger.addHandler(file_handler)
+    logger.addHandler(console_handler)
+    
+    return logger
 
-logger = logging.getLogger(__name__)
+logger = setup_whatsapp_logger()
 
 # Configuration - will be updated from settings
 WHATSAPP_CONFIG = {
-    "enabled": True,  # Can be controlled via environment variable
-    "wait_time": 15,  # seconds to wait before sending
-    "tab_close": True,  # close WhatsApp web tab after sending
-    "country_code": "+212",  # Morocco country code
-    "test_mode": False  # If True, only logs messages without sending
+    "enabled": True,
+    "wait_time": 15,
+    "tab_close": True,
+    "country_code": "+212",
+    "test_mode": False,
+    "async_mode": True  # New: Run in background
 }
 
 def initialize_from_settings():
@@ -73,9 +100,7 @@ def format_phone_number(phone: str) -> Optional[str]:
         return None
 
 def create_queue_notification_message(patient_name: str, service_name: str, position: int = 1) -> str:
-    """
-    Create a notification message for when it's the patient's turn
-    """
+    """Create a notification message for when it's the patient's turn"""
     if position == 1:
         return (
             f"🏥 Bonjour {patient_name}!\n\n"
@@ -92,19 +117,63 @@ def create_queue_notification_message(patient_name: str, service_name: str, posi
             f"✅ WaitLess CHU - Restez informé(e)"
         )
 
-def handle_whatsapp_errors(func):
-    """Decorator to handle WhatsApp sending errors gracefully"""
-    @wraps(func)
-    async def wrapper(*args, **kwargs):
-        try:
-            return await func(*args, **kwargs)
-        except Exception as e:
-            logger.error(f"WhatsApp notification failed: {str(e)}")
-            # Never raise the exception to avoid affecting the main queue flow
-            return False
-    return wrapper
+def log_notification_attempt(phone_number: str, patient_name: str, service_name: str, position: int, status: str, error: str = None):
+    """Log notification attempt to file"""
+    log_entry = {
+        "timestamp": datetime.now().isoformat(),
+        "phone_number": phone_number,
+        "patient_name": patient_name,
+        "service_name": service_name,
+        "position": position,
+        "status": status,  # "success", "failed", "test_mode", "disabled"
+        "error": error
+    }
+    
+    if status == "success":
+        logger.info(f"✅ WhatsApp sent to {phone_number} ({patient_name}) - {service_name} - Position {position}")
+    elif status == "failed":
+        logger.error(f"❌ WhatsApp failed to {phone_number} ({patient_name}) - {service_name} - Error: {error}")
+    elif status == "test_mode":
+        logger.info(f"🧪 WhatsApp TEST MODE to {phone_number} ({patient_name}) - {service_name} - Position {position}")
+    elif status == "disabled":
+        logger.info(f"⚠️ WhatsApp DISABLED - Would send to {phone_number} ({patient_name}) - {service_name}")
+    elif status == "invalid_phone":
+        logger.warning(f"📱 Invalid phone number: {phone_number} for {patient_name} - {service_name}")
 
-@handle_whatsapp_errors
+def send_whatsapp_in_background(phone_number: str, message: str, patient_name: str, service_name: str, position: int):
+    """Send WhatsApp message in a separate thread (non-blocking)"""
+    def _send_whatsapp():
+        """Internal function to send WhatsApp in background thread"""
+        try:
+            # Import pywhatkit only when needed in background thread
+            import pywhatkit
+            
+            # Send the message
+            pywhatkit.sendwhatmsg_instantly(
+                phone_no=phone_number,
+                message=message,
+                wait_time=WHATSAPP_CONFIG["wait_time"],
+                tab_close=WHATSAPP_CONFIG["tab_close"]
+            )
+            
+            # Log success
+            log_notification_attempt(
+                phone_number, patient_name, service_name, position, "success"
+            )
+            
+        except Exception as e:
+            # Log failure
+            log_notification_attempt(
+                phone_number, patient_name, service_name, position, "failed", str(e)
+            )
+    
+    # Start background thread
+    thread = threading.Thread(target=_send_whatsapp, daemon=True)
+    thread.start()
+    
+    # Return immediately without waiting
+    logger.info(f"🚀 WhatsApp notification queued for {patient_name} ({phone_number})")
+
 async def send_whatsapp_notification(
     phone_number: str, 
     patient_name: str, 
@@ -112,7 +181,7 @@ async def send_whatsapp_notification(
     position: int = 1
 ) -> bool:
     """
-    Send WhatsApp notification when it's patient's turn
+    Queue WhatsApp notification to be sent in background (non-blocking)
     
     Args:
         phone_number: Patient's phone number in any format
@@ -121,75 +190,77 @@ async def send_whatsapp_notification(
         position: Position in queue (1 means it's their turn)
     
     Returns:
-        bool: True if sent successfully, False otherwise
+        bool: True if queued successfully, False otherwise
     """
-    if not WHATSAPP_CONFIG["enabled"]:
-        logger.info("WhatsApp notifications are disabled")
-        return False
-    
-    # Format phone number
-    formatted_phone = format_phone_number(phone_number)
-    if not formatted_phone:
-        logger.warning(f"Invalid phone number format: {phone_number}")
-        return False
-    
-    # Create message
-    message = create_queue_notification_message(patient_name, service_name, position)
-    
-    # Test mode - just log the message
-    if WHATSAPP_CONFIG["test_mode"]:
-        logger.info(f"TEST MODE - Would send WhatsApp to {formatted_phone}: {message}")
-        return True
-    
-    # Import pywhatkit when needed
-    pywhatkit = _import_pywhatkit()
-    if not pywhatkit:
-        logger.error("pywhatkit not available for WhatsApp notifications")
-        return False
-    
     try:
-        # Send WhatsApp message
-        logger.info(f"Sending WhatsApp notification to {formatted_phone} for {patient_name}")
-        
-        # Run pywhatkit in a thread to avoid blocking
-        loop = asyncio.get_event_loop()
-        await loop.run_in_executor(
-            None,
-            lambda: pywhatkit.sendwhatmsg_instantly(
-                phone_no=formatted_phone,
-                message=message,
-                wait_time=WHATSAPP_CONFIG["wait_time"],
-                tab_close=WHATSAPP_CONFIG["tab_close"]
+        if not WHATSAPP_CONFIG["enabled"]:
+            log_notification_attempt(
+                phone_number, patient_name, service_name, position, "disabled"
             )
+            return False
+        
+        # Format phone number
+        formatted_phone = format_phone_number(phone_number)
+        if not formatted_phone:
+            log_notification_attempt(
+                phone_number, patient_name, service_name, position, "invalid_phone"
+            )
+            return False
+        
+        # Create message
+        message = create_queue_notification_message(patient_name, service_name, position)
+        
+        # Test mode - just log the message
+        if WHATSAPP_CONFIG["test_mode"]:
+            log_notification_attempt(
+                formatted_phone, patient_name, service_name, position, "test_mode"
+            )
+            return True
+        
+        # Queue the message to be sent in background
+        send_whatsapp_in_background(
+            formatted_phone, message, patient_name, service_name, position
         )
         
-        logger.info(f"✅ WhatsApp notification sent successfully to {formatted_phone}")
         return True
         
     except Exception as e:
-        logger.error(f"Failed to send WhatsApp to {formatted_phone}: {str(e)}")
+        log_notification_attempt(
+            phone_number, patient_name, service_name, position, "failed", str(e)
+        )
         return False
 
-@handle_whatsapp_errors
-async def send_position_update_notification(
-    phone_number: str,
-    patient_name: str,
-    service_name: str,
-    new_position: int
-) -> bool:
+# Fire-and-forget function for queue integration
+def notify_patient_turn(phone_number: str, patient_name: str, service_name: str):
     """
-    Send position update notification (optional feature)
-    Only sends if position is 1 or 2 to avoid spam
+    Fire-and-forget notification for when it's patient's turn
+    This function returns immediately and doesn't block the queue
     """
-    if new_position > 2:
-        return False  # Don't send for positions > 2
+    if not phone_number or not patient_name:
+        return
     
-    return await send_whatsapp_notification(
-        phone_number=phone_number,
-        patient_name=patient_name,
-        service_name=service_name,
-        position=new_position
-    )
+    # Create async task that runs in background
+    def queue_notification():
+        try:
+            # Create new event loop for this thread
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            
+            # Send notification
+            loop.run_until_complete(
+                send_whatsapp_notification(phone_number, patient_name, service_name, 1)
+            )
+            
+            loop.close()
+        except Exception as e:
+            logger.error(f"Background notification failed: {e}")
+    
+    # Start in daemon thread (won't block main process)
+    thread = threading.Thread(target=queue_notification, daemon=True)
+    thread.start()
+    
+    # Return immediately
+    logger.info(f"📱 Notification queued for {patient_name} at {service_name}")
 
 def enable_whatsapp_notifications(enabled: bool = True):
     """Enable or disable WhatsApp notifications globally"""
@@ -217,7 +288,7 @@ def configure_whatsapp(
     if country_code is not None:
         WHATSAPP_CONFIG["country_code"] = country_code
     
-    logger.info(f"WhatsApp configuration updated: {WHATSAPP_CONFIG}")
+    logger.info(f"WhatsApp configuration updated")
 
 # Test function for development
 async def test_whatsapp_service(phone: str = "0693955230", name: str = "Ahmed Test"):
@@ -233,8 +304,25 @@ async def test_whatsapp_service(phone: str = "0693955230", name: str = "Ahmed Te
     
     print(f"Test result: {result}")
     print(f"Formatted phone: {format_phone_number(phone)}")
+    print(f"Check logs/whatsapp_notifications.log for details")
     return result
+
+# Simple test for the fire-and-forget function
+def test_fire_and_forget(phone: str = "0693955230", name: str = "Ahmed Test"):
+    """Test the fire-and-forget notification"""
+    set_test_mode(True)
+    notify_patient_turn(phone, name, "Cardiologie")
+    print(f"✅ Fire-and-forget notification queued for {name}")
+    print(f"Check logs/whatsapp_notifications.log for results")
 
 if __name__ == "__main__":
     # Test the service when run directly
+    print("Testing fire-and-forget notification...")
+    test_fire_and_forget()
+    
+    # Wait a moment for background processing
+    import time
+    time.sleep(2)
+    
+    print("\nTesting async notification...")
     asyncio.run(test_whatsapp_service())
