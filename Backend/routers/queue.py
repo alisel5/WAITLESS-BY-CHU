@@ -121,6 +121,24 @@ async def _call_next_patient_atomic(service_id: int, db: Session, admin_user: Us
                                  (f" - C'est votre tour!" if ticket.position_in_queue == 1 else 
                                   f" - {ticket.estimated_wait_time} min d'attente estimée")
                     })
+                    
+                    # Send WhatsApp notification when it's patient's turn (position 1)
+                    if ticket.position_in_queue == 1:
+                        try:
+                            from whatsapp_service import send_whatsapp_notification
+                            
+                            # Get patient info
+                            patient = ticket.patient
+                            if patient and patient.phone:
+                                await send_whatsapp_notification(
+                                    phone_number=patient.phone,
+                                    patient_name=patient.full_name,
+                                    service_name=service.name,
+                                    position=1
+                                )
+                        except Exception as e:
+                            # Don't fail the operation if WhatsApp notification fails
+                            print(f"WhatsApp notification failed for ticket {ticket.ticket_number}: {e}")
         except Exception as e:
             # Don't fail the operation if WebSocket notification fails
             print(f"WebSocket notification failed: {e}")

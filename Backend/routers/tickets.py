@@ -127,6 +127,24 @@ async def _update_queue_positions_after_change(service_id: int, db: Session):
                               f" - {ticket.estimated_wait_time} min d'attente estimée")
                 })
                 
+                # Send WhatsApp notification when it's patient's turn (position 1)
+                if ticket.position_in_queue == 1:
+                    try:
+                        from whatsapp_service import send_whatsapp_notification
+                        
+                        # Get patient info
+                        patient = ticket.patient
+                        if patient and patient.phone:
+                            await send_whatsapp_notification(
+                                phone_number=patient.phone,
+                                patient_name=patient.full_name,
+                                service_name=service.name if service else "Service",
+                                position=1
+                            )
+                    except Exception as e:
+                        # Don't fail the operation if WhatsApp notification fails
+                        print(f"WhatsApp notification failed for ticket {ticket.ticket_number}: {e}")
+                
         except ImportError:
             # websocket_manager not available, skip notifications
             pass

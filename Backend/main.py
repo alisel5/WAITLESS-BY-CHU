@@ -14,6 +14,13 @@ from routers import tickets_enhanced
 # Create database tables
 Base.metadata.create_all(bind=engine)
 
+# Initialize WhatsApp service
+try:
+    from whatsapp_service import initialize_from_settings
+    initialize_from_settings()
+except ImportError as e:
+    print(f"Warning: WhatsApp service not available: {e}")
+
 # Initialize FastAPI app
 app = FastAPI(
     title=settings.app_name,

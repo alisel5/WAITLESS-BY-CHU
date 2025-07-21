@@ -30,6 +30,12 @@ class Settings(BaseSettings):
     app_name: str = "WaitLess CHU API"
     debug: bool = True
     
+    # WhatsApp Notifications
+    whatsapp_enabled: bool = True
+    whatsapp_test_mode: bool = False  # Set to True for testing without sending
+    whatsapp_wait_time: int = 15  # seconds to wait before sending
+    whatsapp_country_code: str = "+212"  # Morocco country code
+    
     class Config:
         env_file = ".env"
 
