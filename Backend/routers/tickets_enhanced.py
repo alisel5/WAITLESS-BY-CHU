@@ -106,7 +106,7 @@ async def scan_to_join_queue(
             detail="Service not found"
         )
     
-    if service.status.value != "active":
+    if service.status.value not in ["active", "emergency"]:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Service is not currently active"

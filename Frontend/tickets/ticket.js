@@ -79,7 +79,16 @@ async function loadUserTickets() {
       );
       
       if (activeTicket) {
-        currentTicket = activeTicket;
+        // Ensure service_name is properly set from the service object
+        const serviceName = activeTicket.service?.name || activeTicket.service_name || 'Service inconnu';
+        currentTicket = {
+          ...activeTicket,
+          service_name: serviceName
+        };
+        
+        // Debug logging for service name from loadUserTickets
+        console.log('Service name from loadUserTickets:', serviceName, 'from service object:', activeTicket.service);
+        
         displayCurrentTicket();
       } else {
         // No active tickets, show empty state
@@ -263,6 +272,9 @@ function displayCurrentTicket() {
       serviceDisplay = 'Service inconnu';
     }
     serviceName.textContent = serviceDisplay;
+    
+    // Debug logging for service display
+    console.log('Displaying service name:', serviceDisplay, 'from ticket:', currentTicket.service_name, 'ticket object:', currentTicket);
   }
   
   if (ticketType) ticketType.textContent = 'Standard';
@@ -547,14 +559,23 @@ async function loadTicketData() {
         // Check if ticket should be considered done based on backend logic
         const shouldShowAsDone = ticketStatus.should_show_as_done;
         
+        // Preserve existing service_name if it's already set correctly and the new one is "Unknown"
+        const newServiceName = ticketStatus.service_name;
+        const shouldPreserveServiceName = currentTicket.service_name && 
+                                        currentTicket.service_name !== 'Service inconnu' && 
+                                        newServiceName === 'Unknown';
+        
         currentTicket = {
           ...currentTicket,
           status: ticketStatus.status,
           position_in_queue: ticketStatus.position_in_queue,
           estimated_wait_time: ticketStatus.estimated_wait_time,
           service_id: ticketStatus.service_id,
-          service_name: ticketStatus.service_name
+          service_name: shouldPreserveServiceName ? currentTicket.service_name : newServiceName
         };
+        
+        // Debug logging for service name
+        console.log('Updated ticket service name:', currentTicket.service_name, 'preserved:', shouldPreserveServiceName);
         
         // If ticket should be shown as done, clear it and show appropriate state
         if (shouldShowAsDone) {
@@ -594,12 +615,22 @@ async function loadTicketData() {
       if (currentTicket) {
         const updatedTicket = await apiClient.scanQR(currentTicket.ticket_number);
         if (updatedTicket && updatedTicket.type === 'ticket_status') {
+          // Preserve existing service_name if it's already set correctly and the new one is "Unknown Service"
+          const newServiceName = updatedTicket.service_name;
+          const shouldPreserveServiceName = currentTicket.service_name && 
+                                          currentTicket.service_name !== 'Service inconnu' && 
+                                          newServiceName === 'Unknown Service';
+          
           currentTicket = {
             ...currentTicket,
             status: updatedTicket.status,
             position_in_queue: updatedTicket.position_in_queue,
-            estimated_wait_time: updatedTicket.estimated_wait_time
+            estimated_wait_time: updatedTicket.estimated_wait_time,
+            service_name: shouldPreserveServiceName ? currentTicket.service_name : newServiceName
           };
+          
+          // Debug logging for service name in fallback
+          console.log('Updated ticket service name (fallback):', currentTicket.service_name, 'preserved:', shouldPreserveServiceName);
           displayCurrentTicket();
         }
       }
@@ -825,7 +856,9 @@ async function refreshTicketData() {
     APIUtils.showNotification('Actualisation des données...', 'info');
     await loadTicketData();
     
-    if (apiClient.isAuthenticated()) {
+    // Only reload user tickets if we don't have a current ticket
+    // This prevents overwriting the service name that was correctly set by loadTicketData
+    if (apiClient.isAuthenticated() && !currentTicket) {
       await loadUserTickets();
     }
     

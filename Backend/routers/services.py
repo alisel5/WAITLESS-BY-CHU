@@ -75,7 +75,7 @@ async def get_service_qr_code(service_id: int, db: Session = Depends(get_db)):
             detail="Service not found"
         )
     
-    if service.status.value != "active":
+    if service.status.value not in ["active", "emergency"]:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Cannot generate QR code for inactive service"
@@ -173,17 +173,21 @@ async def delete_service(
 
 @router.get("/active/list", response_model=List[ServiceResponse])
 async def get_active_services(db: Session = Depends(get_db)):
-    """Get all active services."""
+    """Get all active services (including emergency services)."""
     from models import ServiceStatus
-    services = db.query(Service).filter(Service.status == ServiceStatus.ACTIVE).all()
+    services = db.query(Service).filter(
+        Service.status.in_([ServiceStatus.ACTIVE, ServiceStatus.EMERGENCY])
+    ).all()
     return services
 
 
 @router.get("/active/with-qr")
 async def get_active_services_with_qr(db: Session = Depends(get_db)):
-    """Get all active services with their QR codes."""
+    """Get all active services with their QR codes (including emergency services)."""
     from models import ServiceStatus
-    services = db.query(Service).filter(Service.status == ServiceStatus.ACTIVE).all()
+    services = db.query(Service).filter(
+        Service.status.in_([ServiceStatus.ACTIVE, ServiceStatus.EMERGENCY])
+    ).all()
     
     services_with_qr = []
     for service in services:

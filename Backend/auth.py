@@ -85,6 +85,33 @@ def get_current_active_user(current_user: User = Depends(get_current_user)) -> U
     return current_user
 
 
+def get_current_user_optional(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
+    db: Session = Depends(get_db)
+) -> Optional[User]:
+    """Get current user if authenticated, otherwise return None."""
+    if not credentials:
+        return None
+    
+    try:
+        payload = verify_token(credentials.credentials)
+        if payload is None:
+            return None
+            
+        email: str = payload.get("sub")
+        if email is None:
+            return None
+            
+    except JWTError:
+        return None
+    
+    user = db.query(User).filter(User.email == email).first()
+    if user is None or not user.is_active:
+        return None
+    
+    return user
+
+
 def get_admin_user(current_user: User = Depends(get_current_active_user)) -> User:
     """Get current admin user."""
     if current_user.role != UserRole.ADMIN:

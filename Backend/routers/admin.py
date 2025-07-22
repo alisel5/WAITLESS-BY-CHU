@@ -28,8 +28,10 @@ async def get_dashboard_stats(
         avg_wait_time = db.query(func.avg(Ticket.estimated_wait_time)).scalar() or 0
         avg_wait_time = int(avg_wait_time) if avg_wait_time else 0
         
-        # Get active services count
-        active_services = db.query(Service).filter(Service.status == ServiceStatus.ACTIVE).count()
+        # Get active services count (including emergency services)
+        active_services = db.query(Service).filter(
+            Service.status.in_([ServiceStatus.ACTIVE, ServiceStatus.EMERGENCY])
+        ).count()
         
         # Get today's tickets
         today = datetime.now().date()
@@ -45,8 +47,10 @@ async def get_dashboard_stats(
             )
         ).count()
         
-        # Get active services with their queue information for the frontend
-        active_services_data = db.query(Service).filter(Service.status == ServiceStatus.ACTIVE).all()
+        # Get active services with their queue information for the frontend (including emergency services)
+        active_services_data = db.query(Service).filter(
+            Service.status.in_([ServiceStatus.ACTIVE, ServiceStatus.EMERGENCY])
+        ).all()
         services = []
         
         for service in active_services_data:

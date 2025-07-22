@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="acceuil.css" />
   <link rel="stylesheet" href="../shared/api.css" />
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
 </head>
 <body>
 
@@ -24,6 +25,105 @@
         <li><a href="#contact">Contact</a></li>
       </ul>
     </nav>
+    <!-- Account Button - Hidden by default, shown when logged in -->
+    <div class="account-section" id="accountSection" style="display: none;">
+      <button class="account-btn" onclick="toggleAccountMenu()">
+        <div class="account-avatar">
+          <i class="fas fa-user"></i>
+        </div>
+        <span class="account-name" id="accountName">Mon Compte</span>
+        <i class="fas fa-chevron-down account-arrow"></i>
+      </button>
+      <div class="account-dropdown" id="accountDropdown">
+        <div class="dropdown-header">
+          <div class="user-info">
+            <div class="user-avatar">
+              <i class="fas fa-user"></i>
+            </div>
+            <div class="user-details">
+              <span class="user-name" id="dropdownUserName">Nom d'utilisateur</span>
+              <span class="user-role" id="dropdownUserRole">Patient</span>
+            </div>
+          </div>
+        </div>
+        <div class="dropdown-divider"></div>
+        <div class="dropdown-menu" id="dropdownMenu">
+          <!-- Patient Menu Items (default) -->
+          <div class="menu-section" id="patientMenu">
+            <a href="../tickets/ticket.html" class="dropdown-item">
+              <i class="fas fa-ticket-alt"></i>
+              Mes Tickets
+            </a>
+            <a href="../qr code/qr.html" class="dropdown-item">
+              <i class="fas fa-qrcode"></i>
+              Scanner QR
+            </a>
+          </div>
+          
+          <!-- Admin Menu Items -->
+          <div class="menu-section" id="adminMenu" style="display: none;">
+            <a href="../dashboard/dashboard.html" class="dropdown-item">
+              <i class="fas fa-chart-line"></i>
+              Tableau de Bord
+            </a>
+            <a href="../services/services.html" class="dropdown-item">
+              <i class="fas fa-hospital"></i>
+              Gestion Services
+            </a>
+            <a href="../staff/staff.html" class="dropdown-item">
+              <i class="fas fa-users-cog"></i>
+              Gestion Personnel
+            </a>
+            <a href="../patients/patients.html" class="dropdown-item">
+              <i class="fas fa-user-injured"></i>
+              Gestion Patients
+            </a>
+            <a href="../qr-display/qr-display.html" class="dropdown-item">
+              <i class="fas fa-qrcode"></i>
+              Affichage QR
+            </a>
+            <a href="../reports/reports.html" class="dropdown-item">
+              <i class="fas fa-chart-bar"></i>
+              Rapports
+            </a>
+            <a href="../chatbot/admin-chatbot.html" class="dropdown-item">
+              <i class="fas fa-robot"></i>
+              Assistant IA Admin
+            </a>
+          </div>
+          
+          <!-- Secretary Menu Items -->
+          <div class="menu-section" id="secretaryMenu" style="display: none;">
+            <a href="../secretary/secretary.html" class="dropdown-item">
+              <i class="fas fa-clipboard-list"></i>
+              Gestion File d'Attente
+            </a>
+            <a href="../patients/patients.html" class="dropdown-item">
+              <i class="fas fa-user-injured"></i>
+              Gestion Patients
+            </a>
+          </div>
+          
+          <!-- Doctor Menu Items -->
+          <div class="menu-section" id="doctorMenu" style="display: none;">
+            <a href="../secretary/secretary.html" class="dropdown-item">
+              <i class="fas fa-stethoscope"></i>
+              Mes Consultations
+            </a>
+            <a href="../patients/patients.html" class="dropdown-item">
+              <i class="fas fa-user-injured"></i>
+              Mes Patients
+            </a>
+          </div>
+          
+          <div class="dropdown-divider"></div>
+          <button class="dropdown-item logout-btn" onclick="handleLogout()">
+            <i class="fas fa-sign-out-alt"></i>
+            Déconnexion
+          </button>
+        </div>
+      </div>
+    </div>
   </header>
   <section id="home" class="hero">
     <video autoplay muted loop playsinline class="hero-video">
@@ -105,6 +205,8 @@
   </footer>
 
   <script src="../shared/api.js"></script>
+  <script src="../shared/permissions.js"></script>
+  <script src="../shared/access-control.js"></script>
   <script src="acceuil.js"></script>
 </body>
 </html>

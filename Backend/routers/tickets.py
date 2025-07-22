@@ -153,7 +153,7 @@ async def create_ticket(
             detail="Service not found"
         )
     
-    if service.status.value != "active":
+    if service.status.value not in ["active", "emergency"]:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Service is not currently active"
@@ -246,7 +246,7 @@ async def join_queue_online(ticket_data: TicketJoinOnline, db: Session = Depends
             detail="Service not found"
         )
     
-    if service.status.value != "active":
+    if service.status.value not in ["active", "emergency"]:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Service is not currently active"
@@ -372,7 +372,7 @@ async def scan_to_join_queue(
             detail="Service not found"
         )
     
-    if service.status.value != "active":
+    if service.status.value not in ["active", "emergency"]:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Service is not currently active"
@@ -502,7 +502,7 @@ async def scan_qr_code(qr_data: QRCodeScan, db: Session = Depends(get_db)):
                     pass
             
             # Validate service is active
-            if service.status.value != "active":
+            if service.status.value not in ["active", "emergency"]:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Service is not currently active"

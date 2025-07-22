@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Assistant CHU - WaitLess</title>
+  <link rel="stylesheet" href="chatbot.css" />
+  <link rel="stylesheet" href="../shared/api.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+</head>
+<body>
+
+  <!-- NAVBAR -->
+  <header class="navbar">
+    <div class="logo">
+      <img src="../Acceuil/public/logofinal.png" alt="WaitLess Logo" class="logo-img">
+    </div>
+    <nav>
+      <ul>
+        <li><a href="../Acceuil/acceuil.html">Accueil</a></li>
+        <li><a href="chatbot.html" class="active">Assistant CHU</a></li>
+        <li><a href="../services/services.html">Services</a></li>
+        <li><a href="../qr code/qr.html">Scanner QR</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <div class="chatbot-container">
+    <!-- Chat Header -->
+    <div class="chat-header">
+      <div class="assistant-info">
+        <div class="assistant-avatar">
+          <i class="fas fa-robot"></i>
+        </div>
+        <div class="assistant-details">
+          <h2>Assistant CHU</h2>
+          <p class="status" id="assistantStatus">En ligne - Prêt à vous aider</p>
+        </div>
+      </div>
+      <div class="chat-actions">
+        <button class="action-btn" onclick="toggleChatHistory()" title="Historique">
+          <i class="fas fa-history"></i>
+        </button>
+        <button class="action-btn" onclick="clearChat()" title="Nouvelle conversation">
+          <i class="fas fa-refresh"></i>
+        </button>
+        <button class="action-btn minimize-btn" onclick="minimizeChat()" title="Réduire">
+          <i class="fas fa-minus"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Chat Messages Area -->
+    <div class="chat-messages" id="chatMessages">
+      <div class="welcome-message">
+        <div class="assistant-avatar">
+          <i class="fas fa-robot"></i>
+        </div>
+        <div class="message-content">
+          <div class="welcome-text">
+            <h3>👋 Bonjour ! Je suis votre assistant CHU</h3>
+            <p>Je suis là pour vous aider à naviguer dans l'hôpital et trouver le bon service pour vos besoins.</p>
+            <div class="quick-actions">
+              <button class="quick-btn" onclick="sendQuickMessage('Je ne sais pas quel service choisir')">
+                🏥 Orientation médicale
+              </button>
+              <button class="quick-btn" onclick="sendQuickMessage('Comment ça marche la file d\'attente ?')">
+                ⏱️ File d'attente
+              </button>
+              <button class="quick-btn" onclick="sendQuickMessage('Où se trouve le service de cardiologie ?')">
+                📍 Localisation
+              </button>
+              <button class="quick-btn" onclick="sendQuickMessage('En cas d\'urgence que faire ?')">
+                🚨 Urgences
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Typing Indicator -->
+    <div class="typing-indicator" id="typingIndicator" style="display: none;">
+      <div class="assistant-avatar">
+        <i class="fas fa-robot"></i>
+      </div>
+      <div class="typing-dots">
+        <span></span>
+        <span></span>
+        <span></span>
+      </div>
+    </div>
+
+    <!-- Chat Input -->
+    <div class="chat-input-area">
+      <div class="input-container">
+        <input 
+          type="text" 
+          id="chatInput" 
+          placeholder="Tapez votre message ici..." 
+          maxlength="500"
+          onkeypress="handleKeyPress(event)"
+        />
+        <button class="send-btn" id="sendBtn" onclick="sendMessage()">
+          <i class="fas fa-paper-plane"></i>
+        </button>
+      </div>
+      <div class="input-footer">
+        <span class="char-counter" id="charCounter">0/500</span>
+        <span class="powered-by">Propulsé par DeepSeek AI</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Chat History Sidebar -->
+  <div class="chat-history-sidebar" id="chatHistorySidebar">
+    <div class="sidebar-header">
+      <h3>Historique des conversations</h3>
+      <button class="close-sidebar" onclick="toggleChatHistory()">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+    <div class="sidebar-content" id="historyContent">
+      <p class="no-history">Aucun historique disponible</p>
+    </div>
+  </div>
+
+  <!-- Overlay -->
+  <div class="overlay" id="overlay" onclick="toggleChatHistory()"></div>
+
+  <!-- Success/Error Messages -->
+  <div id="messageContainer" class="message-container"></div>
+
+  <!-- Scripts -->
+  <script src="../shared/api.js"></script>
+  <script src="../shared/loading-manager.js"></script>
+  <script src="../shared/message-manager.js"></script>
+  <script src="chatbot.js"></script>
+
+
+  <script src="../shared/permissions.js"></script>
+  <script src="../shared/access-control.js"></script>
+</body>
+</html>

@@ -30,6 +30,11 @@ class Settings(BaseSettings):
     app_name: str = "WaitLess CHU API"
     debug: bool = True
     
+    # Chatbot - OpenRouter API (free DeepSeek model)
+    openrouter_api_key: str = "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"
+    openrouter_base_url: str = "https://openrouter.ai/api/v1"
+    openrouter_model: str = "deepseek/deepseek-chat-v3-0324:free"
+    
     class Config:
         env_file = ".env"
 

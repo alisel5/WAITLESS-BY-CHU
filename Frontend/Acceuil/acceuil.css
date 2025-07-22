@@ -43,6 +43,220 @@
     color: #d0e7ff;
   }
   
+  /* Account Button Styles */
+  .account-section {
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+  
+  .account-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 25px;
+    padding: 0.5rem 1rem;
+    color: white;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
+  }
+  
+  .account-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.3);
+    transform: translateY(-1px);
+  }
+  
+  .account-avatar {
+    width: 32px;
+    height: 32px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+  }
+  
+  .account-name {
+    font-weight: 500;
+    font-size: 0.9rem;
+  }
+  
+  .account-arrow {
+    font-size: 12px;
+    transition: transform 0.3s ease;
+  }
+  
+  .account-btn.active .account-arrow {
+    transform: rotate(180deg);
+  }
+  
+  /* Dropdown Styles */
+  .account-dropdown {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 0.5rem;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+    min-width: 280px;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-10px);
+    transition: all 0.3s ease;
+    z-index: 1000;
+  }
+  
+  .account-dropdown.show {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+  }
+  
+  .dropdown-header {
+    padding: 1rem;
+    background: linear-gradient(135deg, #4A90E2, #357ABD);
+    border-radius: 12px 12px 0 0;
+    color: white;
+  }
+  
+  .user-info {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  
+  .user-avatar {
+    width: 40px;
+    height: 40px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+  }
+  
+  .user-details {
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .user-name {
+    font-weight: 600;
+    font-size: 0.95rem;
+  }
+  
+  .user-role {
+    font-size: 0.8rem;
+    opacity: 0.9;
+    text-transform: capitalize;
+  }
+  
+  .dropdown-divider {
+    height: 1px;
+    background: #e1e5e9;
+    margin: 0.5rem 0;
+  }
+  
+  .dropdown-menu {
+    padding: 0.5rem 0;
+  }
+  
+  .menu-section {
+    padding: 0.25rem 0;
+  }
+  
+  .dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    color: #333;
+    text-decoration: none;
+    transition: background-color 0.2s ease;
+    border: none;
+    background: none;
+    width: 100%;
+    text-align: left;
+    cursor: pointer;
+    font-size: 0.9rem;
+  }
+  
+  .dropdown-item:hover {
+    background: #f8f9fa;
+  }
+  
+  .dropdown-item i {
+    width: 16px;
+    color: #6c757d;
+  }
+  
+  .logout-btn {
+    color: #dc3545 !important;
+  }
+  
+  .logout-btn:hover {
+    background: #fff5f5 !important;
+  }
+  
+  .logout-btn i {
+    color: #dc3545 !important;
+  }
+  
+  /* Mobile Responsive */
+  @media (max-width: 768px) {
+    .navbar {
+      padding: 0.5rem;
+    }
+    
+    .navbar ul {
+      gap: 1rem;
+    }
+    
+    .navbar ul li a {
+      font-size: 0.9rem;
+    }
+    
+    .account-btn {
+      padding: 0.4rem 0.8rem;
+    }
+    
+    .account-name {
+      display: none; /* Hide name on mobile, show only avatar */
+    }
+    
+    .account-dropdown {
+      right: -1rem;
+      min-width: 260px;
+    }
+    
+    .dropdown-item {
+      padding: 0.6rem 0.8rem;
+      font-size: 0.85rem;
+    }
+  }
+  
+  @media (max-width: 480px) {
+    .navbar ul {
+      gap: 0.5rem;
+    }
+    
+    .navbar ul li a {
+      font-size: 0.8rem;
+    }
+    
+    .account-dropdown {
+      right: -2rem;
+      min-width: 240px;
+    }
+  }
+  
   .hero {
     position: relative;
     height: 100vh;

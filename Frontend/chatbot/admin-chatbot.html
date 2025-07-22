@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Assistant Administratif - WaitLess CHU</title>
+  <link rel="stylesheet" href="chatbot.css" />
+  <link rel="stylesheet" href="admin-chatbot.css" />
+  <link rel="stylesheet" href="../shared/api.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+</head>
+<body>
+
+  <!-- NAVBAR -->
+  <header class="navbar">
+    <div class="logo">
+      <img src="../Acceuil/public/logofinal.png" alt="WaitLess Logo" class="logo-img">
+    </div>
+    <nav>
+      <ul>
+        <li><a href="../Acceuil/acceuil.html">Accueil</a></li>
+        <li><a href="../dashboard/dashboard.html">Dashboard</a></li>
+        <li><a href="admin-chatbot.html" class="active">Assistant IA</a></li>
+        <li><a href="../staff/staff.html">Personnel</a></li>
+        <li><a href="../services/services.html">Services</a></li>
+        <li><a href="../patients/patients.html">Patients</a></li>
+        <li><a href="../reports/reports.html">Rapports</a></li>
+        <li><a href="#" onclick="handleLogout()" style="color: #ff6b6b;">Déconnexion</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <div class="admin-chatbot-layout">
+    <!-- System Stats Sidebar -->
+    <div class="stats-sidebar">
+      <div class="stats-header">
+        <h3><i class="fas fa-chart-line"></i> État du Système</h3>
+        <button class="refresh-stats" onclick="refreshSystemStats()" title="Actualiser">
+          <i class="fas fa-sync-alt"></i>
+        </button>
+      </div>
+      
+      <div class="stats-content" id="systemStats">
+        <div class="stat-item">
+          <div class="stat-icon patients">
+            <i class="fas fa-users"></i>
+          </div>
+          <div class="stat-info">
+            <span class="stat-label">Patients en attente</span>
+            <span class="stat-value" id="totalWaiting">--</span>
+          </div>
+        </div>
+        
+        <div class="stat-item">
+          <div class="stat-icon services">
+            <i class="fas fa-hospital"></i>
+          </div>
+          <div class="stat-info">
+            <span class="stat-label">Services actifs</span>
+            <span class="stat-value" id="activeServices">--</span>
+          </div>
+        </div>
+        
+        <div class="stat-item">
+          <div class="stat-icon time">
+            <i class="fas fa-clock"></i>
+          </div>
+          <div class="stat-info">
+            <span class="stat-label">Temps d'attente moyen</span>
+            <span class="stat-value" id="avgWaitTime">-- min</span>
+          </div>
+        </div>
+        
+        <div class="stat-item">
+          <div class="stat-icon tickets">
+            <i class="fas fa-ticket-alt"></i>
+          </div>
+          <div class="stat-info">
+            <span class="stat-label">Tickets aujourd'hui</span>
+            <span class="stat-value" id="todayTickets">--</span>
+          </div>
+        </div>
+      </div>
+      
+      <div class="quick-actions-admin">
+        <h4>Actions rapides</h4>
+        <button class="admin-quick-btn" onclick="sendQuickMessage('Résumez l\'activité d\'aujourd\'hui')">
+          📊 Résumé quotidien
+        </button>
+        <button class="admin-quick-btn" onclick="sendQuickMessage('Quels services ont le plus d\'attente ?')">
+          ⏱️ Services surchargés
+        </button>
+        <button class="admin-quick-btn" onclick="sendQuickMessage('Générez un rapport de performance')">
+          📈 Rapport performance
+        </button>
+        <button class="admin-quick-btn" onclick="sendQuickMessage('Comment optimiser les temps d\'attente ?')">
+          🔧 Optimisations
+        </button>
+        <button class="admin-quick-btn" onclick="sendQuickMessage('Y a-t-il des alertes importantes ?')">
+          🚨 Alertes système
+        </button>
+      </div>
+    </div>
+
+    <!-- Main Chat Area -->
+    <div class="chatbot-container admin-chat">
+      <!-- Chat Header -->
+      <div class="chat-header admin-header">
+        <div class="assistant-info">
+          <div class="assistant-avatar admin-avatar">
+            <i class="fas fa-brain"></i>
+          </div>
+          <div class="assistant-details">
+            <h2>Assistant Administratif IA</h2>
+            <p class="status" id="assistantStatus">En ligne - Analyse en cours...</p>
+          </div>
+        </div>
+        <div class="chat-actions">
+          <button class="action-btn" onclick="toggleChatHistory()" title="Historique">
+            <i class="fas fa-history"></i>
+          </button>
+          <button class="action-btn" onclick="exportConversation()" title="Exporter">
+            <i class="fas fa-download"></i>
+          </button>
+          <button class="action-btn" onclick="clearChat()" title="Nouvelle session">
+            <i class="fas fa-refresh"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Chat Messages Area -->
+      <div class="chat-messages" id="chatMessages">
+        <div class="welcome-message admin-welcome">
+          <div class="assistant-avatar admin-avatar">
+            <i class="fas fa-brain"></i>
+          </div>
+          <div class="message-content">
+            <div class="welcome-text">
+              <h3>🧠 Assistant Administratif Intelligent</h3>
+              <p>Je suis votre assistant IA spécialisé dans l'analyse des données hospitalières et l'optimisation opérationnelle.</p>
+              <div class="admin-capabilities">
+                <div class="capability">
+                  <i class="fas fa-chart-bar"></i>
+                  <span>Analyse des performances</span>
+                </div>
+                <div class="capability">
+                  <i class="fas fa-users-cog"></i>
+                  <span>Gestion des files d'attente</span>
+                </div>
+                <div class="capability">
+                  <i class="fas fa-lightbulb"></i>
+                  <span>Recommandations d'optimisation</span>
+                </div>
+                <div class="capability">
+                  <i class="fas fa-exclamation-triangle"></i>
+                  <span>Détection d'anomalies</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Typing Indicator -->
+      <div class="typing-indicator" id="typingIndicator" style="display: none;">
+        <div class="assistant-avatar admin-avatar">
+          <i class="fas fa-brain"></i>
+        </div>
+        <div class="typing-dots">
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+      </div>
+
+      <!-- Chat Input -->
+      <div class="chat-input-area">
+        <div class="input-container">
+          <input 
+            type="text" 
+            id="chatInput" 
+            placeholder="Posez votre question administrative ou demandez une analyse..." 
+            maxlength="500"
+            onkeypress="handleKeyPress(event)"
+          />
+          <button class="send-btn" id="sendBtn" onclick="sendMessage()">
+            <i class="fas fa-paper-plane"></i>
+          </button>
+        </div>
+        <div class="input-footer">
+          <span class="char-counter" id="charCounter">0/500</span>
+          <span class="powered-by">IA Administrative - DeepSeek</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Chat History Sidebar -->
+  <div class="chat-history-sidebar" id="chatHistorySidebar">
+    <div class="sidebar-header">
+      <h3>Historique des Sessions</h3>
+      <button class="close-sidebar" onclick="toggleChatHistory()">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+    <div class="sidebar-content" id="historyContent">
+      <p class="no-history">Aucun historique disponible</p>
+    </div>
+  </div>
+
+  <!-- Overlay -->
+  <div class="overlay" id="overlay" onclick="toggleChatHistory()"></div>
+
+  <!-- Success/Error Messages -->
+  <div id="messageContainer" class="message-container"></div>
+
+  <!-- Scripts -->
+  <script src="../shared/api.js"></script>
+  <script src="../shared/loading-manager.js"></script>
+  <script src="../shared/message-manager.js"></script>
+  <script src="chatbot.js"></script>
+  <script src="admin-chatbot.js"></script>
+
+
+  <script src="../shared/permissions.js"></script>
+  <script src="../shared/access-control.js"></script>
+</body>
+</html>
