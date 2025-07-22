@@ -8,7 +8,7 @@ from config import settings
 import uvicorn
 
 # Import routers
-from routers import auth, services, tickets, queue, admin, websocket
+from routers import auth, services, tickets, queue, admin, websocket, chatbot
 from routers import tickets_enhanced
 
 # Create database tables
@@ -38,6 +38,7 @@ app.include_router(services.router, prefix="/api/services", tags=["Services"])
 app.include_router(tickets.router, prefix="/api/tickets", tags=["Tickets"])
 app.include_router(queue.router, prefix="/api/queue", tags=["Queue"])
 app.include_router(admin.router, prefix="/api/admin", tags=["Admin"])
+app.include_router(chatbot.router, prefix="/api/chatbot", tags=["Chatbot"])
 
 # Include enhanced QR features
 app.include_router(tickets_enhanced.router, prefix="/api/tickets-qr", tags=["QR Features"])

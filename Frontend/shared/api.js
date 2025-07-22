@@ -455,6 +455,58 @@ const APIUtils = {
         
         // Return function to stop tracking
         return () => clearInterval(intervalId);
+    },
+
+    // ===== CHATBOT API METHODS =====
+    
+    // Send message to patient chatbot
+    async sendPatientChatMessage(message, sessionId = null) {
+        return await this.makeRequest('/api/chatbot/patient/chat', {
+            method: 'POST',
+            body: JSON.stringify({
+                message: message,
+                session_id: sessionId,
+                chatbot_role: 'patient_assistant'
+            })
+        });
+    },
+
+    // Send message to admin chatbot
+    async sendAdminChatMessage(message, sessionId = null) {
+        return await this.makeRequest('/api/chatbot/admin/chat', {
+            method: 'POST',
+            body: JSON.stringify({
+                message: message,
+                session_id: sessionId,
+                chatbot_role: 'admin_assistant'
+            })
+        });
+    },
+
+    // Get conversation history
+    async getChatHistory(sessionId, isAdmin = false) {
+        const endpoint = isAdmin 
+            ? `/api/chatbot/admin/history/${sessionId}`
+            : `/api/chatbot/patient/history/${sessionId}`;
+        return await this.makeRequest(endpoint);
+    },
+
+    // End conversation
+    async endChatConversation(sessionId, isAdmin = false) {
+        const endpoint = isAdmin 
+            ? `/api/chatbot/admin/end-conversation/${sessionId}`
+            : `/api/chatbot/patient/end-conversation/${sessionId}`;
+        return await this.makeRequest(endpoint, { method: 'POST' });
+    },
+
+    // Get department information
+    async getDepartmentInfo() {
+        return await this.makeRequest('/api/chatbot/departments');
+    },
+
+    // Check chatbot health
+    async getChatbotHealth() {
+        return await this.makeRequest('/api/chatbot/health');
     }
 };
 

@@ -30,6 +30,10 @@ class Settings(BaseSettings):
     app_name: str = "WaitLess CHU API"
     debug: bool = True
     
+    # Chatbot
+    deepseek_api_key: str = "sk-e9611956db364ce7856e67b12a4a36a5"
+    deepseek_api_url: str = "https://api.deepseek.com/v1"
+    
     class Config:
         env_file = ".env"
 

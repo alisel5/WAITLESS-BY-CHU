@@ -31,6 +31,11 @@ class TicketStatus(enum.Enum):
     EXPIRED = "expired"
 
 
+class ChatbotRole(enum.Enum):
+    PATIENT_ASSISTANT = "patient_assistant"
+    ADMIN_ASSISTANT = "admin_assistant"
+
+
 class User(Base):
     __tablename__ = "users"
     
@@ -48,6 +53,7 @@ class User(Base):
     # Relationships
     tickets = relationship("Ticket", back_populates="patient")
     assigned_service = relationship("Service", foreign_keys=[assigned_service_id])
+    chat_conversations = relationship("ChatConversation", back_populates="user")
 
 
 class Service(Base):
@@ -118,4 +124,35 @@ class Alert(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
     # Relationships
-    service = relationship("Service") 
+    service = relationship("Service")
+
+
+class ChatConversation(Base):
+    __tablename__ = "chat_conversations"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)  # Null for anonymous patients
+    session_id = Column(String, nullable=False, index=True)  # For anonymous sessions
+    chatbot_role = Column(Enum(ChatbotRole), nullable=False)
+    context = Column(Text, nullable=True)  # JSON string with conversation context
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    
+    # Relationships
+    user = relationship("User", back_populates="chat_conversations")
+    messages = relationship("ChatMessage", back_populates="conversation")
+
+
+class ChatMessage(Base):
+    __tablename__ = "chat_messages"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    conversation_id = Column(Integer, ForeignKey("chat_conversations.id"), nullable=False)
+    message = Column(Text, nullable=False)
+    is_user_message = Column(Boolean, default=True)  # True for user, False for bot
+    metadata = Column(Text, nullable=True)  # JSON string for additional data
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    # Relationships
+    conversation = relationship("ChatConversation", back_populates="messages") 
