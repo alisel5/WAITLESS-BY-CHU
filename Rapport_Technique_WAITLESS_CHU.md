@@ -8,7 +8,7 @@
 - **Farah Elmakhfi** - Développeuse Frontend & Conceptrice UI/UX
 - **Abdlali Selouani** - Développeur Backend & Architecte Système
 
-**Encadré par :** [Nom de l'encadrant]
+**Encadré par :** [Nom de l'encadrant]  
 **Année académique :** 2024-2025
 
 ---
@@ -920,133 +920,15 @@ Ce chapitre présente la mise en œuvre concrète du système WAITLESS-CHU, dét
 
 **Architecture WebSocket temps réel :**
 
-L'implémentation du système temps réel repose sur un gestionnaire WebSocket centralisé qui maintient les connexions actives et diffuse les mises à jour de manière efficace :
-
-```python
-# Backend - WebSocket Manager
-class WebSocketManager:
-    def __init__(self):
-        self.active_connections: Dict[str, List[WebSocket]] = {}
-        self.service_connections: Dict[int, List[WebSocket]] = {}
-        self.ticket_connections: Dict[str, List[WebSocket]] = {}
-    
-    async def broadcast_queue_update(self, service_id: int, queue_data: dict):
-        """Diffuse les mises à jour de file à tous les clients connectés"""
-        if service_id in self.service_connections:
-            message = {
-                "type": "queue_update",
-                "service_id": service_id,
-                "data": queue_data,
-                "timestamp": datetime.utcnow().isoformat()
-            }
-            
-            # Diffusion parallèle pour performance
-            await asyncio.gather(*[
-                self._safe_send(websocket, message)
-                for websocket in self.service_connections[service_id]
-            ])
-```
+L'implémentation du système temps réel repose sur un gestionnaire WebSocket centralisé qui maintient les connexions actives et diffuse les mises à jour de manière efficace.
 
 **Algorithme de gestion des files :**
 
-Le cœur du système repose sur un algorithme intelligent de calcul des positions et des temps d'attente :
-
-```python
-def calculate_position_and_wait_time(service_id: int, priority: ServicePriority, db: Session):
-    """Calcul intelligent de la position et temps d'attente"""
-    # Récupération des tickets en attente avec ordre prioritaire
-    waiting_tickets = db.query(Ticket).filter(
-        and_(
-            Ticket.service_id == service_id,
-            Ticket.status == TicketStatus.WAITING
-        )
-    ).order_by(
-        Ticket.priority.desc(),  # Priorité décroissante
-        Ticket.created_at.asc()  # Premier arrivé, premier servi dans même priorité
-    ).all()
-    
-    # Calcul position selon priorité
-    position = 1
-    for i, ticket in enumerate(waiting_tickets, 1):
-        if ticket.priority.value < priority.value:
-            position = i
-            break
-        else:
-            position = i + 1
-    
-    # Estimation temps d'attente basée sur historique
-    service = db.query(Service).filter(Service.id == service_id).first()
-    avg_time_per_patient = service.avg_wait_time if service.avg_wait_time > 0 else 15
-    estimated_wait = (position - 1) * avg_time_per_patient
-    
-    return position, estimated_wait
-```
+Le cœur du système repose sur un algorithme intelligent de calcul des positions et des temps d'attente, prenant en compte les priorités et l'ordre d'arrivée.
 
 **Interface de scan QR :**
 
-L'implémentation du scanner QR utilise les APIs natives du navigateur pour une expérience utilisateur optimale :
-
-```javascript
-// Frontend - Scanner QR intégré
-class QRScanner {
-    constructor(onScanSuccess, onScanError) {
-        this.onScanSuccess = onScanSuccess;
-        this.onScanError = onScanError;
-        this.scanning = false;
-    }
-    
-    async startScanning(videoElement) {
-        try {
-            // Demande accès caméra avec préférence arrière
-            const stream = await navigator.mediaDevices.getUserMedia({
-                video: { 
-                    facingMode: 'environment',
-                    width: { ideal: 1280 },
-                    height: { ideal: 720 }
-                }
-            });
-            
-            videoElement.srcObject = stream;
-            this.scanning = true;
-            
-            // Analyse continue des frames
-            this.scanLoop(videoElement);
-            
-        } catch (error) {
-            this.onScanError('Erreur accès caméra: ' + error.message);
-        }
-    }
-    
-    scanLoop(videoElement) {
-        if (!this.scanning) return;
-        
-        const canvas = document.createElement('canvas');
-        const context = canvas.getContext('2d');
-        
-        canvas.width = videoElement.videoWidth;
-        canvas.height = videoElement.videoHeight;
-        
-        // Capture frame actuelle
-        context.drawImage(videoElement, 0, 0);
-        
-        try {
-            // Décodage QR avec bibliothèque jsQR
-            const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-            const qrCode = jsQR(imageData.data, imageData.width, imageData.height);
-            
-            if (qrCode) {
-                this.onScanSuccess(qrCode.data);
-                return;
-            }
-        } catch (error) {
-            console.warn('Erreur décodage QR:', error);
-        }
-        
-        // Nouvelle tentative après 100ms
-        setTimeout(() => this.scanLoop(videoElement), 100);
-    }
-}
-```
+L'implémentation du scanner QR utilise les APIs natives du navigateur pour une expérience utilisateur optimale, avec support de la caméra arrière et décodage en temps réel.
 
 ### 4.1.3 Résultats
 
@@ -1093,184 +975,15 @@ class QRScanner {
 
 **Dashboard administrateur :**
 
-Le tableau de bord administratif constitue le centre névralgique du système, offrant une vue d'ensemble complète et des outils de gestion avancés :
-
-```javascript
-// Frontend - Dashboard temps réel
-class AdminDashboard {
-    constructor() {
-        this.wsClient = new WebSocketClient();
-        this.statsManager = new StatsManager();
-        this.alertManager = new AlertManager();
-    }
-    
-    async initializeDashboard() {
-        // Connexion WebSocket pour mises à jour temps réel
-        this.wsClient.connect('admin-dashboard');
-        
-        // Chargement données initiales
-        await this.loadInitialData();
-        
-        // Configuration listeners
-        this.setupEventListeners();
-        
-        // Démarrage mise à jour automatique
-        this.startAutoRefresh();
-    }
-    
-    async loadInitialData() {
-        try {
-            // Chargement parallèle des données
-            const [services, stats, alerts] = await Promise.all([
-                this.api.get('/api/services/'),
-                this.api.get('/api/admin/stats/overview'),
-                this.api.get('/api/admin/alerts/active')
-            ]);
-            
-            this.renderServices(services);
-            this.renderStats(stats);
-            this.renderAlerts(alerts);
-            
-        } catch (error) {
-            this.messageManager.showError('Erreur chargement données: ' + error.message);
-        }
-    }
-    
-    setupEventListeners() {
-        // WebSocket - Mises à jour temps réel
-        this.wsClient.onMessage = (data) => {
-            switch (data.type) {
-                case 'queue_update':
-                    this.updateServiceQueue(data.service_id, data.data);
-                    break;
-                case 'new_alert':
-                    this.addAlert(data.alert);
-                    break;
-                case 'stats_update':
-                    this.updateStats(data.stats);
-                    break;
-            }
-        };
-    }
-}
-```
+Le tableau de bord administratif constitue le centre névralgique du système, offrant une vue d'ensemble complète et des outils de gestion avancés avec chargement parallèle des données et configuration automatique des listeners WebSocket.
 
 **Gestion du personnel :**
 
-Le module de gestion du personnel permet un contrôle complet des utilisateurs du système :
-
-```python
-# Backend - API Gestion Staff
-@router.post("/staff", response_model=UserResponse)
-async def create_staff(
-    staff_data: StaffCreate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_admin_user)
-):
-    """Création d'un nouveau membre du personnel"""
-    
-    # Validation email unique
-    existing_user = db.query(User).filter(User.email == staff_data.email).first()
-    if existing_user:
-        raise HTTPException(
-            status_code=400,
-            detail="Un utilisateur avec cet email existe déjà"
-        )
-    
-    # Création utilisateur avec rôle
-    hashed_password = get_password_hash(staff_data.password)
-    
-    new_staff = User(
-        email=staff_data.email,
-        hashed_password=hashed_password,
-        full_name=staff_data.full_name,
-        phone=staff_data.phone,
-        role=staff_data.role,
-        assigned_service_id=staff_data.assigned_service_id,
-        is_active=True
-    )
-    
-    db.add(new_staff)
-    db.commit()
-    db.refresh(new_staff)
-    
-    # Logging de l'action
-    log_entry = QueueLog(
-        action=f"staff_created_{new_staff.role.value}",
-        details=f"Staff {new_staff.full_name} créé par {current_user.full_name}",
-        timestamp=datetime.utcnow()
-    )
-    db.add(log_entry)
-    db.commit()
-    
-    return new_staff
-```
+Le module de gestion du personnel permet un contrôle complet des utilisateurs du système avec validation, création sécurisée et logging automatique des actions administratives.
 
 **Interface secrétaire :**
 
-L'interface secrétaire permet une gestion efficace des files d'attente au niveau des services :
-
-```javascript
-// Frontend - Interface Secrétaire
-class SecretaryInterface {
-    constructor() {
-        this.currentService = null;
-        this.queueData = [];
-        this.wsClient = new WebSocketClient();
-    }
-    
-    async loadServiceQueue() {
-        const user = this.api.getCurrentUser();
-        
-        if (!user.assigned_service_id) {
-            this.messageManager.showError('Aucun service assigné');
-            return;
-        }
-        
-        this.currentService = user.assigned_service_id;
-        
-        // Connexion WebSocket spécifique au service
-        this.wsClient.connect(`service-${this.currentService}`);
-        
-        // Chargement file d'attente
-        const queueData = await this.api.get(`/api/admin/secretary/queue/${this.currentService}`);
-        this.renderQueue(queueData);
-        
-        // Auto-refresh toutes les 30 secondes
-        setInterval(() => this.refreshQueue(), 30000);
-    }
-    
-    async callNextPatient() {
-        try {
-            const result = await this.api.post(`/api/queue/call-next/${this.currentService}`);
-            
-            if (result.success) {
-                this.messageManager.showSuccess(`Patient ${result.ticket_number} appelé`);
-                // La mise à jour de la file sera automatique via WebSocket
-            } else {
-                this.messageManager.showWarning('Aucun patient en attente');
-            }
-            
-        } catch (error) {
-            this.messageManager.showError('Erreur lors de l\'appel: ' + error.message);
-        }
-    }
-    
-    async addManualPatient(patientData) {
-        try {
-            const newTicket = await this.api.post('/api/admin/secretary/patients', {
-                ...patientData,
-                service_id: this.currentService
-            });
-            
-            this.messageManager.showSuccess(`Patient ajouté: ${newTicket.ticket_number}`);
-            
-        } catch (error) {
-            this.messageManager.showError('Erreur ajout patient: ' + error.message);
-        }
-    }
-}
-```
+L'interface secrétaire permet une gestion efficace des files d'attente au niveau des services avec connexion WebSocket spécifique et actions temps réel.
 
 ### 4.2.3 Résultats
 
@@ -1307,141 +1020,17 @@ class SecretaryInterface {
 
 **Tests unitaires backend :**
 
-Une suite complète de tests automatisés garantit la fiabilité du système :
-
-```python
-# Tests API avec pytest
-import pytest
-from fastapi.testclient import TestClient
-from main import app
-
-client = TestClient(app)
-
-def test_create_ticket():
-    """Test création ticket via QR scan"""
-    # Données de test
-    ticket_data = {
-        "patient_name": "Test Patient",
-        "patient_phone": "0600000000",
-        "service_id": 1
-    }
-    
-    response = client.post("/api/tickets/join-online", json=ticket_data)
-    
-    assert response.status_code == 201
-    data = response.json()
-    assert "ticket_number" in data
-    assert "qr_code" in data
-    assert data["position_in_queue"] >= 1
-
-def test_queue_operations():
-    """Test opérations de file d'attente"""
-    # Création de plusieurs tickets
-    tickets = []
-    for i in range(3):
-        response = client.post("/api/tickets/join-online", json={
-            "patient_name": f"Patient {i}",
-            "patient_phone": f"060000000{i}",
-            "service_id": 1
-        })
-        tickets.append(response.json())
-    
-    # Vérification ordre des positions
-    assert tickets[0]["position_in_queue"] == 1
-    assert tickets[1]["position_in_queue"] == 2
-    assert tickets[2]["position_in_queue"] == 3
-    
-    # Test appel prochain patient
-    response = client.post("/api/queue/call-next/1")
-    assert response.status_code == 200
-    
-    # Vérification mise à jour positions
-    response = client.get(f"/api/tickets/{tickets[1]['id']}")
-    updated_ticket = response.json()
-    assert updated_ticket["position_in_queue"] == 1
-```
+Une suite complète de tests automatisés garantit la fiabilité du système, couvrant la création de tickets, les opérations de file d'attente et la validation des positions.
 
 **Tests d'intégration :**
 
-Les tests d'intégration valident les workflows complets du système :
-
-```python
-# Test complet workflow QR scan
-async def test_complete_qr_workflow():
-    """Test workflow complet : génération QR → scan → rejoindre file"""
-    
-    # 1. Génération QR service
-    response = client.get("/api/services/1/qr-code")
-    qr_data = response.json()
-    assert "qr_code" in qr_data
-    
-    # 2. Simulation scan QR
-    scan_data = {
-        "qr_data": qr_data["service_data"],
-        "patient_name": "Test Patient",
-        "patient_phone": "0600000000"
-    }
-    
-    response = client.post("/api/tickets-qr/scan-and-join", json=scan_data)
-    assert response.status_code == 201
-    
-    ticket = response.json()
-    assert ticket["service_id"] == 1
-    assert "ticket_number" in ticket
-    
-    # 3. Vérification position dans file
-    assert ticket["position_in_queue"] >= 1
-    assert ticket["estimated_wait_time"] >= 0
-```
+Les tests d'intégration valident les workflows complets du système, du scan QR à la création de ticket et la gestion des positions dans les files.
 
 ### 4.3.2 Stratégie de déploiement
 
 **Architecture de déploiement local :**
 
-Un système de scripts automatisés facilite le déploiement et la maintenance :
-
-```bash
-# Scripts de démarrage automatisés
-#!/bin/bash
-# start_system.sh
-
-echo "🚀 Démarrage WAITLESS-CHU..."
-
-# 1. Vérification PostgreSQL
-if ! pg_isready -q; then
-    echo "❌ PostgreSQL non disponible"
-    exit 1
-fi
-
-# 2. Initialisation base de données
-echo "📦 Initialisation base de données..."
-cd Backend
-python create_db.py
-python init_db.py
-
-# 3. Démarrage backend
-echo "🔧 Démarrage backend FastAPI..."
-python main.py &
-BACKEND_PID=$!
-
-# 4. Attente démarrage backend
-sleep 5
-
-# 5. Démarrage serveur frontend
-echo "🌐 Démarrage serveur frontend..."
-cd ../Frontend
-python start_https_server.py &
-FRONTEND_PID=$!
-
-echo "✅ Système démarré avec succès!"
-echo "   - Backend API: http://localhost:8000"
-echo "   - Frontend: http://localhost:8080"
-echo "   - API Docs: http://localhost:8000/docs"
-
-# Arrêt propre sur CTRL+C
-trap "kill $BACKEND_PID $FRONTEND_PID" EXIT
-wait
-```
+Un système de scripts automatisés facilite le déploiement et la maintenance avec vérification des prérequis, initialisation automatique de la base de données et démarrage coordonné des services.
 
 ### 4.3.3 Résultats des tests
 
@@ -1484,7 +1073,7 @@ Les résultats concrets démontrent l'impact significatif du système :
 
 La phase de réalisation du système WAITLESS-CHU a permis d'atteindre tous les objectifs fixés et même de les dépasser dans plusieurs domaines. L'implémentation des trois tâches principales (système de files temps réel, dashboard administratif, et déploiement/tests) a démontré la viabilité technique et fonctionnelle de la solution.
 
-Les résultats obtenus confirment l'impact positif significatif du système sur l'expérience patient et l'efficacité opérationnelle hospitalière. Les tests de performance valident la capacité du système à gérer une charge importante d'utilisateurs simultanés, while the functional tests ensure all critical features work as expected.
+Les résultats obtenus confirment l'impact positif significatif du système sur l'expérience patient et l'efficacité opérationnelle hospitalière. Les tests de performance valident la capacité du système à gérer une charge importante d'utilisateurs simultanés.
 
 L'architecture mise en place est robuste, scalable, et prête pour un déploiement en production dans un environnement hospitalier réel.
 
