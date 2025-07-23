@@ -15,6 +15,7 @@ const PERMISSIONS = {
     allowedPaths: [
       '/Acceuil/',
       '/qr code/',
+      '/qr%20code/',
       '/tickets/',
       '/chatbot/'
     ],
@@ -30,6 +31,7 @@ const PERMISSIONS = {
       'services.html',
       'patients.html',
       'qr-display.html',
+      'qr.html',
       'reports.html',
       'admin-chatbot.html'
     ],
@@ -40,6 +42,8 @@ const PERMISSIONS = {
       '/services/',
       '/patients/',
       '/qr-display/',
+      '/qr code/',
+      '/qr%20code/',
       '/reports/',
       '/chatbot/'
     ],
@@ -50,11 +54,14 @@ const PERMISSIONS = {
   staff: {
     allowedPages: [
       'acceuil.html',
-      'secretary.html'
+      'secretary.html',
+      'qr.html'
     ],
     allowedPaths: [
       '/Acceuil/',
-      '/secretary/'
+      '/secretary/',
+      '/qr code/',
+      '/qr%20code/'
     ],
     redirectTo: '/Frontend/secretary/secretary.html'
   },
@@ -63,11 +70,14 @@ const PERMISSIONS = {
   doctor: {
     allowedPages: [
       'acceuil.html',
-      'secretary.html'
+      'secretary.html',
+      'qr.html'
     ],
     allowedPaths: [
       '/Acceuil/',
-      '/secretary/'
+      '/secretary/',
+      '/qr code/',
+      '/qr%20code/'
     ],
     redirectTo: '/Frontend/secretary/secretary.html'
   }
@@ -87,9 +97,10 @@ function hasPermission(userRole, currentPath) {
     return false;
   }
   
-  // Check if current path is in allowed paths
+  // Check if current path is in allowed paths (both encoded and decoded)
+  const decodedPath = decodeURIComponent(currentPath);
   const isAllowed = permissions.allowedPaths.some(allowedPath => 
-    currentPath.includes(allowedPath)
+    currentPath.includes(allowedPath) || decodedPath.includes(allowedPath)
   );
   
   return isAllowed;

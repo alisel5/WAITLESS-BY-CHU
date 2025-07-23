@@ -183,6 +183,7 @@ async def create_ticket(
     qr_code = generate_qr_code(ticket_number)
     
     # Create ticket
+    from datetime import datetime, timezone
     db_ticket = Ticket(
         ticket_number=ticket_number,
         patient_id=current_user.id,
@@ -192,7 +193,8 @@ async def create_ticket(
         estimated_wait_time=estimated_wait,
         qr_code=qr_code,
         notes=ticket.notes,
-        estimated_arrival=ticket.estimated_arrival
+        estimated_arrival=ticket.estimated_arrival,
+        created_at=datetime.now(timezone.utc)
     )
     
     db.add(db_ticket)

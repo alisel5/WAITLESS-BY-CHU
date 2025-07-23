@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Components - WaitLess CHU</title>
+    <link rel="stylesheet" href="shared/api.css">
+    <link rel="stylesheet" href="shared/style-guide.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .test-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        
+        .test-section {
+            margin-bottom: 3rem;
+            padding: 2rem;
+            background: white;
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-sm);
+        }
+        
+        .role-demo {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        
+        .role-card {
+            padding: 1rem;
+            border: 2px solid #ddd;
+            border-radius: var(--radius-md);
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .role-card:hover {
+            border-color: var(--primary-blue);
+            transform: translateY(-2px);
+        }
+        
+        .role-card.active {
+            border-color: var(--primary-blue);
+            background: rgba(74, 144, 226, 0.1);
+        }
+        
+        .demo-controls {
+            margin: 2rem 0;
+            padding: 1rem;
+            background: #f8f9fa;
+            border-radius: var(--radius-md);
+        }
+        
+        .btn-group {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <div class="test-section">
+            <h1><i class="fas fa-vial"></i> Test des Composants WaitLess CHU</h1>
+            <p>Cette page permet de tester le système de navigation basé sur les rôles et les composants partagés.</p>
+        </div>
+
+        <div class="test-section">
+            <h2><i class="fas fa-users"></i> Démonstration des Rôles</h2>
+            <p>Cliquez sur un rôle pour voir la navigation correspondante :</p>
+            
+            <div class="role-demo">
+                <div class="role-card" onclick="simulateRole('admin')">
+                    <i class="fas fa-user-shield" style="font-size: 2rem; color: var(--primary-blue);"></i>
+                    <h3>Administrateur</h3>
+                    <p>Accès complet au système</p>
+                </div>
+                
+                <div class="role-card" onclick="simulateRole('staff')">
+                    <i class="fas fa-user-md" style="font-size: 2rem; color: var(--success-green);"></i>
+                    <h3>Personnel</h3>
+                    <p>Gestion des files d'attente</p>
+                </div>
+                
+                <div class="role-card" onclick="simulateRole('doctor')">
+                    <i class="fas fa-stethoscope" style="font-size: 2rem; color: var(--warning-orange);"></i>
+                    <h3>Médecin</h3>
+                    <p>Consultations et patients</p>
+                </div>
+                
+                <div class="role-card" onclick="simulateRole('patient')">
+                    <i class="fas fa-user" style="font-size: 2rem; color: var(--accent-blue);"></i>
+                    <h3>Patient</h3>
+                    <p>Scanner QR et suivi</p>
+                </div>
+                
+                <div class="role-card" onclick="simulateRole(null)">
+                    <i class="fas fa-user-times" style="font-size: 2rem; color: var(--medium-gray);"></i>
+                    <h3>Non connecté</h3>
+                    <p>Navigation publique</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2><i class="fas fa-cogs"></i> Contrôles de Test</h2>
+            
+            <div class="demo-controls">
+                <h3>Actions disponibles :</h3>
+                <div class="btn-group">
+                    <button class="btn primary" onclick="testLogin()">
+                        <i class="fas fa-sign-in-alt"></i>
+                        Tester Connexion
+                    </button>
+                    <button class="btn secondary" onclick="testLogout()">
+                        <i class="fas fa-sign-out-alt"></i>
+                        Tester Déconnexion
+                    </button>
+                    <button class="btn" onclick="refreshComponents()">
+                        <i class="fas fa-sync-alt"></i>
+                        Actualiser Composants
+                    </button>
+                    <button class="btn" onclick="showComponentInfo()">
+                        <i class="fas fa-info-circle"></i>
+                        Info Composants
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2><i class="fas fa-palette"></i> Guide de Style</h2>
+            <div class="grid grid-cols-3">
+                <div class="card">
+                    <h4>Boutons</h4>
+                    <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                        <button class="btn primary">Primaire</button>
+                        <button class="btn secondary">Secondaire</button>
+                        <button class="btn">Normal</button>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <h4>Status</h4>
+                    <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                        <span class="status-badge status-active">Actif</span>
+                        <span class="status-badge status-warning">Attention</span>
+                        <span class="status-badge status-error">Erreur</span>
+                        <span class="status-badge status-inactive">Inactif</span>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <h4>Animations</h4>
+                    <div class="fade-in">Fade In</div>
+                    <div class="slide-up">Slide Up</div>
+                    <div class="scale-in">Scale In</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2><i class="fas fa-clipboard-check"></i> Résultats des Tests</h2>
+            <div id="testResults">
+                <p>Les résultats des tests apparaîtront ici...</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="shared/api.js"></script>
+    <script src="shared/permissions.js"></script>
+    <script src="shared/access-control.js"></script>
+    <script src="shared/components.js"></script>
+    <script>
+        // Test functions
+        function simulateRole(role) {
+            // Clear active states
+            document.querySelectorAll('.role-card').forEach(card => {
+                card.classList.remove('active');
+            });
+            
+            // Set active state
+            event.target.closest('.role-card').classList.add('active');
+            
+            // Simulate user data
+            if (role) {
+                const mockUser = {
+                    id: 1,
+                    full_name: `Test ${role.charAt(0).toUpperCase() + role.slice(1)}`,
+                    email: `test.${role}@waitless-chu.app`,
+                    role: role
+                };
+                
+                // Simulate login
+                apiClient.setCurrentUser(mockUser);
+                apiClient.setToken('mock-token-' + role);
+            } else {
+                // Simulate logout
+                apiClient.removeToken();
+            }
+            
+            // Update components
+            if (uiComponents) {
+                uiComponents.updateForUser(role ? apiClient.getCurrentUser() : null);
+            }
+            
+            logTestResult(`Navigation mise à jour pour le rôle: ${role || 'Non connecté'}`);
+        }
+        
+        function testLogin() {
+            simulateRole('admin');
+            logTestResult('Test de connexion réussi');
+        }
+        
+        function testLogout() {
+            simulateRole(null);
+            logTestResult('Test de déconnexion réussi');
+        }
+        
+        function refreshComponents() {
+            if (uiComponents) {
+                uiComponents.injectComponents();
+                logTestResult('Composants actualisés');
+            }
+        }
+        
+        function showComponentInfo() {
+            const user = apiClient?.getCurrentUser();
+            const info = {
+                'Utilisateur connecté': user ? `${user.full_name} (${user.role})` : 'Aucun',
+                'Token': apiClient?.isAuthenticated() ? 'Présent' : 'Absent',
+                'Composants chargés': typeof uiComponents !== 'undefined' ? 'Oui' : 'Non',
+                'Page actuelle': uiComponents?.currentPage || 'Inconnue'
+            };
+            
+            let infoText = 'Informations des composants:\n';
+            Object.entries(info).forEach(([key, value]) => {
+                infoText += `${key}: ${value}\n`;
+            });
+            
+            alert(infoText);
+            logTestResult('Informations affichées');
+        }
+        
+        function logTestResult(message) {
+            const results = document.getElementById('testResults');
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.style.cssText = 'padding: 0.5rem; margin: 0.25rem 0; background: #f8f9fa; border-radius: 4px; border-left: 3px solid var(--success-green);';
+            logEntry.innerHTML = `<strong>${timestamp}:</strong> ${message}`;
+            results.appendChild(logEntry);
+            results.scrollTop = results.scrollHeight;
+        }
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            logTestResult('Page de test chargée');
+            
+            // Test basic functionality
+            setTimeout(() => {
+                logTestResult('Composants partagés initialisés');
+                if (typeof uiComponents !== 'undefined') {
+                    logTestResult('✅ UIComponents: OK');
+                } else {
+                    logTestResult('❌ UIComponents: Échec');
+                }
+                
+                if (typeof apiClient !== 'undefined') {
+                    logTestResult('✅ API Client: OK');
+                } else {
+                    logTestResult('❌ API Client: Échec');
+                }
+            }, 500);
+        });
+    </script>
+</body>
+</html>

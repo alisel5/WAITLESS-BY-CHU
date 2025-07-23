@@ -34,9 +34,8 @@ async def get_dashboard_stats(
         ).count()
         
         # Get today's tickets
-        today = datetime.now().date()
         today_tickets = db.query(Ticket).filter(
-            func.date(Ticket.created_at) == today
+            func.date(Ticket.created_at) == func.current_date()
         ).count()
         
         # Get recent alerts (tickets waiting more than 2 hours) - using estimated_wait_time

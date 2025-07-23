@@ -416,23 +416,22 @@ function formatWaitTime(minutes) {
   }
 }
 
-// Show/hide loading spinner
+// Replace the showLoading function to only show a small spinner in the patients table area, not a full-screen overlay.
 function showLoading(show) {
-  const spinner = document.createElement('div');
-  spinner.id = 'loadingSpinner';
-  spinner.className = 'loading-spinner';
-  spinner.innerHTML = `
-    <div class="spinner"></div>
-    <p>Chargement...</p>
-  `;
-  
+  const tableBody = document.getElementById('patientsTableBody');
+  if (!tableBody) return;
+
   if (show) {
-    document.body.appendChild(spinner);
+    tableBody.innerHTML = `
+      <tr>
+        <td colspan="8" style="text-align: center; padding: 2rem; color: #666;">
+          <div class="spinner" style="margin: 0 auto;"></div>
+          <div>Chargement des patients...</div>
+        </td>
+      </tr>
+    `;
   } else {
-    const existingSpinner = document.getElementById('loadingSpinner');
-    if (existingSpinner) {
-      existingSpinner.remove();
-    }
+    // Do nothing, as displayPatients will overwrite the table
   }
 }
 

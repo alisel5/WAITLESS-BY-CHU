@@ -26,12 +26,14 @@ function checkPageAccess() {
   
   const userRole = user.role;
   const currentPath = window.location.pathname;
+  const decodedPath = decodeURIComponent(currentPath);
   
   console.log(`Checking access for user: ${user.full_name} (${userRole})`);
   console.log(`Current path: ${currentPath}`);
+  console.log(`Decoded path: ${decodedPath}`);
   
   // Check if user has permission to access current page
-  if (!hasPermission(userRole, currentPath)) {
+  if (!hasPermission(userRole, currentPath) && !hasPermission(userRole, decodedPath)) {
     console.warn(`Access denied: User ${userRole} cannot access ${currentPath}`);
     
     // Show access denied message
