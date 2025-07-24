@@ -31,7 +31,7 @@ class Settings(BaseSettings):
     debug: bool = True
     
     # Chatbot - OpenRouter API (free DeepSeek model)
-    openrouter_api_key: str = "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"
+    openrouter_api_key: str = "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"
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
     openrouter_model: str = "deepseek/deepseek-chat-v3-0324:free"
     
