@@ -645,7 +645,6 @@ function getRoleDisplayName(role) {
     const roleNames = {
         'admin': 'Administrateur',
         'staff': 'Secrétaire',
-        'doctor': 'Médecin',
         'patient': 'Patient'
     };
     return roleNames[role] || role;
