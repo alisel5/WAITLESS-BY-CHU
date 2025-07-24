@@ -21,30 +21,110 @@ async def get_dashboard_stats(
 ):
     """Get dashboard statistics for admin/staff."""
     try:
+        from datetime import date, timedelta
+        
+        today = date.today()
+        yesterday = today - timedelta(days=1)
+        
         # Get total waiting tickets
         total_waiting = db.query(Ticket).filter(Ticket.status == TicketStatus.WAITING).count()
         
-        # Get average wait time (in minutes) - using estimated_wait_time instead of wait_time
-        avg_wait_time = db.query(func.avg(Ticket.estimated_wait_time)).scalar() or 0
-        avg_wait_time = int(avg_wait_time) if avg_wait_time else 0
+        # Get waiting tickets yesterday for comparison
+        waiting_yesterday = db.query(Ticket).filter(
+            and_(
+                Ticket.status == TicketStatus.WAITING,
+                func.date(Ticket.created_at) == yesterday
+            )
+        ).count()
+        
+        # Calculate waiting change
+        waiting_change = total_waiting - waiting_yesterday
+        
+        # Get completed consultations today
+        completed_today = db.query(Ticket).filter(
+            and_(
+                Ticket.status == TicketStatus.COMPLETED,
+                func.date(Ticket.updated_at) == today
+            )
+        ).count()
+        
+        # Get completed consultations yesterday for comparison
+        completed_yesterday = db.query(Ticket).filter(
+            and_(
+                Ticket.status == TicketStatus.COMPLETED,
+                func.date(Ticket.updated_at) == yesterday
+            )
+        ).count()
+        
+        # Calculate completed change
+        completed_change = completed_today - completed_yesterday
+        
+        # Calculate actual wait time from completed tickets today
+        # We need to calculate the difference between when ticket was created and when it was completed
+        completed_tickets_today = db.query(Ticket).filter(
+            and_(
+                Ticket.status == TicketStatus.COMPLETED,
+                func.date(Ticket.updated_at) == today,
+                Ticket.consultation_end.isnot(None),
+                Ticket.created_at.isnot(None)
+            )
+        ).all()
+        
+        total_wait_time = 0
+        valid_tickets = 0
+        
+        for ticket in completed_tickets_today:
+            if ticket.consultation_end and ticket.created_at:
+                wait_time = (ticket.consultation_end - ticket.created_at).total_seconds() / 60  # Convert to minutes
+                if wait_time > 0:  # Only count valid wait times
+                    total_wait_time += wait_time
+                    valid_tickets += 1
+        
+        # Calculate average wait time
+        avg_wait_time = int(total_wait_time / valid_tickets) if valid_tickets > 0 else 0
+        
+        # Calculate average wait time for yesterday for comparison
+        completed_tickets_yesterday = db.query(Ticket).filter(
+            and_(
+                Ticket.status == TicketStatus.COMPLETED,
+                func.date(Ticket.updated_at) == yesterday,
+                Ticket.consultation_end.isnot(None),
+                Ticket.created_at.isnot(None)
+            )
+        ).all()
+        
+        total_wait_time_yesterday = 0
+        valid_tickets_yesterday = 0
+        
+        for ticket in completed_tickets_yesterday:
+            if ticket.consultation_end and ticket.created_at:
+                wait_time = (ticket.consultation_end - ticket.created_at).total_seconds() / 60
+                if wait_time > 0:
+                    total_wait_time_yesterday += wait_time
+                    valid_tickets_yesterday += 1
+        
+        avg_wait_time_yesterday = int(total_wait_time_yesterday / valid_tickets_yesterday) if valid_tickets_yesterday > 0 else 0
+        avg_wait_time_change = avg_wait_time - avg_wait_time_yesterday
         
         # Get active services count (including emergency services)
         active_services = db.query(Service).filter(
             Service.status.in_([ServiceStatus.ACTIVE, ServiceStatus.EMERGENCY])
         ).count()
         
+        # Get active services count yesterday for comparison
+        # Note: We'll assume services are stable, so no change calculation for this metric
+        
         # Get today's tickets
         today_tickets = db.query(Ticket).filter(
-            func.date(Ticket.created_at) == func.current_date()
+            func.date(Ticket.created_at) == today
         ).count()
         
-        # Get recent alerts (tickets waiting more than 2 hours) - using estimated_wait_time
-        long_waiting = db.query(Ticket).filter(
-            and_(
-                Ticket.status == TicketStatus.WAITING,
-                Ticket.estimated_wait_time > 120  # 2 hours
-            )
+        # Get yesterday's tickets for comparison
+        yesterday_tickets = db.query(Ticket).filter(
+            func.date(Ticket.created_at) == yesterday
         ).count()
+        
+        tickets_change = today_tickets - yesterday_tickets
         
         # Get active services with their queue information for the frontend (including emergency services)
         active_services_data = db.query(Service).filter(
@@ -61,33 +141,58 @@ async def get_dashboard_stats(
                 )
             ).count()
             
-            # Calculate average wait time for this service
-            service_avg_wait = db.query(func.avg(Ticket.estimated_wait_time)).filter(
+            # Calculate average wait time for this service from completed tickets today
+            service_completed_today = db.query(Ticket).filter(
                 and_(
                     Ticket.service_id == service.id,
-                    Ticket.status == TicketStatus.WAITING
+                    Ticket.status == TicketStatus.COMPLETED,
+                    func.date(Ticket.updated_at) == today,
+                    Ticket.consultation_end.isnot(None),
+                    Ticket.created_at.isnot(None)
                 )
-            ).scalar() or 0
-            service_avg_wait = int(service_avg_wait) if service_avg_wait else 0
+            ).all()
+            
+            service_total_wait_time = 0
+            service_valid_tickets = 0
+            
+            for ticket in service_completed_today:
+                if ticket.consultation_end and ticket.created_at:
+                    wait_time = (ticket.consultation_end - ticket.created_at).total_seconds() / 60
+                    if wait_time > 0:
+                        service_total_wait_time += wait_time
+                        service_valid_tickets += 1
+            
+            service_avg_wait = int(service_total_wait_time / service_valid_tickets) if service_valid_tickets > 0 else 0
             
             services.append({
                 "id": service.id,
                 "name": service.name,
                 "location": service.location,
-                "current_waiting": waiting_count,
+                "waiting_count": waiting_count,
                 "avg_wait_time": service_avg_wait,
                 "status": service.status.value,
                 "priority": service.priority.value if service.priority else "medium"
             })
         
+        # Get total patients count (unique patients who have ever had tickets)
+        total_patients = db.query(func.count(func.distinct(Ticket.patient_id))).scalar() or 0
+        
+        # Get total consultations of all time (all tickets ever created)
+        total_consultations = db.query(Ticket).count()
+        
         return {
             "total_waiting": total_waiting,
+            "waiting_change": waiting_change,
             "avg_wait_time": avg_wait_time,
+            "avg_wait_time_change": avg_wait_time_change,
             "active_services": active_services,
+            "total_completed_today": completed_today,
+            "completed_change": completed_change,
             "today_tickets": today_tickets,
-            "long_waiting_alerts": long_waiting,
-            "total_patients": total_waiting,
-            "services": services  # Add the services array for the frontend
+            "tickets_change": tickets_change,
+            "total_patients": total_patients,
+            "total_consultations": total_consultations,
+            "services": services
         }
     except Exception as e:
         raise HTTPException(
@@ -354,17 +459,35 @@ async def get_daily_reports(
                 func.date(Ticket.created_at) == date
             ).all()
             
-            # Calculate statistics - using estimated_wait_time
-            total_tickets = len(day_tickets)
-            completed_tickets = len([t for t in day_tickets if t.status == TicketStatus.COMPLETED])
-            avg_wait_time = sum(t.estimated_wait_time for t in day_tickets) / len(day_tickets) if day_tickets else 0
+            # Calculate actual wait time from completed tickets
+            completed_tickets = [t for t in day_tickets if t.status == TicketStatus.COMPLETED and t.consultation_end and t.created_at]
+            
+            total_wait_time = 0
+            valid_completed = 0
+            
+            for ticket in completed_tickets:
+                wait_time = (ticket.consultation_end - ticket.created_at).total_seconds() / 60
+                if wait_time > 0:
+                    total_wait_time += wait_time
+                    valid_completed += 1
+            
+            avg_wait_time = int(total_wait_time / valid_completed) if valid_completed > 0 else 0
+            
+            # Calculate service distribution for this day
+            service_distribution = {}
+            for ticket in day_tickets:
+                service_name = ticket.service.name if ticket.service else "Unknown"
+                if service_name not in service_distribution:
+                    service_distribution[service_name] = 0
+                service_distribution[service_name] += 1
             
             reports.append({
                 "date": date.strftime("%Y-%m-%d"),
-                "total_tickets": total_tickets,
-                "completed_tickets": completed_tickets,
-                "avg_wait_time": int(avg_wait_time) if avg_wait_time else 0,
-                "completion_rate": (completed_tickets / total_tickets * 100) if total_tickets > 0 else 0
+                "total_tickets": len(day_tickets),
+                "completed_tickets": len(completed_tickets),
+                "avg_wait_time": avg_wait_time,
+                "completion_rate": (len(completed_tickets) / len(day_tickets) * 100) if day_tickets else 0,
+                "service_distribution": service_distribution
             })
         
         return reports

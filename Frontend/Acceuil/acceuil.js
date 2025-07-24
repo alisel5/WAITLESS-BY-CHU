@@ -43,23 +43,22 @@ async function handleLogin(event) {
         showAccountButton(user);
       }
       
-      // Redirect based on user role
-      if (user && ['admin', 'staff', 'doctor'].includes(user.role)) {
-        // Redirect to staff/admin dashboard with role-specific message
+      // Redirect based on user role using permissions system
+      if (user) {
         const roleMessages = {
           'admin': 'Accès administrateur activé',
-          'staff': 'Accès personnel activé',
-          'doctor': 'Accès médical activé'
+          'staff': 'Accès secrétariat activé',
+          'doctor': 'Accès médical activé',
+          'patient': 'Accès patient activé'
         };
-        APIUtils.showNotification(`Bienvenue ${user.full_name}! ${roleMessages[user.role]}.`, 'success');
+        
+        const message = roleMessages[user.role] || 'Connexion réussie';
+        APIUtils.showNotification(`Bienvenue ${user.full_name}! ${message}.`, 'success');
+        
         setTimeout(() => {
-          window.location.href = '../dashboard/dashboard.html';
-        }, 1500);
-      } else {
-        // Redirect to patient QR page with instructions
-        APIUtils.showNotification(`Bienvenue ${user.full_name}! Vous pouvez maintenant scanner des QR codes.`, 'success');
-        setTimeout(() => {
-          window.location.href = '../qr code/qr.html';
+          // Use the permissions system to get the correct redirect URL
+          const redirectUrl = getRedirectUrl(user.role);
+          window.location.href = redirectUrl;
         }, 1500);
       }
     }

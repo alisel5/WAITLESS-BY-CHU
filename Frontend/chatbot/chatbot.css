@@ -123,6 +123,38 @@ body {
 .status {
   font-size: 0.9rem;
   opacity: 0.9;
+  color: #000000 !important;
+  font-weight: 500;
+}
+
+.status.online {
+  color: #000000 !important;
+  font-weight: 600;
+}
+
+.status.offline {
+  color: #666666 !important;
+  font-weight: 500;
+}
+
+/* Override any conflicting status styles */
+.chat-header .status,
+.chat-header .assistant-details .status,
+.chat-header p.status {
+  color: #000000 !important;
+  font-weight: 500;
+}
+
+/* Ensure status text is black even when inside chat header */
+.chat-header .assistant-details p.status {
+  color: #000000 !important;
+  font-weight: 500;
+}
+
+/* Force override for any remaining green styling */
+#assistantStatus {
+  color: #000000 !important;
+  font-weight: 500;
 }
 
 .chat-actions {

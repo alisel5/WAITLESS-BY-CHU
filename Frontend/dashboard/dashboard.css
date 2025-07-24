@@ -197,108 +197,7 @@ a {
   color: #6c757d;
 }
 
-/* MAIN CONTENT */
-.main-content {
-  display: grid;
-  grid-template-columns: 2fr 1fr;
-  gap: 2rem;
-}
-
-.queue-section,
-.alerts-section {
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(20px);
-  padding: 2rem;
-  border-radius: 20px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  animation: slideUp 0.8s ease-out 0.2s both;
-}
-
-.queue-section h2,
-.alerts-section h2 {
-  color: #4A90E2;
-  margin-bottom: 1.5rem;
-  font-size: 1.5rem;
-}
-
-.queue-list,
-.alerts-list {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.queue-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1rem;
-  background: rgba(74, 144, 226, 0.05);
-  border-radius: 12px;
-  border-left: 4px solid #4A90E2;
-  transition: all 0.3s ease;
-}
-
-.queue-item:hover {
-  background: rgba(74, 144, 226, 0.1);
-  transform: translateX(5px);
-}
-
-.queue-info h4 {
-  color: #333;
-  margin-bottom: 0.25rem;
-}
-
-.queue-info p {
-  color: #666;
-  font-size: 0.9rem;
-}
-
-.queue-status {
-  text-align: right;
-}
-
-.queue-status .waiting-count {
-  color: #4A90E2;
-  font-weight: 600;
-  font-size: 1.2rem;
-}
-
-.queue-status .wait-time {
-  color: #666;
-  font-size: 0.9rem;
-}
-
-.alert-item {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  padding: 1rem;
-  background: rgba(220, 53, 69, 0.05);
-  border-radius: 12px;
-  border-left: 4px solid #dc3545;
-  transition: all 0.3s ease;
-}
-
-.alert-item:hover {
-  background: rgba(220, 53, 69, 0.1);
-}
-
-.alert-icon {
-  font-size: 1.5rem;
-  color: #dc3545;
-}
-
-.alert-content h4 {
-  color: #333;
-  margin-bottom: 0.25rem;
-}
-
-.alert-content p {
-  color: #666;
-  font-size: 0.9rem;
-}
+/* Main content section removed - keeping only the stats grid for a cleaner dashboard */
 
 /* FOOTER */
 footer {
@@ -360,11 +259,7 @@ footer {
 }
 
 /* RESPONSIVE */
-@media (max-width: 1024px) {
-  .main-content {
-    grid-template-columns: 1fr;
-  }
-}
+/* Media query for main-content removed as the section no longer exists */
 
 @media (max-width: 768px) {
   .navbar {

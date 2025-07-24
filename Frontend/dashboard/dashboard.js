@@ -66,44 +66,20 @@ class DashboardManager {
     }
     
     async loadInitialData() {
-        const container = document.getElementById('queueList');
-        const alertsContainer = document.getElementById('alertsList');
-        
-        // Show loading states
-        LoadingManager.show(container, {
-            message: 'Chargement des files d\'attente...',
-            type: 'dots'
-        });
-        
-        LoadingManager.showSkeleton(alertsContainer, {
-            type: 'list',
-            count: 3
-        });
-        
         try {
-            // Load dashboard stats and services
-            const [dashboardStats, alerts] = await Promise.all([
-                apiClient.getDashboardStats().catch(err => {
+            // Load dashboard stats from backend
+            const dashboardStats = await apiClient.getDashboardStats().catch(err => {
                     console.warn('Dashboard stats failed, using fallback:', err);
                     return this.getFallbackStats();
-                }),
-                apiClient.getAlerts().catch(err => {
-                    console.warn('Alerts failed, using fallback:', err);
-                    return [];
-                })
-            ]);
+            });
             
             if (dashboardStats) {
                 this.dashboardData.stats = dashboardStats;
                 this.dashboardData.services = dashboardStats.services || [];
             }
             
-            this.dashboardData.alerts = alerts || [];
-            
             // Update UI
             this.updateStats();
-            this.displayServices();
-            this.displayAlerts();
             
         } catch (error) {
             console.error('Error loading initial data:', error);
@@ -120,9 +96,6 @@ class DashboardManager {
             
             // Show fallback data
             this.showFallbackData();
-        } finally {
-            LoadingManager.hide(container);
-            LoadingManager.hide(alertsContainer);
         }
     }
     
@@ -150,8 +123,7 @@ class DashboardManager {
             );
         };
         
-        // Handle queue actions
-        this.setupQueueActions();
+        // Queue actions removed as queue section is no longer needed
         
         // Handle keyboard shortcuts
         document.addEventListener('keydown', (e) => {
@@ -166,49 +138,7 @@ class DashboardManager {
         });
     }
     
-    setupQueueActions() {
-        // Call next patient function
-        window.callNextPatient = async (serviceId, serviceName) => {
-            const confirmResult = await new Promise(resolve => {
-                MessageManager.confirm(
-                    'Appeler le patient suivant',
-                    `Voulez-vous appeler le patient suivant pour le service ${serviceName} ?`,
-                    () => resolve(true),
-                    () => resolve(false)
-                );
-            });
-            
-            if (!confirmResult) return;
-            
-            const button = document.querySelector(`[onclick*="callNextPatient(${serviceId})"]`);
-            if (button) {
-                LoadingManager.showButtonLoading(button, 'Appel...');
-            }
-            
-            try {
-                const result = await apiClient.callNextPatient(serviceId);
-                
-                MessageManager.success(
-                    `Patient ${result.patient_name} appelé avec succès`,
-                    { duration: 4000 }
-                );
-                
-                // Refresh data to show updates
-                setTimeout(() => this.refreshData(), 1000);
-                
-            } catch (error) {
-                console.error('Error calling next patient:', error);
-                MessageManager.error(
-                    apiClient.getErrorMessage(error.status || 500),
-                    { duration: 5000 }
-                );
-            } finally {
-                if (button) {
-                    LoadingManager.hideButtonLoading(button);
-                }
-            }
-        };
-    }
+    // setupQueueActions method removed as queue section is no longer needed
     
     setupRealTimeUpdates() {
         try {
@@ -355,21 +285,104 @@ class DashboardManager {
     updateStats() {
         const stats = this.dashboardData.stats;
         
-        // Animate number changes
+        // Animate number changes with proper backend data mapping
         this.animateNumber('waitingPatients', stats.total_waiting || 0);
         this.animateNumber('activeServices', stats.active_services || 0);
         
-        // Update wait time with formatting
+        // Update average wait time with proper formatting
         const avgWaitElement = document.getElementById('avgWaitTime');
         if (avgWaitElement) {
-            avgWaitElement.textContent = APIUtils.formatWaitTime(stats.avg_wait_time || 0);
+            const avgWaitTime = stats.avg_wait_time || 0;
+            avgWaitElement.textContent = `${avgWaitTime} min`;
         }
         
-        // Update completed consultations if available
+        // Update total consultations count (all time)
         const completedElement = document.getElementById('completedToday');
-        if (completedElement && stats.total_completed_today !== undefined) {
-            this.animateNumber('completedToday', stats.total_completed_today);
+        if (completedElement) {
+            this.animateNumber('completedToday', stats.total_consultations || 0);
         }
+        
+        // Update change indicators
+        this.updateChangeIndicators(stats);
+        
+        console.log('📊 Dashboard stats updated:', stats);
+    }
+    
+    updateChangeIndicators(stats) {
+        // Update waiting patients change
+        this.updateChangeIndicator('waitingPatients', stats.waiting_change || 0, 'patients');
+        
+        // Update average wait time change
+        this.updateChangeIndicator('avgWaitTime', stats.avg_wait_time_change || 0, 'time');
+        
+        // Update completed consultations change (shows today's completed vs total)
+        this.updateChangeIndicator('completedToday', stats.total_completed_today || 0, 'consultations');
+        
+        // Note: Services Actifs doesn't have change tracking as services are relatively stable
+    }
+    
+    updateChangeIndicator(statId, change, type) {
+        const statCard = document.getElementById(statId)?.closest('.stat-card');
+        if (!statCard) return;
+        
+        const changeElement = statCard.querySelector('.stat-change');
+        if (!changeElement) return;
+        
+        // Remove existing classes
+        changeElement.classList.remove('positive', 'negative', 'neutral');
+        
+        let changeText = '';
+        let changeClass = 'neutral';
+        
+        if (type === 'time') {
+            // For time, negative change is good (faster), positive is bad (slower)
+            if (change < 0) {
+                changeText = `-${Math.abs(change)} min hier`;
+                changeClass = 'positive';
+            } else if (change > 0) {
+                changeText = `+${change} min hier`;
+                changeClass = 'negative';
+            } else {
+                changeText = 'Stable';
+                changeClass = 'neutral';
+            }
+        } else if (type === 'patients') {
+            if (change > 0) {
+                changeText = `+${change} aujourd'hui`;
+                changeClass = 'negative'; // More patients waiting is bad
+            } else if (change < 0) {
+                changeText = `${change} aujourd'hui`;
+                changeClass = 'positive'; // Fewer patients waiting is good
+            } else {
+                changeText = 'Stable';
+                changeClass = 'neutral';
+            }
+        } else if (type === 'consultations') {
+            if (change > 0) {
+                changeText = `${change} aujourd'hui`;
+                changeClass = 'positive'; // More consultations completed is good
+            } else if (change < 0) {
+                changeText = `${change} aujourd'hui`;
+                changeClass = 'negative'; // Fewer consultations completed is bad
+            } else {
+                changeText = '0 aujourd\'hui';
+                changeClass = 'neutral';
+            }
+        } else if (type === 'tickets') {
+            if (change > 0) {
+                changeText = `+${change} aujourd'hui`;
+                changeClass = 'neutral'; // More tickets created is neutral
+            } else if (change < 0) {
+                changeText = `${change} aujourd'hui`;
+                changeClass = 'neutral';
+            } else {
+                changeText = 'Stable';
+                changeClass = 'neutral';
+            }
+        }
+        
+        changeElement.textContent = changeText;
+        changeElement.classList.add(changeClass);
     }
     
     animateNumber(elementId, targetValue) {
@@ -398,102 +411,7 @@ class DashboardManager {
         }, stepDuration);
     }
     
-    displayServices() {
-        const queueList = document.getElementById('queueList');
-        if (!queueList) return;
-        
-        if (!this.dashboardData.services || this.dashboardData.services.length === 0) {
-            queueList.innerHTML = `
-                <div class="no-data">
-                    <i class="fas fa-hospital"></i>
-                    <p>Aucun service actif</p>
-                </div>
-            `;
-            return;
-        }
-        
-        queueList.innerHTML = this.dashboardData.services.map(service => {
-            const waitingClass = service.waiting_count > 10 ? 'high' : 
-                               service.waiting_count > 5 ? 'medium' : 'normal';
-            
-            return `
-                <div class="queue-item" data-service-id="${service.id}">
-                    <div class="queue-info">
-                        <h4>${service.name}</h4>
-                        <p class="location">
-                            <i class="fas fa-map-marker-alt"></i>
-                            ${service.location}
-                        </p>
-                        <div class="service-status">
-                            <span class="status-badge status-${service.status}">
-                                ${this.getStatusLabel(service.status)}
-                            </span>
-                            <span class="priority-badge priority-${service.priority}">
-                                ${this.getPriorityLabel(service.priority)}
-                            </span>
-                        </div>
-                    </div>
-                    <div class="queue-stats">
-                        <div class="stat-item">
-                            <span class="stat-value waiting-count ${waitingClass}">${service.waiting_count || 0}</span>
-                            <span class="stat-label">En attente</span>
-                        </div>
-                        <div class="stat-item">
-                            <span class="stat-value">0</span>
-                            <span class="stat-label">En consultation</span>
-                        </div>
-                        <div class="stat-item">
-                            <span class="stat-value">${APIUtils.formatWaitTime(service.avg_wait_time || 0)}</span>
-                            <span class="stat-label">Temps moyen</span>
-                        </div>
-                    </div>
-                    <div class="queue-actions">
-                        <button class="action-btn primary" 
-                                onclick="callNextPatient(${service.id}, '${service.name}')"
-                                ${(service.waiting_count || 0) === 0 ? 'disabled' : ''}>
-                            <i class="fas fa-user-plus"></i>
-                            Appeler suivant
-                        </button>
-                        <button class="action-btn secondary" 
-                                onclick="viewServiceDetails(${service.id})">
-                            <i class="fas fa-eye"></i>
-                            Détails
-                        </button>
-                    </div>
-                </div>
-            `;
-        }).join('');
-    }
-    
-    displayAlerts() {
-        const alertsList = document.getElementById('alertsList');
-        if (!alertsList) return;
-        
-        if (!this.dashboardData.alerts || this.dashboardData.alerts.length === 0) {
-            alertsList.innerHTML = `
-                <div class="no-data">
-                    <i class="fas fa-bell"></i>
-                    <p>Aucune alerte récente</p>
-                </div>
-            `;
-            return;
-        }
-        
-        alertsList.innerHTML = this.dashboardData.alerts.slice(0, 5).map(alert => `
-            <div class="alert-item alert-${alert.type}" data-alert-id="${alert.id}">
-                <div class="alert-icon">
-                    <i class="${this.getAlertIcon(alert.type)}"></i>
-                </div>
-                <div class="alert-content">
-                    <p class="alert-message">${alert.message}</p>
-                    <span class="alert-time">${APIUtils.formatDate(alert.created_at)}</span>
-                </div>
-                <button class="alert-dismiss" onclick="dismissAlert(${alert.id})">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-        `).join('');
-    }
+    // displayServices and displayAlerts methods removed as these sections are no longer needed
     
     // UI Creation Methods
 
@@ -578,8 +496,16 @@ class DashboardManager {
     getFallbackStats() {
         return {
             total_waiting: 0,
+            waiting_change: 0,
             active_services: 0,
             avg_wait_time: 0,
+            avg_wait_time_change: 0,
+            total_completed_today: 0,
+            completed_change: 0,
+            today_tickets: 0,
+            tickets_change: 0,
+            total_consultations: 0,
+            total_patients: 0,
             services: []
         };
     }
@@ -587,13 +513,10 @@ class DashboardManager {
     showFallbackData() {
         this.dashboardData = {
             stats: this.getFallbackStats(),
-            services: [],
-            alerts: []
+            services: []
         };
         
         this.updateStats();
-        this.displayServices();
-        this.displayAlerts();
     }
     
     destroy() {
@@ -607,20 +530,7 @@ class DashboardManager {
     }
 }
 
-// Global functions
-window.viewServiceDetails = (serviceId) => {
-    MessageManager.info(`Détails du service ${serviceId} - Fonctionnalité à implémenter`);
-};
-
-window.dismissAlert = (alertId) => {
-    MessageManager.info(`Alerte ${alertId} supprimée`);
-    // Remove from UI
-    const alertElement = document.querySelector(`[data-alert-id="${alertId}"]`);
-    if (alertElement) {
-        alertElement.style.animation = 'fadeOut 0.3s ease';
-        setTimeout(() => alertElement.remove(), 300);
-    }
-};
+// Global functions removed as queue and alerts sections are no longer needed
 
 // Initialize dashboard when DOM is loaded
 let dashboardManager;
